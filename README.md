@@ -5,7 +5,7 @@
 <h1 align="center">NextDog</h1>
 
 <p align="center">
-  Zero-config dev observability for Next.js. Datadog DX, no infrastructure.
+  Zero-config dev observability for Next.js. Woof Woof.
 </p>
 
 <p align="center">
@@ -19,13 +19,13 @@
 
 ## What is NextDog?
 
-NextDog gives you a **local Datadog-like experience** for your Next.js app during development. It captures OpenTelemetry spans and console logs, and serves a real-time dashboard on `localhost:6789`.
+NextDog gives you a **local observability** for your Next.js app during development. It captures OpenTelemetry spans and console logs, and serves a real-time dashboard on `localhost:6789`.
 
 - **Spans** — see every request, its route, status code, and duration
 - **Logs** — `console.log/warn/error` captured with trace correlation
 - **Trace Waterfall** — click any request to see the full span hierarchy
 - **Attribute Filtering** — Datadog-style search with `!` (NOT), `OR`, click-to-filter
-- **Zero config** — two lines of code, no Docker, no accounts
+- **Zero config** — two lines of code
 
 ## Quick Start
 
@@ -53,8 +53,6 @@ export async function register() {
 
 **Start your dev server**, then open **[http://localhost:6789](http://localhost:6789)**.
 
-That's it. No sidecar to manage, no config files, no environment variables.
-
 ## Nuxt 3 (Experimental)
 
 ```bash
@@ -70,8 +68,6 @@ export default defineNuxtConfig({
   },
 });
 ```
-
-That's it — no `instrumentation.ts`, no manual setup. The Nuxt module handles everything automatically.
 
 ## Dashboard
 
@@ -114,6 +110,7 @@ Next.js App                    NextDog Sidecar (:6789)
 ```
 
 - **`@nextdog/next`** — Next.js plugin that sets up OTel tracing + console capture. Auto-spawns the sidecar if not running.
+- **`@nextdog/nuxt`** — Nuxt.js plugin that sets up OTel tracing + console capture. Auto-spawns the sidecar if not running.
 - **`@nextdog/core`** — Sidecar HTTP server with EventBus, RingBuffer, FileStore, and SSE streaming. Serves the dashboard.
 - **`@nextdog/ui`** — Preact + Vite dashboard (~46KB JS, ~11KB CSS). Dark/light theme, keyboard shortcuts (j/k/Enter/Esc).
 

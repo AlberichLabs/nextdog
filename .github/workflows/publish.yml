@@ -62,3 +62,8 @@ jobs:
         run: pnpm --filter @nextdog/next publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @nextdog/nuxt
+        run: pnpm --filter @nextdog/nuxt publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
