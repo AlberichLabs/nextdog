@@ -33,7 +33,7 @@ jobs:
       # Bump all package versions to match the release tag
       - name: Bump package versions
         run: |
-          for pkg in packages/ui packages/core packages/next; do
+          for pkg in packages/ui packages/core packages/next packages/nuxt packages/node; do
             cd "$pkg"
             npm version "$VERSION" --no-git-tag-version --allow-same-version
             cd "$GITHUB_WORKSPACE"
@@ -45,6 +45,11 @@ jobs:
       # Publish in dependency order: ui → core → next
       - name: Publish @nextdog/ui
         run: pnpm --filter @nextdog/ui publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Publish @nextdog/node
+        run: pnpm --filter @nextdog/node publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
