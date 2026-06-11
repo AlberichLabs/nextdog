@@ -7,10 +7,11 @@ Zero-config local dev observability for Next.js/Nuxt/SvelteKit. Free OSS, publis
 - Build all: `pnpm build` (Turbo orchestrates)
 - Test all: `pnpm test`
 - Single package: `pnpm --filter @nextdog/core test`
+- Adapter tests import core's dist/: run `pnpm build` first (or `pnpm turbo test --filter=<pkg>`)
 
 ## Structure
 - `packages/core` — shared engine; `packages/next|nuxt|sveltekit|node` — framework adapters; `packages/ui` — overlay UI
-- Build order (publish.yml): ui → node → core → next → nuxt
+- Publish order (publish.yml): ui → node → core → next → nuxt (sveltekit NOT yet in publish.yml — known gap)
 - Design doc: `docs/plans/2026-03-21-nextdog-core-design.md`
 
 ## Conventions
