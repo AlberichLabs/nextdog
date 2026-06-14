@@ -1,4 +1,5 @@
 import Router from 'preact-router';
+import { route } from 'preact-router';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { useSSE } from './hooks/use-sse.js';
@@ -16,6 +17,8 @@ import { EmptyState } from './components/empty-state.js';
 import { ToastContainer, useToasts } from './components/toast.js';
 import { ShortcutHelp } from './components/shortcut-help.js';
 import { ContextMenuContainer } from './components/context-menu.js';
+import { FILTER_INPUT_ID } from './components/search-bar.js';
+import { useGlobalShortcuts } from './hooks/use-global-shortcuts.js';
 
 const SIDECAR_URL = window.location.port === '5173'
   ? 'http://localhost:6789'
@@ -214,6 +217,18 @@ export function App() {
     clearEvents();
     lastProcessedIdx.current = 0;
   }, [clearEvents]);
+
+  const { setSearchQuery } = eventsResult;
+  useGlobalShortcuts({
+    onFocusFilter: useCallback(() => {
+      const el = document.getElementById(FILTER_INPUT_ID) as HTMLInputElement | null;
+      el?.focus();
+      el?.select();
+    }, []),
+    onPrevView: useCallback(() => route('/'), []),
+    onNextView: useCallback(() => route('/logs'), []),
+    onClearFilter: useCallback(() => setSearchQuery(''), [setSearchQuery]),
+  });
 
   const isActive = (path: string) => currentPath === path;
 
