@@ -213,6 +213,13 @@ const suggestionSelectedStyle = css({
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Stable id on the filter <input>, so global shortcuts (`/`, Cmd/Ctrl+K) can
+ * focus it without forwarding a ref through the views. Only one search input is
+ * mounted at a time (the Router shows one view), so this is unambiguous.
+ */
+export const FILTER_INPUT_ID = 'nextdog-filter-input';
+
 interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
@@ -431,6 +438,7 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
         ))}
         <input
           ref={inputRef}
+          id={FILTER_INPUT_ID}
           type="text"
           class={searchInputStyle}
           placeholder={tokens.length === 0 ? 'Filter... (e.g. level:error, !service:noisy)' : ''}
