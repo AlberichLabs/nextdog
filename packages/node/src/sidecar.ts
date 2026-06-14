@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process';
 import { readFile, writeFile, mkdir, open } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, parse as parsePath } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
 const NEXTDOG_DIR = join(homedir(), '.nextdog');
@@ -39,21 +41,105 @@ async function readPid(): Promise<number | null> {
   }
 }
 
-function resolveCoreCliPath(): string {
-  const require = createRequire(import.meta.url);
+/**
+ * A `file://` URL points at a real on-disk location only if none of its path
+ * segments is a bundler-virtual placeholder. Turbopack rewrites a bundled
+ * module's `import.meta.url` to a virtual URL carrying a literal `[project]`
+ * segment (and similar `[...]` markers), so `createRequire()` on that URL
+ * resolves dependencies to non-existent `[project]/node_modules/...` paths.
+ * See issue #15.
+ *
+ * @internal exported for testing.
+ */
+export function isRealFileUrl(url: string): boolean {
+  if (!url.startsWith('file:')) return false;
+  let p: string;
   try {
-    const corePkgPath = require.resolve('@nextdog/core/package.json');
-    return join(dirname(corePkgPath), 'dist', 'cli.js');
+    p = fileURLToPath(url);
   } catch {
-    // Fallback: try resolving the bin entry directly
-    try {
-      return require.resolve('@nextdog/core/dist/cli.js');
-    } catch {
-      throw new Error(
-        '@nextdog/core not found. Make sure it is installed: npm install @nextdog/core'
-      );
-    }
+    return false;
   }
+  // Reject any virtual `[...]` path segment (e.g. Turbopack's `[project]`).
+  return !/\[[^/\\]+\]/.test(p);
+}
+
+function coreCliFromPackageJson(corePkgPath: string): string {
+  return join(dirname(corePkgPath), 'dist', 'cli.js');
+}
+
+/**
+ * Resolve the absolute path to the `@nextdog/core` CLI (`dist/cli.js`) in a way
+ * that works regardless of the bundler the host dev server uses.
+ *
+ * Resolution order, returning the first candidate that exists on disk:
+ *  1. `createRequire(anchorUrl)` — the module's own `import.meta.url`, but only
+ *     when it is a real on-disk URL (skipped under Turbopack's virtual URL).
+ *  2. `createRequire(<projectRoot>/package.json)` — resolves through the real
+ *     `node_modules` graph of the user's project, independent of any bundler.
+ *  3. A direct walk up the `node_modules` chain from the project root.
+ *
+ * Each candidate is validated against the filesystem before being returned, so
+ * a bundler that hands us a plausible-but-wrong path never makes it through.
+ *
+ * @internal exported for testing.
+ */
+export function resolveCoreCliPath(
+  opts: { anchorUrl?: string; projectRoot?: string } = {}
+): string {
+  const anchorUrl = opts.anchorUrl ?? import.meta.url;
+  const projectRoot = opts.projectRoot ?? process.cwd();
+
+  const tried: string[] = [];
+
+  const tryRequire = (fromUrl: string): string | undefined => {
+    let req: NodeJS.Require;
+    try {
+      req = createRequire(fromUrl);
+    } catch {
+      return undefined;
+    }
+    for (const spec of ['@nextdog/core/package.json', '@nextdog/core/dist/cli.js']) {
+      try {
+        const resolved = req.resolve(spec);
+        const cli = spec.endsWith('package.json') ? coreCliFromPackageJson(resolved) : resolved;
+        tried.push(cli);
+        if (existsSync(cli)) return cli;
+      } catch {
+        // not resolvable from this anchor — try the next spec/anchor
+      }
+    }
+    return undefined;
+  };
+
+  // 1. The module's own location — but only if it's a real, non-virtual URL.
+  //    Under Turbopack this is virtual and is skipped so we don't resolve to a
+  //    bogus `[project]/node_modules/...` path.
+  if (isRealFileUrl(anchorUrl)) {
+    const fromAnchor = tryRequire(anchorUrl);
+    if (fromAnchor) return fromAnchor;
+  }
+
+  // 2. Resolve through the real project root's module graph. `process.cwd()` is
+  //    the user's project directory and is never virtualized by a bundler.
+  const fromProject = tryRequire(pathToFileURL(join(projectRoot, 'package.json')).href);
+  if (fromProject) return fromProject;
+
+  // 3. Last-resort: walk up node_modules from the project root and probe for an
+  //    installed @nextdog/core (covers hoisted and nested layouts).
+  let dir = projectRoot;
+  for (;;) {
+    const cli = join(dir, 'node_modules', '@nextdog', 'core', 'dist', 'cli.js');
+    tried.push(cli);
+    if (existsSync(cli)) return cli;
+    const parent = parsePath(dir).dir;
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  throw new Error(
+    '@nextdog/core not found. Make sure it is installed: npm install @nextdog/core' +
+      (tried.length ? ` (looked in: ${tried.join(', ')})` : '')
+  );
 }
 
 async function spawnSidecar(url: string): Promise<void> {
