@@ -155,6 +155,27 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       return json(res, 200, { spans: results });
     }
 
+    // Query events (spans AND logs) — full history from FileStore.
+    // Supports browsing beyond the live RingBuffer and reloading logs on dashboard open.
+    if (req.method === 'GET' && pathname === '/api/events') {
+      const service = url.searchParams.get('service') ?? undefined;
+      const traceId = url.searchParams.get('traceId') ?? undefined;
+      const typeParam = url.searchParams.get('type');
+      const type = typeParam === 'span' || typeParam === 'log' ? typeParam : undefined;
+      const since = url.searchParams.has('since')
+        ? Number(url.searchParams.get('since'))
+        : undefined;
+      const before = url.searchParams.has('before')
+        ? Number(url.searchParams.get('before'))
+        : undefined;
+      const last = url.searchParams.has('last')
+        ? Number(url.searchParams.get('last'))
+        : undefined;
+
+      const events = await fileStore.query({ service, traceId, type, since, before, last });
+      return json(res, 200, { events });
+    }
+
     // List services
     if (req.method === 'GET' && pathname === '/api/services') {
       return json(res, 200, { services: [...services] });
@@ -307,7 +328,22 @@ export function createServer(opts: ServerOptions): Promise<Server> {
     if (cleanupTimer) clearInterval(cleanupTimer);
   });
 
-  return new Promise(resolve => {
-    server.listen(opts.port, opts.host ?? '127.0.0.1', () => resolve(server));
+  return new Promise((resolve, reject) => {
+    // Rehydrate the service registry from persisted events so `service:` /
+    // `!service:` filters work after a sidecar restart, before we start serving.
+    fileStore
+      .services()
+      .then(persisted => {
+        for (const name of persisted) services.add(name);
+      })
+      .catch(() => {
+        // Non-fatal: a corrupt/unreadable history shouldn't block startup.
+        // The registry simply repopulates from live ingest.
+      })
+      .finally(() => {
+        server.listen(opts.port, opts.host ?? '127.0.0.1', () => resolve(server));
+      });
+
+    server.on('error', reject);
   });
 }

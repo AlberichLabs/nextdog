@@ -87,6 +87,93 @@ describe('Server', () => {
   });
 });
 
+describe('Server rehydration from FileStore on boot', () => {
+  let server: Server;
+  let dataDir: string;
+  const port = 16791;
+
+  beforeEach(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), 'nextdog-rehydrate-'));
+    // Simulate a prior sidecar run: NDJSON already on disk (spans + logs, multiple services).
+    const lines = [
+      JSON.stringify({
+        type: 'span', timestamp: 1,
+        data: {
+          traceId: 't1', spanId: 's1', name: 'GET /a', kind: 'SERVER',
+          startTimeUnixNano: '1000n', endTimeUnixNano: '2000n',
+          attributes: {}, status: { code: 'OK' }, serviceName: 'web-app',
+        },
+      }),
+      JSON.stringify({
+        type: 'span', timestamp: 2,
+        data: {
+          traceId: 't2', spanId: 's2', name: 'GET /b', kind: 'SERVER',
+          startTimeUnixNano: '3000n', endTimeUnixNano: '4000n',
+          attributes: {}, status: { code: 'OK' }, serviceName: 'api-worker',
+        },
+      }),
+      JSON.stringify({
+        type: 'log', timestamp: 3,
+        data: {
+          timestamp: 3, level: 'info', message: 'hello from disk',
+          attributes: {}, serviceName: 'web-app',
+        },
+      }),
+    ];
+    // Use an hourly filename the FileStore would recognize.
+    const now = new Date();
+    const fn = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}.ndjson`;
+    await writeFile(join(dataDir, fn), lines.join('\n') + '\n');
+  });
+
+  afterEach(async () => {
+    if (server) await new Promise<void>(resolve => server.close(() => resolve()));
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it('seeds /api/services from persisted events on startup (issue #16)', async () => {
+    server = await createServer({ port, dataDir });
+    const res = await fetch(`http://localhost:${port}/api/services`);
+    const data = await res.json();
+    expect(data.services.sort()).toEqual(['api-worker', 'web-app']);
+  });
+
+  it('GET /api/events returns spans AND logs from history (issue #8)', async () => {
+    server = await createServer({ port, dataDir });
+    const res = await fetch(`http://localhost:${port}/api/events`);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    const types = (data.events as { type: string }[]).map(e => e.type).sort();
+    expect(types).toEqual(['log', 'span', 'span']);
+    const log = (data.events as { type: string; data: { message?: string } }[])
+      .find(e => e.type === 'log');
+    expect(log?.data.message).toBe('hello from disk');
+  });
+
+  it('GET /api/events?type=log returns only logs', async () => {
+    server = await createServer({ port, dataDir });
+    const res = await fetch(`http://localhost:${port}/api/events?type=log`);
+    const data = await res.json();
+    expect(data.events).toHaveLength(1);
+    expect(data.events[0].type).toBe('log');
+  });
+
+  it('GET /api/events?since= returns only newer events (live catch-up)', async () => {
+    server = await createServer({ port, dataDir });
+    const res = await fetch(`http://localhost:${port}/api/events?since=2`);
+    const data = await res.json();
+    expect(data.events).toHaveLength(1);
+    expect(data.events[0].timestamp).toBe(3);
+  });
+
+  it('GET /api/events?before= returns only older events (load-older paging)', async () => {
+    server = await createServer({ port, dataDir });
+    const res = await fetch(`http://localhost:${port}/api/events?before=3`);
+    const data = await res.json();
+    expect(data.events.map((e: { timestamp: number }) => e.timestamp)).toEqual([1, 2]);
+  });
+});
+
 describe('Server static files', () => {
   let server: Server;
   let tmpDir: string;

@@ -147,7 +147,7 @@ const mainStyle = css({
 
 export function App() {
   const [currentPath, setCurrentPath] = useState('/');
-  const { events, connected, error, clearEvents } = useSSE(SIDECAR_URL);
+  const { events, connected, error, clearEvents, loadOlder, loadingOlder, hasMoreHistory } = useSSE(SIDECAR_URL);
   const eventsResult = useEvents(events);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const { theme, cycle } = useTheme();
@@ -246,6 +246,16 @@ export function App() {
         </nav>
         <div className={headerRightStyle}>
           <Sparkline events={events} />
+          {events.length > 0 && hasMoreHistory && (
+            <button
+              className={pillStyle}
+              onClick={loadOlder}
+              disabled={loadingOlder}
+              title="Load older history from disk (beyond the live buffer)"
+            >
+              {loadingOlder ? 'Loading…' : 'Load older'}
+            </button>
+          )}
           {events.length > 0 && (
             <button
               className={pillStyle}
