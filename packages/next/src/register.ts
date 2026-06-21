@@ -14,19 +14,25 @@ if (
   const url = process.env.NEXTDOG_URL ?? 'http://localhost:6789';
   const serviceName = process.env.NEXTDOG_SERVICE_NAME ?? 'nextdog-app';
 
-  await ensureSidecar(url);
+  const status = await ensureSidecar(url);
 
-  // Capture request headers/cookies/body for replay
-  startRequestCapture();
+  // A foreign process holds the port — sending telemetry would ship spans/logs
+  // to an unknown local process and no dashboard would ever appear. Skip all
+  // instrumentation instead of silently exporting to it (issue #17).
+  // ensureSidecar already warned the user.
+  if (!status.foreignOccupant) {
+    // Capture request headers/cookies/body for replay
+    startRequestCapture();
 
-  const provider = new NodeTracerProvider({
-    resource: new Resource({ [ATTR_SERVICE_NAME]: serviceName }),
-    spanProcessors: [new BatchSpanProcessor(new NextDogExporter(url))],
-  });
-  provider.register();
+    const provider = new NodeTracerProvider({
+      resource: new Resource({ [ATTR_SERVICE_NAME]: serviceName }),
+      spanProcessors: [new BatchSpanProcessor(new NextDogExporter(url))],
+    });
+    provider.register();
 
-  // Capture console.log/warn/error as log events
-  patchConsole(url, serviceName);
+    // Capture console.log/warn/error as log events
+    patchConsole(url, serviceName);
 
-  console.log(`[nextdog] instrumentation registered for "${serviceName}" → ${url}`);
+    console.log(`[nextdog] instrumentation registered for "${serviceName}" → ${url}`);
+  }
 }

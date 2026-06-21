@@ -10,15 +10,71 @@ const NEXTDOG_DIR = join(homedir(), '.nextdog');
 const PID_FILE = join(NEXTDOG_DIR, 'nextdog.pid');
 const LOG_FILE = join(NEXTDOG_DIR, 'sidecar.log');
 
-async function isHealthy(url: string): Promise<boolean> {
+/**
+ * Stable identifying marker a real NextDog sidecar returns in its `/health`
+ * body. We require it before adopting a listener so that an unrelated process
+ * squatting on the port — anything that answers a bare 2xx — is never mistaken
+ * for a live sidecar (issue #17).
+ */
+const HEALTH_MARKER = 'nextdog';
+
+/**
+ * Probe `${url}/health` and decide whether the responder is a genuine NextDog
+ * sidecar. A 2xx alone is NOT enough: the body must be JSON carrying the
+ * `service: "nextdog"` signature. Any other 2xx (a foreign server holding the
+ * port) is treated as unhealthy so we never silently ship telemetry to it.
+ *
+ * @internal exported for testing.
+ */
+export async function isHealthy(url: string): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2000);
     const res = await fetch(`${url}/health`, { signal: controller.signal });
     clearTimeout(timeout);
-    return res.ok;
+    if (!res.ok) return false;
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      // 2xx but not JSON — definitely not a NextDog sidecar.
+      return false;
+    }
+    return (
+      typeof body === 'object' &&
+      body !== null &&
+      (body as { service?: unknown }).service === HEALTH_MARKER
+    );
   } catch {
     return false;
+  }
+}
+
+/**
+ * Distinguish "nothing is listening" from "something is listening but it is not
+ * a NextDog sidecar." Returns true only when `${url}/health` answers a 2xx that
+ * does NOT carry the NextDog signature — i.e. a foreign occupant of the port.
+ */
+async function isForeignOccupant(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch(`${url}/health`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return false;
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      return true; // 2xx, but not even JSON — foreign.
+    }
+    const marked =
+      typeof body === 'object' &&
+      body !== null &&
+      (body as { service?: unknown }).service === HEALTH_MARKER;
+    return !marked;
+  } catch {
+    return false; // connection refused / aborted — port is free, not foreign.
   }
 }
 
@@ -142,6 +198,19 @@ export function resolveCoreCliPath(
   );
 }
 
+/**
+ * Outcome of {@link ensureSidecar}.
+ *
+ * - `ready`: a verified NextDog sidecar is reachable; telemetry is safe to send.
+ * - `foreignOccupant`: the configured port is held by a non-NextDog process, so
+ *   we refused to adopt it. Callers should NOT register telemetry — it would be
+ *   shipped to an unknown local process.
+ */
+export interface SidecarStatus {
+  ready: boolean;
+  foreignOccupant: boolean;
+}
+
 async function spawnSidecar(url: string): Promise<void> {
   const coreCliPath = resolveCoreCliPath();
 
@@ -174,20 +243,48 @@ async function spawnSidecar(url: string): Promise<void> {
   console.warn(`[nextdog] check ${LOG_FILE} for sidecar logs`);
 }
 
-export async function ensureSidecar(url: string): Promise<void> {
+/** Track ports we've already warned about so the foreign-occupant notice fires once. */
+const warnedForeignPorts = new Set<string>();
+
+function warnForeignOccupant(url: string): void {
+  if (warnedForeignPorts.has(url)) return;
+  warnedForeignPorts.add(url);
+  console.warn(
+    `[nextdog] ${url} is already in use by a process that is NOT a NextDog sidecar ` +
+      `(its /health response lacks the NextDog signature).`
+  );
+  console.warn(
+    `[nextdog] refusing to adopt it — no telemetry will be sent and no dashboard will start. ` +
+      `Free the port, or set NEXTDOG_URL to a different port.`
+  );
+}
+
+/** Exposed for tests so each case starts from a clean warning state. */
+export function _resetForeignOccupantWarnings(): void {
+  warnedForeignPorts.clear();
+}
+
+export async function ensureSidecar(url: string): Promise<SidecarStatus> {
   // Already running and healthy — fast path
-  if (await isHealthy(url)) return;
+  if (await isHealthy(url)) return { ready: true, foreignOccupant: false };
+
+  // The port answers 2xx but without the NextDog signature: a foreign process
+  // holds it. Do not adopt it; warn once and tell the caller to skip telemetry.
+  if (await isForeignOccupant(url)) {
+    warnForeignOccupant(url);
+    return { ready: false, foreignOccupant: true };
+  }
 
   // PID file exists and process is alive — wait for it to become healthy
   const pid = await readPid();
   if (pid && await isProcessRunning(pid)) {
     for (let i = 0; i < 4; i++) {
       await new Promise(r => setTimeout(r, 500));
-      if (await isHealthy(url)) return;
+      if (await isHealthy(url)) return { ready: true, foreignOccupant: false };
     }
     console.warn(`[nextdog] sidecar process ${pid} is running but not responding at ${url}`);
     console.warn(`[nextdog] check ${LOG_FILE} for sidecar logs`);
-    return;
+    return { ready: false, foreignOccupant: false };
   }
 
   // No sidecar running — spawn one
@@ -196,5 +293,15 @@ export async function ensureSidecar(url: string): Promise<void> {
   } catch (err) {
     console.warn('[nextdog] failed to spawn sidecar:', (err as Error).message);
     console.warn('[nextdog] you can start it manually with: npx nextdog');
+    return { ready: false, foreignOccupant: false };
   }
+
+  // Confirm the thing now answering is genuinely our sidecar (a foreign process
+  // could have bound the port in the race window).
+  if (await isHealthy(url)) return { ready: true, foreignOccupant: false };
+  if (await isForeignOccupant(url)) {
+    warnForeignOccupant(url);
+    return { ready: false, foreignOccupant: true };
+  }
+  return { ready: false, foreignOccupant: false };
 }

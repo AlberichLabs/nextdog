@@ -23,9 +23,12 @@ export function withNextDog(options?: NextDogOptions): Handle {
   const serviceName = options?.serviceName ?? process.env.NEXTDOG_SERVICE_NAME ?? 'nextdog-app';
 
   let initialized = false;
+  // Set when the configured port is held by a non-NextDog process; we then skip
+  // all telemetry so we never ship it to an unknown local process (issue #17).
+  let disabled = false;
 
   return async ({ event, resolve }) => {
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' || disabled) {
       return resolve(event);
     }
 
@@ -40,7 +43,12 @@ export function withNextDog(options?: NextDogOptions): Handle {
       const { patchConsole } = await import('@nextdog/node/console-patch');
       const { startRequestCapture } = await import('@nextdog/node/request-capture');
 
-      await ensureSidecar(url);
+      const status = await ensureSidecar(url);
+      if (status.foreignOccupant) {
+        // ensureSidecar already warned. Disable instrumentation for this process.
+        disabled = true;
+        return resolve(event);
+      }
 
       const provider = new NodeTracerProvider({
         resource: new Resource({ [ATTR_SERVICE_NAME]: serviceName }),

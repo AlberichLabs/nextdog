@@ -97,9 +97,12 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       return cors(res);
     }
 
-    // Health check
+    // Health check. The `service: 'nextdog'` marker is a stable identifying
+    // signature: clients (e.g. @nextdog/node's isHealthy) require it so they
+    // never mistake an unrelated process answering 2xx on :6789 for a real
+    // NextDog sidecar (issue #17).
     if (req.method === 'GET' && pathname === '/health') {
-      return json(res, 200, { status: 'ok', uptime: process.uptime() });
+      return json(res, 200, { status: 'ok', service: 'nextdog', uptime: process.uptime() });
     }
 
     // Ingest spans

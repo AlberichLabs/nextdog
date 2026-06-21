@@ -23,6 +23,15 @@ describe('Server', () => {
     expect(data.status).toBe('ok');
   });
 
+  it('GET /health carries a NextDog identifying signature', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/health`);
+    const data = await res.json();
+    // A stable marker so clients can tell a real NextDog sidecar apart from any
+    // other process that happens to answer 2xx on :6789 (issue #17).
+    expect(data.service).toBe('nextdog');
+  });
+
   it('POST /v1/spans ingests spans and returns 202', async () => {
     server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
 
