@@ -2,75 +2,59 @@ import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { FunctionComponent } from 'preact';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
+import { ToastStore } from './toast-store.js';
+import type { Toast, ToastInput } from './toast-store.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface Toast {
-  id: string;
-  message: string;
-  type: 'warning' | 'error' | 'info';
-  traceId?: string;
-  duration?: string;
-}
+export type { Toast } from './toast-store.js';
 
 export interface ToastContainerProps {
   toasts: Toast[];
   removeToast: (id: string) => void;
   onOpenTrace?: (traceId: string) => void;
+  /** Pause/resume auto-dismiss while the user hovers the stack. */
+  onPause?: () => void;
+  onResume?: () => void;
+  /**
+   * Hide the stack while a detail pane / right rail is open so toasts never
+   * overlap the thing the user just opened (issue #19).
+   */
+  hidden?: boolean;
 }
 
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
-const MAX_VISIBLE = 3;
-const AUTO_DISMISS_MS = 5000;
-
+/**
+ * Preact binding for {@link ToastStore}. All dismiss/timeout/cap/pause logic
+ * lives in the (DOM-free, unit-tested) store; this hook only mirrors its state
+ * into Preact and exposes stable callbacks.
+ */
 export function useToasts() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const storeRef = useRef<ToastStore>();
+  if (!storeRef.current) storeRef.current = new ToastStore();
+  const store = storeRef.current;
 
-  const removeToast = useCallback((id: string) => {
-    const timer = timers.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      timers.current.delete(id);
-    }
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const [toasts, setToasts] = useState<Toast[]>(store.getToasts());
 
-  const addToast = useCallback(
-    (toast: Omit<Toast, 'id'> & { id?: string }) => {
-      const id = toast.id ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      const newToast: Toast = { ...toast, id };
-
-      setToasts((prev) => {
-        const next = [...prev, newToast];
-        // Keep only the newest MAX_VISIBLE toasts
-        return next.slice(-MAX_VISIBLE);
-      });
-
-      const timer = setTimeout(() => {
-        removeToast(id);
-      }, AUTO_DISMISS_MS);
-      timers.current.set(id, timer);
-
-      return id;
-    },
-    [removeToast],
-  );
-
-  // Cleanup all timers on unmount
   useEffect(() => {
+    const unsubscribe = store.subscribe((next) => setToasts(next));
     return () => {
-      timers.current.forEach((t) => clearTimeout(t));
-      timers.current.clear();
+      unsubscribe();
+      store.clear();
     };
-  }, []);
+  }, [store]);
 
-  return { toasts, addToast, removeToast } as const;
+  const addToast = useCallback((toast: ToastInput) => store.add(toast), [store]);
+  const removeToast = useCallback((id: string) => store.remove(id), [store]);
+  const pauseToasts = useCallback(() => store.pauseAll(), [store]);
+  const resumeToasts = useCallback(() => store.resumeAll(), [store]);
+
+  return { toasts, addToast, removeToast, pauseToasts, resumeToasts } as const;
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +116,9 @@ const containerStyle = css({
   display: 'flex',
   flexDirection: 'column',
   gap: '2',
-  zIndex: 99999,
+  // Below the detail pane (zIndex 101) and its backdrop (100) so toasts never
+  // sit on top of the slide-in pane / right rail — see issue #19.
+  zIndex: 50,
   pointerEvents: 'auto',
 });
 
@@ -189,11 +175,28 @@ export const ToastContainer: FunctionComponent<ToastContainerProps> = ({
   toasts,
   removeToast,
   onOpenTrace,
+  onPause,
+  onResume,
+  hidden,
 }) => {
-  if (toasts.length === 0) return null;
+  const isHidden = hidden || toasts.length === 0;
+
+  // If the stack is hovered (paused) and then hides — e.g. the user clicks a
+  // toast to open the detail pane — onMouseLeave never fires, so resume here to
+  // avoid leaving every toast frozen forever. Runs on unmount too.
+  useEffect(() => {
+    if (isHidden) onResume?.();
+    return () => onResume?.();
+  }, [isHidden, onResume]);
+
+  if (isHidden) return null;
 
   return (
-    <div className={containerStyle}>
+    <div
+      className={containerStyle}
+      onMouseEnter={onPause}
+      onMouseLeave={onResume}
+    >
       {toasts.map((toast) => (
         <ToastCard
           key={toast.id}

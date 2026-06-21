@@ -151,7 +151,7 @@ export function App() {
   const eventsResult = useEvents(events);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const { theme, cycle } = useTheme();
-  const { toasts, addToast, removeToast } = useToasts();
+  const { toasts, addToast, removeToast, pauseToasts, resumeToasts } = useToasts();
 
   const { spanCount, logCount } = useMemo(() => {
     let s = 0, l = 0;
@@ -282,7 +282,14 @@ export function App() {
         />
       )}
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} onOpenTrace={openTrace} />
+      <ToastContainer
+        toasts={toasts}
+        removeToast={removeToast}
+        onOpenTrace={openTrace}
+        onPause={pauseToasts}
+        onResume={resumeToasts}
+        hidden={selectedTraceId !== null}
+      />
       <ShortcutHelp />
       <ContextMenuContainer />
     </div>
