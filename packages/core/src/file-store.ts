@@ -16,13 +16,42 @@ function serialize(event: NextDogEvent): string {
   );
 }
 
-function deserialize(line: string): NextDogEvent {
-  return JSON.parse(line, (_key, value) => {
-    if (typeof value === 'string' && /^\d+n$/.test(value)) {
-      return BigInt(value.slice(0, -1));
-    }
-    return value;
-  });
+/**
+ * Minimal structural guard for a persisted event. The on-disk NDJSON is read back
+ * on every dashboard load and on boot, so a single malformed or old-schema line
+ * must never crash the reader. We validate only the invariants the read path
+ * depends on — `type`, `timestamp`, and an object `data` — and tolerate any
+ * variation in the rest (extra fields from a newer schema, missing optional fields
+ * from an older one). This is the dependency-free equivalent of a runtime
+ * validator: enough to fail safe, no parser library pulled into core.
+ */
+export function isNextDogEvent(value: unknown): value is NextDogEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const e = value as Record<string, unknown>;
+  if (e.type !== 'span' && e.type !== 'log') return false;
+  if (typeof e.timestamp !== 'number') return false;
+  if (typeof e.data !== 'object' || e.data === null) return false;
+  return true;
+}
+
+/**
+ * Parse one NDJSON line into an event, or `null` if it is unparseable or does not
+ * match the expected shape. Unknown/old lines are skipped rather than thrown so a
+ * schema change never bricks history reads — see {@link isNextDogEvent}.
+ */
+function parseLine(line: string): NextDogEvent | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(line, (_key, v) => {
+      if (typeof v === 'string' && /^\d+n$/.test(v)) {
+        return BigInt(v.slice(0, -1));
+      }
+      return v;
+    });
+  } catch {
+    return null;
+  }
+  return isNextDogEvent(value) ? value : null;
 }
 
 export interface QueryOptions {
@@ -62,7 +91,8 @@ export class FileStore {
       const lines = content.trim().split('\n').filter(Boolean);
 
       for (const line of lines) {
-        const event = deserialize(line);
+        const event = parseLine(line);
+        if (event === null) continue; // skip malformed/old-schema lines
         if (opts.type && event.type !== opts.type) continue;
         if (opts.since !== undefined && event.timestamp <= opts.since) continue;
         if (opts.before !== undefined && event.timestamp >= opts.before) continue;
@@ -97,7 +127,8 @@ export class FileStore {
       const content = await readFile(join(this.dir, file), 'utf-8');
       const lines = content.trim().split('\n').filter(Boolean);
       for (const line of lines) {
-        const event = deserialize(line);
+        const event = parseLine(line);
+        if (event === null) continue; // skip malformed/old-schema lines
         if (event.data.serviceName) names.add(event.data.serviceName);
       }
     }

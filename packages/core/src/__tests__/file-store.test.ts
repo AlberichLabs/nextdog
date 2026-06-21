@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { FileStore } from '../file-store.js';
-import { mkdtemp, rm, readdir, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { NextDogEvent } from '../types.js';
@@ -32,6 +32,11 @@ const makeLog = (id: number, serviceName = 'test'): NextDogEvent => ({
     serviceName,
   },
 });
+
+// Serialize the way FileStore does (BigInt -> "<n>n" strings) so test fixtures
+// written directly to disk round-trip through the store's deserializer.
+const line = (event: NextDogEvent): string =>
+  JSON.stringify(event, (_k, v) => (typeof v === 'bigint' ? v.toString() + 'n' : v));
 
 describe('FileStore', () => {
   let dir: string;
@@ -132,6 +137,78 @@ describe('FileStore', () => {
     const store = new FileStore(join(dir, 'does-not-exist-yet'));
     const services = await store.services();
     expect(services.size).toBe(0);
+  });
+
+  // Defensive parsing: persisted NDJSON is read back on every dashboard load and
+  // boot. A single malformed or old-schema line must not crash the whole read.
+  it('skips malformed lines without crashing query()', async () => {
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+      join(dir, '2026-01-01-00.ndjson'),
+      [
+        line(makeEvent(1, 'app-a')),
+        'not valid json at all',          // unparseable
+        '42',                              // parses, but not an object
+        'null',                            // parses to null
+        '{"type":"span"}',                 // object, but missing data/timestamp
+        '{"type":"mystery","timestamp":9,"data":{"serviceName":"x"}}', // unknown type
+        line(makeLog(2, 'app-b')),
+        '',                                // blank line
+      ].join('\n') + '\n',
+      'utf-8'
+    );
+
+    const store = new FileStore(dir);
+    const all = await store.query({});
+    // Only the two well-formed events survive.
+    expect(all.map(e => e.type).sort()).toEqual(['log', 'span']);
+    expect(all.map(e => e.data.serviceName).sort()).toEqual(['app-a', 'app-b']);
+  });
+
+  it('tolerates old-shape lines missing newer optional fields', async () => {
+    await mkdir(dir, { recursive: true });
+    // Simulates a span persisted before statusCode/parentSpanId existed: the
+    // required shape is intact, optional fields absent — must still load.
+    const oldSpan = {
+      type: 'span',
+      timestamp: 7,
+      data: {
+        traceId: 't',
+        spanId: 's',
+        name: 'GET /',
+        kind: 'SERVER',
+        startTimeUnixNano: '1000n',
+        endTimeUnixNano: '2000n',
+        attributes: {},
+        status: { code: 'OK' },
+        serviceName: 'legacy',
+      },
+    };
+    await writeFile(join(dir, '2026-01-01-00.ndjson'), JSON.stringify(oldSpan) + '\n', 'utf-8');
+
+    const store = new FileStore(dir);
+    const all = await store.query({});
+    expect(all).toHaveLength(1);
+    expect(all[0].data.serviceName).toBe('legacy');
+  });
+
+  it('skips malformed lines without crashing services()', async () => {
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+      join(dir, '2026-01-01-00.ndjson'),
+      [
+        line(makeEvent(1, 'app-a')),
+        'garbage',
+        'null',
+        '{"type":"span","timestamp":2}', // no data → no serviceName
+        line(makeLog(2, 'worker')),
+      ].join('\n') + '\n',
+      'utf-8'
+    );
+
+    const store = new FileStore(dir);
+    const services = await store.services();
+    expect([...services].sort()).toEqual(['app-a', 'worker']);
   });
 
   it('cleans up files older than maxAge', async () => {

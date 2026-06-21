@@ -24,7 +24,50 @@ describe('eventKey', () => {
   });
 });
 
+describe('eventKey — schema tolerance', () => {
+  // The dedup key is computed over whatever shape the server sends back, including
+  // events persisted under an older schema. It must degrade gracefully, never throw.
+  it('keys an old-shape log missing the inner timestamp, falling back to the envelope ts', () => {
+    const old = {
+      type: 'log',
+      timestamp: 9,
+      data: { name: '', serviceName: 'legacy', message: 'hi', attributes: {} },
+    } as unknown as SSEEvent;
+    expect(eventKey(old)).toBe('log:legacy:9:hi');
+  });
+
+  it('keys a sparse log with no message without throwing', () => {
+    const sparse = {
+      type: 'log',
+      timestamp: 3,
+      data: { name: '', serviceName: 'svc', attributes: {} },
+    } as unknown as SSEEvent;
+    expect(eventKey(sparse)).toBe('log:svc:3:');
+  });
+
+  it('falls back to a log key for a span event missing its spanId', () => {
+    const noId = {
+      type: 'span',
+      timestamp: 4,
+      data: { name: 'op', serviceName: 'svc', attributes: {} },
+    } as unknown as SSEEvent;
+    // No spanId → not keyed as a span; falls through to the log-style key, no throw.
+    expect(eventKey(noId)).toBe('log:svc:4:');
+  });
+});
+
 describe('mergeEvents', () => {
+  it('merges old-shape and new-shape events without throwing', () => {
+    const oldShape = {
+      type: 'log',
+      timestamp: 1,
+      data: { name: '', serviceName: 'legacy', message: 'from old schema', attributes: {} },
+    } as unknown as SSEEvent;
+    const merged = mergeEvents([oldShape], [span('s1', 2)]);
+    expect(merged.map(e => e.type)).toEqual(['log', 'span']);
+  });
+
+
   it('merges history under live events and de-duplicates spans by spanId', () => {
     const live = [span('s2', 2), span('s3', 3)];
     const history = [span('s1', 1), span('s2', 2)]; // s2 overlaps with live
