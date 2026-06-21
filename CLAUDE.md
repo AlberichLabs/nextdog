@@ -12,7 +12,7 @@ Zero-config local dev observability for Next.js/Nuxt/SvelteKit. Free OSS, publis
 ## Structure
 - `packages/core` — shared engine; `packages/next|nuxt|sveltekit|node` — framework adapters; `packages/ui` — overlay UI
 - Publish order (publish.yml): ui → node → core → next → nuxt (sveltekit NOT yet in publish.yml — known gap)
-- Design doc: `docs/plans/2026-03-21-nextdog-core-design.md`
+- Architecture & roadmap docs: `docs/architecture.md`, `docs/roadmap.md`
 
 ## Conventions
 - TypeScript strict; no new runtime dependencies without strong justification (this ships inside users' dev servers — weight matters)

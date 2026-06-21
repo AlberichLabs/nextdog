@@ -114,6 +114,8 @@ Next.js App                    NextDog Sidecar (:6789)
 - **`@nextdog/core`** — Sidecar HTTP server with EventBus, RingBuffer, FileStore, and SSE streaming. Serves the dashboard.
 - **`@nextdog/ui`** — Preact + Vite dashboard (~46KB JS, ~11KB CSS). Dark/light theme, keyboard shortcuts (j/k/Enter/Esc).
 
+For a deeper dive into the pipeline, the instrumentation path, and production behavior, see [`docs/architecture.md`](docs/architecture.md). For where the project is headed, see [`docs/roadmap.md`](docs/roadmap.md).
+
 ## Configuration
 
 ### `withNextDog(config, options?)`
