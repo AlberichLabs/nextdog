@@ -188,24 +188,31 @@ const httpStatusStyle = css({
   borderRadius: 'sm',
 });
 
+// Badge tints. Dark keeps its original punchy tint; light uses a faint tint of
+// the (darker) light hue so the colored text stays AA on the light panel — see
+// packages/ui/src/styles/theme-colors.ts.
 const http2xxStyle = css({
   color: 'green',
   background: 'rgba(0, 184, 148, 0.1)',
+  _light: { background: 'rgba(4, 120, 87, 0.06)' },
 });
 
 const http3xxStyle = css({
   color: 'blue',
   background: 'rgba(116, 185, 255, 0.1)',
+  _light: { background: 'rgba(29, 78, 216, 0.06)' },
 });
 
 const http4xxStyle = css({
   color: 'yellow',
   background: 'rgba(253, 203, 110, 0.1)',
+  _light: { background: 'rgba(132, 100, 7, 0.06)' },
 });
 
 const http5xxStyle = css({
   color: 'red',
   background: 'rgba(225, 112, 85, 0.15)',
+  _light: { background: 'rgba(200, 30, 30, 0.06)' },
 });
 
 const durationStyle = css({

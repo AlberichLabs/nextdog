@@ -1,4 +1,14 @@
 import { defineConfig } from '@pandacss/dev';
+import { accentColors } from './src/styles/theme-colors';
+
+/** Build semantic color tokens (base = dark, _light = light override) from the
+ *  shared accent palette so config and the contrast test share one source. */
+const accentSemanticTokens = Object.fromEntries(
+  Object.entries(accentColors).map(([name, { dark, light }]) => [
+    name,
+    { value: { base: dark, _light: light } },
+  ]),
+);
 
 export default defineConfig({
   preflight: false,
@@ -27,14 +37,7 @@ export default defineConfig({
           900: { value: '#14161b' },
           950: { value: '#0e1015' },
         },
-        // Muted accent: soft teal — calm, non-aggressive
-        accent: { value: '#5eead4' },
-        green: { value: '#6ee7b7' },
-        yellow: { value: '#fcd34d' },
-        red: { value: '#fca5a5' },
-        blue: { value: '#93c5fd' },
-        orange: { value: '#fdba74' },
-        purple: { value: '#c4b5fd' },
+        // Accent / status colors live in semanticTokens (theme-aware) below.
         white: { value: '#f9fafb' },
       },
       fonts: {
@@ -80,6 +83,10 @@ export default defineConfig({
     },
     semanticTokens: {
       colors: {
+        // Theme-aware accent / status palette. Dark values are the historical
+        // palette; light values are darker/more saturated to meet WCAG AA on the
+        // light panel (#f5f4f2) for method/status labels. See theme-colors.ts.
+        ...accentSemanticTokens,
         surface: {
           bg: {
             value: { base: '{colors.neutral.950}', _light: '#ededeb' },
