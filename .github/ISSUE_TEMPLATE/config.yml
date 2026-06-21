@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: README & Quick Start
+    url: https://github.com/cscherban/NextDog#readme
+    about: Setup instructions and documentation. For bugs or feature requests, please use the templates above.

@@ -1,0 +1,43 @@
+name: Feedback / feature request
+description: Suggest an idea, request a feature, or share feedback on NextDog
+title: "[Feedback]: "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea, a feature request, or general feedback? Share it here. This is the main signal channel for what to build next.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What's your feedback or idea?
+      description: Describe the feature, improvement, or feedback.
+      placeholder: It would be great if the overlay could...
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do, and where does NextDog get in the way today?
+    validations:
+      required: false
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      description: Which framework adapter does this relate to (if any)?
+      options:
+        - Next.js (@nextdog/next)
+        - Nuxt (@nextdog/nuxt)
+        - SvelteKit (@nextdog/sveltekit)
+        - Not framework-specific
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that helps — mockups, links, examples.
+    validations:
+      required: false

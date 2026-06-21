@@ -1,0 +1,89 @@
+name: Bug report
+description: Report something broken in NextDog
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The more detail you give, the faster it can be reproduced.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you observed.
+      placeholder: When I started the dev server, the overlay never appeared...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps (or a repo link) that reproduce the issue.
+      placeholder: |
+        1. Install @nextdog/next
+        2. Wrap next.config.js with withNextDog
+        3. Run `next dev`
+        4. Open localhost:6789
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      description: Which framework adapter are you using?
+      options:
+        - Next.js (@nextdog/next)
+        - Nuxt (@nextdog/nuxt)
+        - SvelteKit (@nextdog/sveltekit)
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: framework-version
+    attributes:
+      label: Framework version
+      description: e.g. Next.js 15.2.0, Nuxt 3.12.0, SvelteKit 2.5.0
+    validations:
+      required: true
+  - type: input
+    id: nextdog-versions
+    attributes:
+      label: NextDog package versions
+      description: Versions of the @nextdog/* packages you have installed (e.g. @nextdog/next 0.3.1, @nextdog/core 0.3.1).
+    validations:
+      required: true
+  - type: dropdown
+    id: bundler
+    attributes:
+      label: Bundler
+      description: Are you running with Turbopack or webpack?
+      options:
+        - Turbopack
+        - webpack
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node version
+      description: Output of `node --version`.
+      placeholder: v20.11.0
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / additional context
+      description: Relevant console output, stack traces, or screenshots. This will be rendered as code, so no need for backticks.
+      render: shell
+    validations:
+      required: false

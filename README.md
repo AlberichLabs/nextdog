@@ -17,6 +17,8 @@
 
 ---
 
+> Found a bug or have feedback? [Open an issue](https://github.com/cscherban/NextDog/issues/new/choose).
+
 ## What is NextDog?
 
 NextDog gives you a **local observability** for your Next.js app during development. It captures OpenTelemetry spans and console logs, and serves a real-time dashboard on `localhost:6789`.
