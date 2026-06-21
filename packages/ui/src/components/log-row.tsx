@@ -1,5 +1,6 @@
 import { css } from 'styled-system/css';
 import { formatTime } from '../utils/format.js';
+import { runtimeTag } from './log-columns.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
 
 const logRowStyle = css({
@@ -120,11 +121,6 @@ function runtimeTagClass(rt: string): string {
   return base;
 }
 
-function runtimeTag(event: SSEEvent): string | null {
-  const rt = event.data.attributes.runtime as string | undefined;
-  return rt === 'server' || rt === 'browser' ? rt : null;
-}
-
 interface LogRowProps {
   event: SSEEvent;
   selected?: boolean;
@@ -154,7 +150,10 @@ export function LogRow({ event, selected, showService, onClick, onCellContext, e
           onContextMenu={onCellContext ? (e: MouseEvent) => onCellContext(e, 'service', event.data.serviceName) : undefined}
         >{event.data.serviceName}</span>
       )}
-      {runtime && <span className={runtimeTagClass(runtime)}>{runtime}</span>}
+      {/* Always render a runtime cell so cell count matches the grid template's
+          runtime track — an empty placeholder when the log has no runtime
+          attribute keeps the message in its own track (issue #18). */}
+      {runtime ? <span className={runtimeTagClass(runtime)}>{runtime}</span> : <span aria-hidden="true" />}
       <span
         className={logMessageStyle}
         onContextMenu={onCellContext ? (e: MouseEvent) => onCellContext(e, 'message', String(message)) : undefined}
