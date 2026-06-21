@@ -21,6 +21,18 @@ const makeEvent = (id: number, serviceName = 'test'): NextDogEvent => ({
   },
 });
 
+const makeLog = (id: number, serviceName = 'test'): NextDogEvent => ({
+  type: 'log',
+  timestamp: id,
+  data: {
+    timestamp: id,
+    level: 'info' as const,
+    message: `log-${id}`,
+    attributes: {},
+    serviceName,
+  },
+});
+
 describe('FileStore', () => {
   let dir: string;
 
@@ -71,6 +83,55 @@ describe('FileStore', () => {
     const result = await store.query({ traceId: 'trace-2' });
     expect(result).toHaveLength(1);
     expect(result[0].data.traceId).toBe('trace-2');
+  });
+
+  it('filters by event type', async () => {
+    const store = new FileStore(dir);
+    await store.flush([makeEvent(1), makeLog(2), makeEvent(3), makeLog(4)]);
+
+    const spans = await store.query({ type: 'span' });
+    expect(spans).toHaveLength(2);
+    expect(spans.every(e => e.type === 'span')).toBe(true);
+
+    const logs = await store.query({ type: 'log' });
+    expect(logs).toHaveLength(2);
+    expect(logs.every(e => e.type === 'log')).toBe(true);
+  });
+
+  it('filters by since (timestamp, inclusive of newer)', async () => {
+    const store = new FileStore(dir);
+    await store.flush([makeEvent(1), makeEvent(2), makeEvent(3)]);
+
+    const result = await store.query({ since: 2 });
+    // since is exclusive — only events strictly newer than 2
+    expect(result.map(e => e.timestamp)).toEqual([3]);
+  });
+
+  it('filters by before (timestamp, for load-older paging)', async () => {
+    const store = new FileStore(dir);
+    await store.flush([makeEvent(1), makeEvent(2), makeEvent(3)]);
+
+    const result = await store.query({ before: 3 });
+    expect(result.map(e => e.timestamp)).toEqual([1, 2]);
+  });
+
+  it('returns distinct service names via services()', async () => {
+    const store = new FileStore(dir);
+    await store.flush([
+      makeEvent(1, 'app-a'),
+      makeLog(2, 'app-b'),
+      makeEvent(3, 'app-a'),
+      makeLog(4, 'worker'),
+    ]);
+
+    const services = await store.services();
+    expect([...services].sort()).toEqual(['app-a', 'app-b', 'worker']);
+  });
+
+  it('services() returns empty set when no data dir exists yet', async () => {
+    const store = new FileStore(join(dir, 'does-not-exist-yet'));
+    const services = await store.services();
+    expect(services.size).toBe(0);
   });
 
   it('cleans up files older than maxAge', async () => {
