@@ -11,7 +11,8 @@
     "./sidecar": "./dist/sidecar.js",
     "./console-patch": "./dist/console-patch.js",
     "./request-capture": "./dist/request-capture.js",
-    "./request-context": "./dist/request-context.js"
+    "./request-context": "./dist/request-context.js",
+    "./instrumentation": "./dist/instrumentation.js"
   },
   "files": [
     "dist"

@@ -103,11 +103,24 @@ function convertSpan(span: ReadableSpan) {
 }
 
 export class NextDogExporter implements SpanExporter {
-  constructor(private url: string) {}
+  /** Exact exporter target URLs. NextDog's own outbound POSTs go to these and
+   *  ONLY these — so we filter exactly them and never collateral user fetches
+   *  that merely share the sidecar origin or a textual-prefix-sibling port. */
+  private readonly selfTargets: Set<string>;
+
+  constructor(private url: string) {
+    // Normalize trailing slash so e.g. "http://localhost:6789/" matches too.
+    const base = url.replace(/\/+$/, '');
+    this.selfTargets = new Set([`${base}/v1/spans`, `${base}/v1/logs`]);
+  }
 
   private isNextdogSpan(span: ReadableSpan): boolean {
     const url = String(span.attributes['http.url'] ?? span.attributes['url.full'] ?? '');
-    return url.startsWith(this.url);
+    if (!url) return false;
+    // Match the exporter's own POST target exactly (ignoring any query/hash),
+    // not arbitrary URLs that merely start with the sidecar origin.
+    const withoutQuery = url.split(/[?#]/, 1)[0];
+    return this.selfTargets.has(withoutQuery);
   }
 
   export(spans: ReadableSpan[], resultCallback: (result: ExportResult) => void): void {

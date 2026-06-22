@@ -10,6 +10,7 @@ if (
   const { ensureSidecar } = await import('./sidecar.js');
   const { patchConsole } = await import('./console-patch.js');
   const { startRequestCapture } = await import('./request-capture.js');
+  const { registerInstrumentations } = await import('@nextdog/node/instrumentation');
 
   const url = process.env.NEXTDOG_URL ?? 'http://localhost:6789';
   const serviceName = process.env.NEXTDOG_SERVICE_NAME ?? 'nextdog-app';
@@ -29,6 +30,10 @@ if (
       spanProcessors: [new BatchSpanProcessor(new NextDogExporter(url))],
     });
     provider.register();
+
+    // Auto-instrument outbound fetch/HTTP (#4) and DB queries (#5) so they
+    // appear as child spans under the request span in the waterfall.
+    registerInstrumentations();
 
     // Capture console.log/warn/error as log events
     patchConsole(url, serviceName);

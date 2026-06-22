@@ -5,6 +5,7 @@ import { NextDogExporter } from '@nextdog/node/exporter';
 import { ensureSidecar } from '@nextdog/node/sidecar';
 import { patchConsole } from '@nextdog/node/console-patch';
 import { startRequestCapture } from '@nextdog/node/request-capture';
+import { registerInstrumentations } from '@nextdog/node/instrumentation';
 
 // Nitro globals — declared here since we compile with tsc, not Nuxt's build
 declare function defineNitroPlugin(handler: (nitro: any) => void | Promise<void>): any;
@@ -30,6 +31,9 @@ export default defineNitroPlugin(async () => {
     spanProcessors: [new BatchSpanProcessor(new NextDogExporter(url))],
   });
   provider.register();
+
+  // Auto-instrument outbound fetch/HTTP (#4) and DB queries (#5).
+  registerInstrumentations();
 
   patchConsole(url, serviceName);
 
