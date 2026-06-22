@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as http from 'node:http';
+import * as zlib from 'node:zlib';
 import { startRequestCapture, getRequestMetadata } from '../request-capture.js';
 
 // Install the capture monkey-patch once for the whole suite.
@@ -132,5 +133,34 @@ describe('response capture', () => {
     // Body is summarized, not the raw bytes.
     expect(meta!.responseBody).toMatch(/binary/i);
     expect(meta!.responseBody).toContain('image/png');
+  });
+
+  it('summarizes a gzip-compressed JSON response instead of capturing mojibake', async () => {
+    const payload = JSON.stringify({ ok: true, items: [1, 2, 3] });
+    const gz = zlib.gzipSync(Buffer.from(payload, 'utf-8'));
+    const result = await driveRequest({
+      method: 'GET',
+      path: '/api/compressed',
+      handler: (_req, res) => {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Content-Encoding': 'gzip',
+        });
+        res.end(gz);
+      },
+    });
+
+    // Client received the real gzip bytes, untouched.
+    expect(Buffer.compare(result.clientBody, gz)).toBe(0);
+
+    const meta = getRequestMetadata('GET', '/api/compressed');
+    expect(meta!.responseStatus).toBe(200);
+    // The captured body must NOT be the raw gzip bytes decoded as UTF-8 (mojibake).
+    expect(meta!.responseBody).not.toContain(gz.toString('utf-8'));
+    // It should be summarized as a compressed response.
+    expect(meta!.responseBody).toMatch(/compressed/i);
+    expect(meta!.responseBody).toContain('gzip');
+    // And it must not contain the decoded plaintext either (we don't decompress).
+    expect(meta!.responseBody).not.toContain('items');
   });
 });

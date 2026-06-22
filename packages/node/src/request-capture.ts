@@ -24,8 +24,9 @@ export interface RequestMetadata {
   capturedAt: number;
 }
 
-// Store captured request metadata keyed by "METHOD url" for recent lookups
-// Multiple requests to the same URL are stored as a stack (most recent first)
+// Store captured request metadata keyed by "METHOD url" for recent lookups.
+// Multiple requests to the same URL are queued oldest-first (FIFO): captures are
+// push()ed on, and getRequestMetadata shift()s the oldest matching entry off.
 const requestStore = new Map<string, RequestMetadata[]>();
 
 // Max request body size to capture (16KB — enough for API payloads, avoids memory issues)
@@ -53,6 +54,21 @@ const TEXT_CONTENT_TYPES = [
 function isTextContentType(contentType: string): boolean {
   const ct = contentType.toLowerCase();
   return TEXT_CONTENT_TYPES.some((t) => ct.includes(t));
+}
+
+// Content-Encoding values that mean the body is compressed (not raw text/UTF-8).
+// We do NOT decompress — capturing the raw bytes as text would store mojibake —
+// so a compressed body is summarized like the binary case.
+const COMPRESSED_ENCODINGS = ['gzip', 'br', 'deflate', 'compress', 'zstd'];
+
+function compressionOf(contentEncoding: string): string | null {
+  const ce = contentEncoding.toLowerCase().trim();
+  if (!ce || ce === 'identity') return null;
+  // content-encoding can be a comma-separated list (e.g. "gzip, br").
+  const found = COMPRESSED_ENCODINGS.find((enc) =>
+    ce.split(',').some((part) => part.trim() === enc)
+  );
+  return found ?? ce; // unknown non-identity encoding: still treat as compressed
 }
 
 // Cleanup entries older than 60s to prevent memory leaks
@@ -171,8 +187,13 @@ function captureResponse(res: http.ServerResponse, metadata: RequestMetadata): v
     metadata.responseHeaders = headers;
 
     const contentType = headers['content-type'] ?? '';
+    const compression = compressionOf(headers['content-encoding'] ?? '');
     if (size === 0) {
       // No body — leave responseBody undefined.
+    } else if (compression) {
+      // Compressed body: the buffered bytes are not UTF-8 text. Decoding them
+      // would yield mojibake, so summarize instead of capturing garbage.
+      metadata.responseBody = `[compressed ${compression} response, ${size} bytes — not captured]`;
     } else if (contentType && !isTextContentType(contentType)) {
       metadata.responseBody = `[binary ${contentType} response, ${size} bytes — not captured]`;
     } else {

@@ -9,6 +9,7 @@ import { CopyCurl } from './copy-curl.js';
 import { ReplayButton } from './replay-button.js';
 import { ResponseSection } from './response-section.js';
 import { formatSpanDuration } from '../utils/format.js';
+import { stripResponseAttributes } from '../utils/body-format.js';
 import { pillStyle, jsonViewStyle } from '../styles/shared.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
 
@@ -437,13 +438,20 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                       parentSpanId: selectedEvent.data.parentSpanId,
                     }}
                   />
-                  {Object.keys(selectedEvent.data.attributes).length > 0 && (
-                    <AttributeTable
-                      title="Attributes"
-                      onFilter={onFilter}
-                      attributes={selectedEvent.data.attributes as Record<string, unknown>}
-                    />
-                  )}
+                  {/* Exclude http.response.* — ResponseSection below renders those in a
+                      dedicated view, so the large body string isn't shown twice. */}
+                  {(() => {
+                    const tableAttrs = stripResponseAttributes(
+                      selectedEvent.data.attributes as Record<string, unknown>
+                    );
+                    return Object.keys(tableAttrs).length > 0 ? (
+                      <AttributeTable
+                        title="Attributes"
+                        onFilter={onFilter}
+                        attributes={tableAttrs}
+                      />
+                    ) : null;
+                  })()}
                   <ResponseSection
                     attributes={selectedEvent.data.attributes as Record<string, unknown>}
                   />

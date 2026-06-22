@@ -147,4 +147,46 @@ describe('NextDogExporter', () => {
     expect(attrs['http.response.body']).toBe(payload);
     expect(attrs['http.response.header.content-type']).toContain('application/json');
   });
+
+  it('strips Set-Cookie from response headers on the span (credential leak)', async () => {
+    startRequestCapture();
+
+    const secret = 'sid=SUPER_SECRET_SESSION; Path=/; HttpOnly';
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Set-Cookie': secret,
+        'X-Safe': 'visible',
+      });
+      res.end('{"ok":true}');
+    });
+    await new Promise<void>((r) => server.listen(0, r));
+    const { port } = server.address() as { port: number };
+
+    await new Promise<void>((resolve, reject) => {
+      http
+        .request({ host: '127.0.0.1', port, method: 'GET', path: '/api/login' }, (res) => {
+          res.on('data', () => {});
+          res.on('end', resolve);
+        })
+        .on('error', reject)
+        .end();
+    });
+    await new Promise<void>((r) => server.close(() => r()));
+
+    const exporter = new NextDogExporter('http://localhost:6789');
+    const result = await new Promise<{ code: number }>((resolve) => {
+      exporter.export([makeServerSpan('GET', '/api/login') as any], (r) => resolve(r));
+    });
+    expect(result.code).toBe(0);
+
+    const body = JSON.parse(mockFetch.mock.calls.at(-1)![1].body);
+    const attrs = body.spans[0].attributes;
+    // Set-Cookie must NOT leak onto the span...
+    expect(attrs['http.response.header.set-cookie']).toBeUndefined();
+    // ...and its secret value must not appear under any attribute.
+    expect(JSON.stringify(attrs)).not.toContain('SUPER_SECRET_SESSION');
+    // Non-sensitive response headers still flow through.
+    expect(attrs['http.response.header.x-safe']).toBe('visible');
+  });
 });

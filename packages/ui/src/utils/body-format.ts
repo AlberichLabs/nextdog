@@ -58,3 +58,21 @@ export function buildResponseSection(
 
   return { status, headers, body, contentType: headers['content-type'] ?? '' };
 }
+
+/**
+ * Drop the http.response.* attributes (status, headers, body) from a span's
+ * attribute map. ResponseSection already renders these in a dedicated, formatted
+ * view, so leaving them in the generic AttributeTable would render everything —
+ * including the large response body string — twice. Request attributes
+ * (http.request.*) are intentionally left untouched.
+ */
+export function stripResponseAttributes(
+  attributes: Record<string, unknown>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    if (key.startsWith('http.response.')) continue;
+    out[key] = value;
+  }
+  return out;
+}

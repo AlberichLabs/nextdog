@@ -1,5 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { formatBody, buildResponseSection } from '../body-format.js';
+import { formatBody, buildResponseSection, stripResponseAttributes } from '../body-format.js';
+
+describe('stripResponseAttributes', () => {
+  it('removes http.response.* keys so they do not render twice alongside ResponseSection', () => {
+    const filtered = stripResponseAttributes({
+      'http.method': 'GET',
+      'http.route': '/api/users',
+      'http.response.status': 200,
+      'http.response.body': '{"big":"payload"}',
+      'http.response.header.content-type': 'application/json',
+      'http.response.header.set-cookie': 'sid=x',
+    });
+    expect(filtered).toEqual({
+      'http.method': 'GET',
+      'http.route': '/api/users',
+    });
+  });
+
+  it('leaves http.request.* attributes untouched', () => {
+    const attrs = {
+      'http.request.body': '{"q":1}',
+      'http.request.header.content-type': 'application/json',
+      'http.method': 'POST',
+    };
+    expect(stripResponseAttributes(attrs)).toEqual(attrs);
+  });
+});
 
 describe('formatBody', () => {
   it('pretty-prints JSON bodies', () => {
