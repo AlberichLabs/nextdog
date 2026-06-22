@@ -7,6 +7,7 @@ import { SavedSearches, useSavedSearches } from '../components/saved-searches.js
 import { SortIndicator } from '../components/sort-indicator.js';
 import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useColumnResize } from '../hooks/use-column-resize.js';
+import { useVirtualList } from '../hooks/use-virtual-list.js';
 import { showContextMenu, attrContextActions } from '../components/context-menu.js';
 import { formatTime, formatDurationMs, spanDurationMs, extractHttpMeta } from '../utils/format.js';
 import { pillStyle, pillActiveStyle, emptyStyle, colHeaderStyle, colResizeStyle, toolbarStyle, mlAutoStyle } from '../styles/shared.js';
@@ -368,6 +369,10 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
 
   const percentiles = useMemo(() => computePercentiles(groups), [groups]);
 
+  // Windowed rendering — only the visible rows (+ overscan) hit the DOM so the
+  // list stays smooth as the SSE buffer fills (issue #9).
+  const { scrollRef, onScroll, rowRef, range, scrollToIndex } = useVirtualList(groups.length);
+
   useKeyboard({
     onNext: () => setSelectedIndex((i) => Math.min(i + 1, groups.length - 1)),
     onPrev: () => setSelectedIndex((i) => Math.max(i - 1, 0)),
@@ -378,6 +383,12 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     },
     onBack: () => setSelectedIndex(-1),
   });
+
+  // Keep the keyboard-selected row visible even when it sits outside the
+  // rendered window (the row may not be mounted otherwise).
+  useEffect(() => {
+    if (selectedIndex >= 0) scrollToIndex(selectedIndex);
+  }, [selectedIndex, scrollToIndex]);
 
   const addColumn = (attrKey: string) => {
     const label = attrKey.split('.').pop() ?? attrKey;
@@ -460,32 +471,40 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
         ))}
       </div>
 
-      <div className={css({ flex: 1, overflowY: 'auto', overflowX: 'hidden', fontFamily: 'mono', fontSize: 'md' })}>
+      <div ref={scrollRef} onScroll={onScroll} className={css({ flex: 1, overflowY: 'auto', overflowX: 'hidden', fontFamily: 'mono', fontSize: 'md' })}>
         {groups.length === 0 ? (
           <div className={emptyStyle}>{searchQuery || activeServices.size > 0 ? 'No requests match this filter' : 'No requests yet'}</div>
         ) : (
-          groups.map((group, i) => (
-            <div
-              key={group.traceId}
-              className={`${requestRowStyle} ${i === selectedIndex ? requestRowSelectedStyle : ''}`}
-              style={{ gridTemplateColumns: gridTemplate }}
-              onClick={() => { setSelectedIndex(i); onOpenTrace?.(group.traceId); }}
-            >
-              <span className={timestampStyle}>{formatTime(group.timestamp)}</span>
-              <span className={getMethodClassName(group.method)} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'http.method', group.method)}>{group.method}</span>
-              <span className={routeStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'route', group.routePath)}>{group.routePath}</span>
-              {group.httpCode ? (
-                <span className={getHttpStatusClassName(group.httpCode)} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'statusCode', String(group.httpCode))}>{group.httpCode}</span>
-              ) : (
-                <span className={group.status === 'ERROR' ? statusErrorStyle : statusOkStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'status', group.status)}>{group.status}</span>
-              )}
-              <span className={getDurationClassName(group.durationMs, percentiles)}>{group.duration}</span>
-              <span className={serviceStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'service', group.serviceName)}>{group.serviceName}</span>
-              {customColumns.map((col) => (
-                <span key={col.id} className={customColStyle} title={group.extraAttrs[col.id]} onContextMenu={(e: MouseEvent) => handleCellContext(e, col.attrKey, group.extraAttrs[col.id])}>{group.extraAttrs[col.id] || '—'}</span>
-              ))}
-            </div>
-          ))
+          <>
+            {range.paddingTop > 0 && <div style={{ height: `${range.paddingTop}px` }} />}
+            {groups.slice(range.startIndex, range.endIndex + 1).map((group, j) => {
+              const i = range.startIndex + j;
+              return (
+                <div
+                  key={group.traceId}
+                  ref={j === 0 ? rowRef : undefined}
+                  className={`${requestRowStyle} ${i === selectedIndex ? requestRowSelectedStyle : ''}`}
+                  style={{ gridTemplateColumns: gridTemplate }}
+                  onClick={() => { setSelectedIndex(i); onOpenTrace?.(group.traceId); }}
+                >
+                  <span className={timestampStyle}>{formatTime(group.timestamp)}</span>
+                  <span className={getMethodClassName(group.method)} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'http.method', group.method)}>{group.method}</span>
+                  <span className={routeStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'route', group.routePath)}>{group.routePath}</span>
+                  {group.httpCode ? (
+                    <span className={getHttpStatusClassName(group.httpCode)} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'statusCode', String(group.httpCode))}>{group.httpCode}</span>
+                  ) : (
+                    <span className={group.status === 'ERROR' ? statusErrorStyle : statusOkStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'status', group.status)}>{group.status}</span>
+                  )}
+                  <span className={getDurationClassName(group.durationMs, percentiles)}>{group.duration}</span>
+                  <span className={serviceStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'service', group.serviceName)}>{group.serviceName}</span>
+                  {customColumns.map((col) => (
+                    <span key={col.id} className={customColStyle} title={group.extraAttrs[col.id]} onContextMenu={(e: MouseEvent) => handleCellContext(e, col.attrKey, group.extraAttrs[col.id])}>{group.extraAttrs[col.id] || '—'}</span>
+                  ))}
+                </div>
+              );
+            })}
+            {range.paddingBottom > 0 && <div style={{ height: `${range.paddingBottom}px` }} />}
+          </>
         )}
       </div>
     </>

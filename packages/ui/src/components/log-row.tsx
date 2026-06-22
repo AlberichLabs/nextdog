@@ -129,16 +129,18 @@ interface LogRowProps {
   onCellContext?: (e: MouseEvent, key: string, value: string) => void;
   extraColumns?: { id: string; value: string; attrKey?: string }[];
   style?: string;
+  /** Ref forwarded to the row element so the virtualizer can measure its height. */
+  rootRef?: (el: HTMLElement | null) => void;
 }
 
-export function LogRow({ event, selected, showService, onClick, onCellContext, extraColumns, style }: LogRowProps) {
+export function LogRow({ event, selected, showService, onClick, onCellContext, extraColumns, style, rootRef }: LogRowProps) {
   const level = event.data.level ?? event.data.status?.code ?? '';
   const message = event.data.message ?? event.data.name;
   const ts = event.data.timestamp ?? event.timestamp;
   const runtime = runtimeTag(event);
 
   return (
-    <div className={`${logRowStyle} ${showService ? logRowWideStyle : ''} ${selected ? logRowSelectedStyle : ''}`} onClick={onClick} style={style}>
+    <div ref={rootRef} className={`${logRowStyle} ${showService ? logRowWideStyle : ''} ${selected ? logRowSelectedStyle : ''}`} onClick={onClick} style={style}>
       <span className={logTimeStyle}>{formatTime(ts)}</span>
       <span
         className={levelClass(event.data.level)}
