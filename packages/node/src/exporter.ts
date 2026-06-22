@@ -60,6 +60,21 @@ function convertSpan(span: ReadableSpan) {
       if (metadata.body) {
         attributes['http.request.body'] = metadata.body;
       }
+
+      // Add the ORIGINAL response (status, headers, body) captured by the tee.
+      // This reflects what the request actually returned — no Replay re-issue.
+      if (metadata.responseStatus !== undefined) {
+        attributes['http.response.status'] = metadata.responseStatus;
+      }
+      if (metadata.responseHeaders) {
+        for (const [key, value] of Object.entries(metadata.responseHeaders)) {
+          if (SKIP_HEADERS.has(key.toLowerCase())) continue;
+          attributes[`http.response.header.${key.toLowerCase()}`] = value;
+        }
+      }
+      if (metadata.responseBody) {
+        attributes['http.response.body'] = metadata.responseBody;
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import { LogRow } from './log-row.js';
 import { AttributeTable } from './attribute-table.js';
 import { CopyCurl } from './copy-curl.js';
 import { ReplayButton } from './replay-button.js';
+import { ResponseSection } from './response-section.js';
 import { formatSpanDuration } from '../utils/format.js';
 import { pillStyle, jsonViewStyle } from '../styles/shared.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
@@ -443,6 +444,9 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                       attributes={selectedEvent.data.attributes as Record<string, unknown>}
                     />
                   )}
+                  <ResponseSection
+                    attributes={selectedEvent.data.attributes as Record<string, unknown>}
+                  />
                 </>
               )}
             </div>
