@@ -26,6 +26,14 @@ export class SSEStream {
       'Access-Control-Allow-Origin': '*',
     });
 
+    // Flush the response headers immediately with an SSE comment. Node buffers
+    // the status line until the first body write, so on an idle sidecar (empty
+    // ring buffer, no live events) the client's EventSource would otherwise sit
+    // in CONNECTING and never fire `onopen` — leaving the dashboard unable to
+    // distinguish "connected but no traffic yet" from "not connected" (#11).
+    // Lines beginning with ":" are SSE comments and are ignored by the parser.
+    res.write(': connected\n\n');
+
     // Backfill from ring buffer (200 events covers typical page load)
     const backfill = this.ringBuffer.getLast(200);
     for (const event of backfill) {

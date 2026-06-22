@@ -6,6 +6,8 @@ export interface UseEventsResult {
   services: string[];
   activeServices: Set<string>;
   toggleService: (name: string) => void;
+  /** Replace the active services selection wholesale (used by saved searches). */
+  setServices: (names: string[]) => void;
   searchQuery: string;
   setSearchQuery: (q: string | ((prev: string) => string)) => void;
 }
@@ -189,6 +191,10 @@ export function useEvents(events: SSEEvent[]): UseEventsResult {
     });
   }, []);
 
+  const setServices = useCallback((names: string[]) => {
+    setActiveServices(new Set(names));
+  }, []);
+
   const filtered = useMemo(() => {
     return events.filter((e) => {
       if (activeServices.size > 0 && !activeServices.has(e.data.serviceName)) return false;
@@ -196,5 +202,5 @@ export function useEvents(events: SSEEvent[]): UseEventsResult {
     });
   }, [events, activeServices, searchQuery]);
 
-  return { filtered, services, activeServices, toggleService, searchQuery, setSearchQuery };
+  return { filtered, services, activeServices, toggleService, setServices, searchQuery, setSearchQuery };
 }

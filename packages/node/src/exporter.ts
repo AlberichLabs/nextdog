@@ -4,9 +4,15 @@ import { getRequestMetadata } from './request-capture.js';
 
 const ExportResultCode = { SUCCESS: 0, FAILED: 1 } as const;
 
-/** Headers to never capture (security-sensitive but NOT cookies — we need those for replay) */
+/**
+ * Headers to never capture. Request cookies ARE kept (under http.request.cookies)
+ * because they're needed for replay, but credential-bearing headers — including
+ * Set-Cookie on the response side, which mints session secrets — are stripped so
+ * they never ship to the sidecar or render in the dashboard.
+ */
 const SKIP_HEADERS = new Set([
   'authorization', 'proxy-authorization', 'x-api-key', 'x-auth-token',
+  'set-cookie', 'set-cookie2',
 ]);
 
 const SPAN_KIND_MAP: Record<number, string> = {
@@ -59,6 +65,21 @@ function convertSpan(span: ReadableSpan) {
       // Add request body if present
       if (metadata.body) {
         attributes['http.request.body'] = metadata.body;
+      }
+
+      // Add the ORIGINAL response (status, headers, body) captured by the tee.
+      // This reflects what the request actually returned — no Replay re-issue.
+      if (metadata.responseStatus !== undefined) {
+        attributes['http.response.status'] = metadata.responseStatus;
+      }
+      if (metadata.responseHeaders) {
+        for (const [key, value] of Object.entries(metadata.responseHeaders)) {
+          if (SKIP_HEADERS.has(key.toLowerCase())) continue;
+          attributes[`http.response.header.${key.toLowerCase()}`] = value;
+        }
+      }
+      if (metadata.responseBody) {
+        attributes['http.response.body'] = metadata.responseBody;
       }
     }
   }

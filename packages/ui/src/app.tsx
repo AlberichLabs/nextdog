@@ -219,6 +219,13 @@ export function App() {
 
   const isEmpty = events.length === 0;
 
+  // Latch true on the first event ever seen this session. Survives a manual
+  // Clear (which resets `events` to []) so the empty state can tell "connected
+  // but no traffic yet" apart from "you cleared an active stream". (issue #11)
+  const everReceivedRef = useRef(false);
+  if (events.length > 0) everReceivedRef.current = true;
+  const everReceived = everReceivedRef.current;
+
   return (
     <div className={appStyle}>
       <header className={headerStyle}>
@@ -273,7 +280,7 @@ export function App() {
       </header>
       <div className={mainStyle}>
         {isEmpty ? (
-          <EmptyState connected={connected} />
+          <EmptyState connected={connected} everReceived={everReceived} sidecarUrl={SIDECAR_URL} />
         ) : (
           <Router onChange={handleRoute}>
             <Requests path="/" eventsResult={eventsResult} onOpenTrace={openTrace} />

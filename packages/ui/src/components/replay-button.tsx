@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'preact/hooks';
 import { css } from 'styled-system/css';
+import { formatBody } from '../utils/body-format.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
 
 interface ReplayResponse {
@@ -32,17 +33,6 @@ const statusRed = css({ color: 'red', fontWeight: 600 });
 function StatusBadge({ status }: { status: number }) {
   const style = status < 300 ? statusGreen : status < 400 ? statusYellow : statusRed;
   return <span className={style}>{status}</span>;
-}
-
-function formatBody(body: string, contentType: string): string {
-  if (contentType.includes('json')) {
-    try {
-      return JSON.stringify(JSON.parse(body), null, 2);
-    } catch {
-      return body;
-    }
-  }
-  return body;
 }
 
 const pillButton = css({

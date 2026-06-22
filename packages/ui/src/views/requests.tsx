@@ -3,6 +3,7 @@ import { css } from 'styled-system/css';
 import { ServicePills } from '../components/service-pills.js';
 import { SearchBar } from '../components/search-bar.js';
 import { ColumnPicker } from '../components/column-picker.js';
+import { SavedSearches, useSavedSearches } from '../components/saved-searches.js';
 import { SortIndicator } from '../components/sort-indicator.js';
 import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useColumnResize } from '../hooks/use-column-resize.js';
@@ -287,7 +288,24 @@ interface RequestsProps {
 }
 
 export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
-  const { filtered, services, activeServices, toggleService, searchQuery, setSearchQuery } = eventsResult;
+  const { filtered, services, activeServices, toggleService, setServices, searchQuery, setSearchQuery } = eventsResult;
+  const { recordRecent } = useSavedSearches();
+
+  const applySearch = useCallback((query: string, svcs: string[]) => {
+    setSearchQuery(query);
+    setServices(svcs);
+  }, [setSearchQuery, setServices]);
+
+  // Record the active filter in the recent ring once it settles (debounced so
+  // we capture searches the user actually ran, not every keystroke). De-dupe
+  // and capping live in the store.
+  useEffect(() => {
+    const query = searchQuery.trim();
+    const svcs = [...activeServices];
+    if (!query && svcs.length === 0) return;
+    const t = setTimeout(() => recordRecent({ query: searchQuery, services: svcs }), 1500);
+    return () => clearTimeout(t);
+  }, [searchQuery, activeServices, recordRecent]);
   const [sortBy, setSortBy] = useState<SortField>('time');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -412,12 +430,15 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
         onChange={setSearchQuery}
         events={filtered}
         rightSlot={
-          <ColumnPicker
-            customColumns={customColumns}
-            availableAttrs={availableAttrs}
-            onAdd={addColumn}
-            onRemove={removeColumn}
-          />
+          <>
+            <SavedSearches query={searchQuery} services={[...activeServices]} onApply={applySearch} />
+            <ColumnPicker
+              customColumns={customColumns}
+              availableAttrs={availableAttrs}
+              onAdd={addColumn}
+              onRemove={removeColumn}
+            />
+          </>
         }
       />
 
