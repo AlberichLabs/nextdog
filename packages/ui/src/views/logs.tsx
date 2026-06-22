@@ -5,6 +5,7 @@ import { ServicePills } from '../components/service-pills.js';
 import { SearchBar } from '../components/search-bar.js';
 import { AttributeTable } from '../components/attribute-table.js';
 import { ColumnPicker } from '../components/column-picker.js';
+import { SavedSearches, useSavedSearches } from '../components/saved-searches.js';
 import { SortIndicator } from '../components/sort-indicator.js';
 import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useColumnResize } from '../hooks/use-column-resize.js';
@@ -198,7 +199,23 @@ interface LogsProps {
 }
 
 export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsProps) {
-  const { filtered, services, activeServices, toggleService, searchQuery, setSearchQuery } = eventsResult;
+  const { filtered, services, activeServices, toggleService, setServices, searchQuery, setSearchQuery } = eventsResult;
+  const { recordRecent } = useSavedSearches();
+
+  const applySearch = useCallback((query: string, svcs: string[]) => {
+    setSearchQuery(query);
+    setServices(svcs);
+  }, [setSearchQuery, setServices]);
+
+  // Record the active filter in the recent ring once it settles (debounced).
+  useEffect(() => {
+    const query = searchQuery.trim();
+    const svcs = [...activeServices];
+    if (!query && svcs.length === 0) return;
+    const t = setTimeout(() => recordRecent({ query: searchQuery, services: svcs }), 1500);
+    return () => clearTimeout(t);
+  }, [searchQuery, activeServices, recordRecent]);
+
   const listRef = useRef<HTMLDivElement>(null);
   const [liveTail, setLiveTail] = useState(true);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -397,12 +414,15 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
           onChange={setSearchQuery}
           events={filtered}
           rightSlot={
-            <ColumnPicker
-              customColumns={customColumns}
-              availableAttrs={availableAttrs}
-              onAdd={addColumn}
-              onRemove={removeColumn}
-            />
+            <>
+              <SavedSearches query={searchQuery} services={[...activeServices]} onApply={applySearch} />
+              <ColumnPicker
+                customColumns={customColumns}
+                availableAttrs={availableAttrs}
+                onAdd={addColumn}
+                onRemove={removeColumn}
+              />
+            </>
           }
         />
         <div className={toolbarStyle}>
