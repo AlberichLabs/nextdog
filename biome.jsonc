@@ -1,0 +1,127 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
+  // nextdog Biome config. Deliberately "recommended + a curated few",
+  // NOT the full nursery/style firehose. See rule notes inline.
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    // Honour .gitignore so dist/, node_modules/, .turbo/, styled-system/
+    // (all already git-ignored) are skipped by both lint and format.
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    // Generated / vendored / lockfile paths excluded from BOTH lint and format.
+    // styled-system is Panda CSS codegen — linting or formatting it is wrong and
+    // is the source of the bogus bare-tsc "cannot find module styled-system" noise.
+    "includes": [
+      "**",
+      "!**/styled-system",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/.turbo",
+      "!**/*.tsbuildinfo",
+      "!**/pnpm-lock.yaml",
+      "!**/CHANGELOG.md"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    // Match the existing repo style (2-space indent) to keep the format
+    // commit mechanical, not a tabs-vs-spaces reflow of every line.
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      // Existing code uses single quotes throughout; keep it.
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "json": {
+    "formatter": {
+      "enabled": true
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      // Baseline: Biome's curated "recommended" set (correctness + common
+      // suspicious/security rules that are safe and high-signal).
+      "preset": "recommended",
+
+      "correctness": {
+        // CURATED EXTRA (off by default): flags dead bindings/params/imports.
+        // High-signal for a lib that ships into users' dev servers — dead code
+        // is weight. Caught real dead values here (see PR notes).
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        // CURATED EXTRA: preact/react hooks dep-array correctness. The UI
+        // overlay is Preact with hooks; stale closures here are real bugs.
+        "useExhaustiveDependencies": "warn",
+        "useHookAtTopLevel": "error"
+      },
+
+      "suspicious": {
+        // CURATED EXTRA: the headline behavioural rule for this repo. Flags
+        // mixing ?? with || / && without parens (precedence footgun) — exactly
+        // the event-row.tsx:47 case the QA audit raised.
+        "noConfusingVoidType": "error",
+        "noDoubleEquals": "error",
+        // Confusing/precedence-sensitive expressions:
+        "noFallthroughSwitchClause": "error",
+        // noExplicitAny is in `recommended`. Kept ON for source, but it fires
+        // 25x — almost entirely in test files casting mocks. Left as a WARNING
+        // (recommended default) rather than error so it doesn't gate; the real
+        // source `any`s were narrowed where trivially safe.
+        "noExplicitAny": "warn"
+      },
+
+      // a11y group: turned OFF as a group. The ONLY UI surface in this repo is a
+      // dev-only debug overlay injected into the user's own `next dev` process —
+      // it is not a shippable end-user product. `recommended` would emit ~93
+      // errors (useButtonType, noStaticElementInteractions, useKeyWithClickEvents,
+      // noSvgWithoutTitle) forcing large manual churn (button types, keyboard
+      // handlers, SVG <title>s) on an internal tool for no real accessibility win.
+      // This is a deliberate, parked decision — see memos/parked-questions.md
+      // (2026-06-22): confirm whether a11y should be enforced on the overlay later.
+      "a11y": {
+        "recommended": false
+      },
+
+      "style": {
+        // noNonNullAssertion is a `recommended` warning that fires ~60x on the
+        // pre-existing `map.get(x)!` / `arr[0]!` idiom throughout the codebase.
+        // It is pure style (no correctness signal) and "fixing" it would mean
+        // mechanical `?.`/guards across dozens of call sites — large churn out of
+        // scope for a lint-adoption PR. Turned OFF deliberately; parked with a11y.
+        "noNonNullAssertion": "off"
+      }
+
+      // DELIBERATELY LEFT OFF (beyond the explicit toggles above):
+      // - rest of "style" group (useNamingConvention, useImportType firehose,
+      //   useConst-everywhere): cosmetic, would force large manual churn across
+      //   125 source files for no correctness gain. Revisit in a focused PR.
+      // - "nursery" group: unstable rules, not pinnable behaviour. Off.
+      //
+      // KEPT ON as advisory WARNINGS (real signal, surfaced not gated):
+      // - correctness/useExhaustiveDependencies (12), correctness/
+      //   noUnusedFunctionParameters (4): Preact hook + dead-param hygiene.
+      // - suspicious/noExplicitAny (~20, mostly test mocks): narrow when easy.
+      // These do NOT fail `pnpm lint` (Biome gates on errors, not warnings).
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        // Sort import statements. Safe, deterministic, no behaviour change.
+        "organizeImports": "on"
+      }
+    }
+  }
+}

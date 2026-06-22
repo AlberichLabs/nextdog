@@ -8,14 +8,13 @@
 // All file I/O goes through utils/trace-export-io (File API + Blob, no libs).
 // ---------------------------------------------------------------------------
 
-import { useRef, useState, useCallback } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
+import { useCallback, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { pillStyle } from '../styles/shared.js';
-import { downloadExport, readImportFile } from '../utils/trace-export-io.js';
-import type { ExportMeta } from '../utils/trace-export.js';
-import type { ParseResult } from '../utils/trace-export.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { pillStyle } from '../styles/shared.js';
+import type { ExportMeta, ParseResult } from '../utils/trace-export.js';
+import { downloadExport, readImportFile } from '../utils/trace-export-io.js';
 
 /* ── Export ───────────────────────────────────────────────────────────── */
 
@@ -40,7 +39,10 @@ export function ExportButton({ events, meta, label, title, className }: ExportBu
       class={className ?? pillStyle}
       onClick={onClick}
       disabled={events.length === 0}
-      title={title ?? `Download ${events.length} event${events.length === 1 ? '' : 's'} as a portable file`}
+      title={
+        title ??
+        `Download ${events.length} event${events.length === 1 ? '' : 's'} as a portable file`
+      }
     >
       {text}
     </button>
@@ -106,7 +108,8 @@ const dropOverlayStyle = css({
 });
 
 const dropCardStyle = css({
-  px: '8', py: '6',
+  px: '8',
+  py: '6',
   borderRadius: 'lg',
   border: '2px dashed token(colors.accent)',
   background: 'surface.panel',
@@ -129,8 +132,7 @@ export function ImportDropZone({ onImport, children }: ImportDropZoneProps) {
   const [dragging, setDragging] = useState(false);
   const depth = useRef(0);
 
-  const hasFiles = (e: DragEvent) =>
-    Array.from(e.dataTransfer?.types ?? []).includes('Files');
+  const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
 
   const onDragEnter = useCallback((e: DragEvent) => {
     if (!hasFiles(e)) return;
@@ -188,7 +190,8 @@ const importedBarStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: '2',
-  py: '1.5', px: '4',
+  py: '1.5',
+  px: '4',
   background: 'rgba(116, 185, 255, 0.12)',
   borderBottom: '1px solid token(colors.border.subtle)',
   fontSize: 'sm',
@@ -200,7 +203,8 @@ const importedTagStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
   gap: '1',
-  px: '2', py: '0.5',
+  px: '2',
+  py: '0.5',
   borderRadius: 'full',
   background: 'blue',
   color: 'surface.bg',
@@ -231,9 +235,15 @@ export function ImportedBadge({ fileName, eventCount, onExit }: ImportedBadgePro
     <div class={importedBarStyle}>
       <span class={importedTagStyle}>Imported</span>
       <span>Read-only · live stream paused ·</span>
-      <span class={fileNameStyle} title={fileName}>{fileName}</span>
+      <span class={fileNameStyle} title={fileName}>
+        {fileName}
+      </span>
       <span class={css({ color: 'fg.dim' })}>({eventCount} events)</span>
-      <button class={`${pillStyle} ${css({ marginLeft: 'auto' })}`} onClick={onExit} title="Return to the live stream">
+      <button
+        class={`${pillStyle} ${css({ marginLeft: 'auto' })}`}
+        onClick={onExit}
+        title="Return to the live stream"
+      >
         Exit to live
       </button>
     </div>

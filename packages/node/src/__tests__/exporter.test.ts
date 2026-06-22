@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextDogExporter } from '../exporter.js';
 import { startRequestCapture } from '../request-capture.js';
 
@@ -83,25 +83,30 @@ describe('NextDogExporter', () => {
     const exporter = new NextDogExporter('http://localhost:6789');
 
     const result = await new Promise<{ code: number }>((resolve) => {
-      exporter.export([{
-        name: 'test',
-        spanContext: () => ({ traceId: 't1', spanId: 's1', traceFlags: 1 }),
-        parentSpanId: undefined,
-        kind: 0,
-        startTime: [0, 0] as [number, number],
-        endTime: [0, 0] as [number, number],
-        attributes: {},
-        status: { code: 0 },
-        resource: { attributes: {} },
-        duration: [0, 0] as [number, number],
-        events: [],
-        links: [],
-        instrumentationLibrary: { name: 'test' },
-        ended: true,
-        droppedAttributesCount: 0,
-        droppedEventsCount: 0,
-        droppedLinksCount: 0,
-      } as any], (result) => resolve(result));
+      exporter.export(
+        [
+          {
+            name: 'test',
+            spanContext: () => ({ traceId: 't1', spanId: 's1', traceFlags: 1 }),
+            parentSpanId: undefined,
+            kind: 0,
+            startTime: [0, 0] as [number, number],
+            endTime: [0, 0] as [number, number],
+            attributes: {},
+            status: { code: 0 },
+            resource: { attributes: {} },
+            duration: [0, 0] as [number, number],
+            events: [],
+            links: [],
+            instrumentationLibrary: { name: 'test' },
+            ended: true,
+            droppedAttributesCount: 0,
+            droppedEventsCount: 0,
+            droppedLinksCount: 0,
+          } as any,
+        ],
+        (result) => resolve(result),
+      );
     });
 
     expect(result.code).toBe(1);
@@ -112,7 +117,7 @@ describe('NextDogExporter', () => {
     await expect(exporter.shutdown()).resolves.toBeUndefined();
   });
 
-  it('drops the exporter\'s own outbound POST to the sidecar but forwards real outbound spans', async () => {
+  it("drops the exporter's own outbound POST to the sidecar but forwards real outbound spans", async () => {
     // Now that nextdog wraps global fetch (outbound-HTTP instrumentation), the
     // exporter\'s own POST to /v1/spans produces a CLIENT span. It MUST be
     // filtered out (by sidecar URL) to avoid a feedback loop, while genuine

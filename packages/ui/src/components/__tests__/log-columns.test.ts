@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { buildLogRowCells, LOG_BASE_TRACK_IDS } from '../log-columns.js';
+import { describe, expect, it } from 'vitest';
 import type { SSEEvent } from '../../hooks/use-sse.js';
+import { buildLogRowCells, LOG_BASE_TRACK_IDS } from '../log-columns.js';
 
 function makeLog(attributes: Record<string, unknown> = {}): SSEEvent {
   return {
@@ -21,7 +21,10 @@ describe('buildLogRowCells', () => {
     // Regression: previously the runtime cell was only rendered when a runtime
     // attribute existed, leaving the row one cell short of the 5-track grid and
     // collapsing the message into the 50px runtime track.
-    const withRuntime = buildLogRowCells(makeLog({ runtime: 'server' }), { showService: true, customColumns: [] });
+    const withRuntime = buildLogRowCells(makeLog({ runtime: 'server' }), {
+      showService: true,
+      customColumns: [],
+    });
     const withoutRuntime = buildLogRowCells(makeLog({}), { showService: true, customColumns: [] });
 
     expect(withoutRuntime.length).toBe(withRuntime.length);
@@ -50,7 +53,14 @@ describe('buildLogRowCells', () => {
       showService: true,
       customColumns: [{ id: 'custom-region', attrKey: 'region' }],
     });
-    expect(cells.map((c) => c.id)).toEqual(['time', 'level', 'service', 'runtime', 'message', 'custom-region']);
+    expect(cells.map((c) => c.id)).toEqual([
+      'time',
+      'level',
+      'service',
+      'runtime',
+      'message',
+      'custom-region',
+    ]);
     expect(cells.at(-1)!.value).toBe('us-east-1');
   });
 });

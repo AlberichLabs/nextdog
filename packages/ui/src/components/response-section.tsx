@@ -1,5 +1,5 @@
 import { css } from 'styled-system/css';
-import { formatBody, buildResponseSection } from '../utils/body-format.js';
+import { buildResponseSection, formatBody } from '../utils/body-format.js';
 
 const statusGreen = css({ color: 'green', fontWeight: 600 });
 const statusYellow = css({ color: 'yellow', fontWeight: 600 });
@@ -21,7 +21,8 @@ const headerBar = css({
   display: 'flex',
   alignItems: 'center',
   gap: '2',
-  py: '2', px: '3',
+  py: '2',
+  px: '3',
   background: 'surface.panel',
   borderBottom: '1px solid token(colors.border.subtle)',
   fontFamily: 'mono',
@@ -35,7 +36,8 @@ const detailsStyle = css({
 });
 
 const summaryStyle = css({
-  py: '1', px: '3',
+  py: '1',
+  px: '3',
   fontSize: 'sm',
   color: 'fg.dim',
   cursor: 'pointer',
@@ -43,7 +45,9 @@ const summaryStyle = css({
 });
 
 const headersContent = css({
-  pt: '1', px: '3', pb: '2',
+  pt: '1',
+  px: '3',
+  pb: '2',
   fontFamily: 'mono',
   fontSize: 'sm',
 });
@@ -64,7 +68,8 @@ const bodyPre = css({
 });
 
 const emptyBody = css({
-  py: '2', px: '3',
+  py: '2',
+  px: '3',
   fontFamily: 'mono',
   fontSize: 'sm',
   color: 'fg.dim',

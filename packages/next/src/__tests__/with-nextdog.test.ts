@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { withNextDog } from '../index.js';
 
 // Mock require to control Next.js version detection

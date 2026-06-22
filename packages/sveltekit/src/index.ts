@@ -31,7 +31,9 @@ export function withNextDog(options?: NextDogOptions): Handle {
   let initPromise: Promise<void> | undefined;
 
   async function init(): Promise<void> {
-    const { NodeTracerProvider, BatchSpanProcessor } = await import('@opentelemetry/sdk-trace-node');
+    const { NodeTracerProvider, BatchSpanProcessor } = await import(
+      '@opentelemetry/sdk-trace-node'
+    );
     const { Resource } = await import('@opentelemetry/resources');
     const { ATTR_SERVICE_NAME } = await import('@opentelemetry/semantic-conventions');
     const { NextDogExporter } = await import('@nextdog/node/exporter');

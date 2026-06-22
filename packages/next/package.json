@@ -38,7 +38,9 @@
     "next": ">=14"
   },
   "peerDependenciesMeta": {
-    "next": { "optional": false }
+    "next": {
+      "optional": false
+    }
   },
   "devDependencies": {
     "@types/node": "^25",
@@ -50,5 +52,12 @@
     "type": "git",
     "url": "https://github.com/cscherban/NextDog"
   },
-  "keywords": ["nextjs", "observability", "tracing", "opentelemetry", "devtools", "instrumentation"]
+  "keywords": [
+    "nextjs",
+    "observability",
+    "tracing",
+    "opentelemetry",
+    "devtools",
+    "instrumentation"
+  ]
 }

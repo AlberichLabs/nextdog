@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { formatBody } from '../utils/body-format.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { formatBody } from '../utils/body-format.js';
 
 interface ReplayResponse {
   status: number;
@@ -39,7 +39,8 @@ const pillButton = css({
   display: 'inline-flex',
   alignItems: 'center',
   gap: '1',
-  py: '1', px: '2',
+  py: '1',
+  px: '2',
   borderRadius: 'sm',
   border: '1px solid token(colors.border.strong)',
   fontSize: 'sm',
@@ -68,7 +69,8 @@ const headerBar = css({
   display: 'flex',
   alignItems: 'center',
   gap: '2',
-  py: '2', px: '3',
+  py: '2',
+  px: '3',
   background: 'surface.panel',
   borderBottom: '1px solid token(colors.border.subtle)',
   fontFamily: 'mono',
@@ -82,7 +84,8 @@ const detailsStyle = css({
 });
 
 const summaryStyle = css({
-  py: '1', px: '3',
+  py: '1',
+  px: '3',
   fontSize: 'sm',
   color: 'fg.dim',
   cursor: 'pointer',
@@ -90,7 +93,9 @@ const summaryStyle = css({
 });
 
 const headersContent = css({
-  pt: '1', px: '3', pb: '2',
+  pt: '1',
+  px: '3',
+  pb: '2',
   fontFamily: 'mono',
   fontSize: 'sm',
 });
@@ -112,7 +117,8 @@ const bodyPre = css({
 
 const errorContainer = css({
   marginTop: '2',
-  py: '2', px: '3',
+  py: '2',
+  px: '3',
   border: '1px solid token(colors.red)',
   borderRadius: 'md',
   fontFamily: 'mono',
@@ -179,16 +185,33 @@ export function ReplayButton({ event }: ReplayButtonProps) {
         <button
           onClick={() => setState({ phase: 'idle' })}
           className={css({
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '20px', height: '20px', border: 'none', borderRadius: 'sm',
-            background: 'transparent', color: 'fg.dim', cursor: 'pointer',
-            position: 'absolute', top: '2', right: '2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '20px',
+            height: '20px',
+            border: 'none',
+            borderRadius: 'sm',
+            background: 'transparent',
+            color: 'fg.dim',
+            cursor: 'pointer',
+            position: 'absolute',
+            top: '2',
+            right: '2',
             _hover: { color: 'fg.bright', background: 'surface.hover' },
           })}
           title="Dismiss"
         >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
       )}
@@ -202,7 +225,9 @@ export function ReplayButton({ event }: ReplayButtonProps) {
             <span className={dimText}>|</span>
             <span className={dimText}>{state.data.duration}ms</span>
             <span className={dimText}>|</span>
-            <span className={dimText}>{state.data.method} {state.data.url}</span>
+            <span className={dimText}>
+              {state.data.method} {state.data.url}
+            </span>
           </div>
 
           {/* Response headers (collapsed by default) */}
@@ -220,10 +245,9 @@ export function ReplayButton({ event }: ReplayButtonProps) {
           </details>
 
           {/* Response body */}
-          <pre className={bodyPre}>{formatBody(
-            state.data.body,
-            state.data.headers['content-type'] ?? ''
-          )}</pre>
+          <pre className={bodyPre}>
+            {formatBody(state.data.body, state.data.headers['content-type'] ?? '')}
+          </pre>
         </div>
       )}
 
@@ -232,7 +256,9 @@ export function ReplayButton({ event }: ReplayButtonProps) {
           <div className={errorTitle}>Replay failed</div>
           <div className={errorDetail}>{state.data.message}</div>
           {state.data.url && (
-            <div className={errorDetail}>{state.data.method} {state.data.url}</div>
+            <div className={errorDetail}>
+              {state.data.method} {state.data.url}
+            </div>
           )}
         </div>
       )}

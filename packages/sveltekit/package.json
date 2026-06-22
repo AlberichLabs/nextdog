@@ -40,12 +40,22 @@
     "@sveltejs/kit": "^2"
   },
   "peerDependenciesMeta": {
-    "@sveltejs/kit": { "optional": false }
+    "@sveltejs/kit": {
+      "optional": false
+    }
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/cscherban/NextDog"
   },
-  "keywords": ["sveltekit", "svelte", "observability", "tracing", "opentelemetry", "devtools", "instrumentation"]
+  "keywords": [
+    "sveltekit",
+    "svelte",
+    "observability",
+    "tracing",
+    "opentelemetry",
+    "devtools",
+    "instrumentation"
+  ]
 }

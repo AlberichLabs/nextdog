@@ -1,11 +1,16 @@
-import { createServer as httpCreateServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import {
+  createServer as httpCreateServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
 import { extname, join } from 'node:path';
 import { EventBus } from './event-bus.js';
-import { RingBuffer } from './ring-buffer.js';
 import { FileStore } from './file-store.js';
-import { SSEStream } from './sse-stream.js';
 import { NEXTDOG_HEALTH_MARKER } from './health.js';
+import { RingBuffer } from './ring-buffer.js';
+import { SSEStream } from './sse-stream.js';
 import type { NextDogEvent, Span } from './types.js';
 
 export interface ServerOptions {
@@ -28,7 +33,7 @@ const MIME_TYPES: Record<string, string> = {
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', chunk => chunks.push(chunk));
+    req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => resolve(Buffer.concat(chunks).toString()));
     req.on('error', reject);
   });
@@ -36,7 +41,7 @@ function readBody(req: IncomingMessage): Promise<string> {
 
 function json(res: ServerResponse, status: number, data: unknown): void {
   const body = JSON.stringify(data, (_key, value) =>
-    typeof value === 'bigint' ? value.toString() + 'n' : value
+    typeof value === 'bigint' ? `${value.toString()}n` : value,
   );
   res.writeHead(status, {
     'Content-Type': 'application/json',
@@ -84,9 +89,12 @@ export function createServer(opts: ServerOptions): Promise<Server> {
   let cleanupTimer: ReturnType<typeof setInterval> | undefined;
   const startCleanup = () => {
     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-    cleanupTimer = setInterval(() => {
-      fileStore.cleanup(TWENTY_FOUR_HOURS);
-    }, 60 * 60 * 1000);
+    cleanupTimer = setInterval(
+      () => {
+        fileStore.cleanup(TWENTY_FOUR_HOURS);
+      },
+      60 * 60 * 1000,
+    );
     cleanupTimer.unref();
   };
 
@@ -104,7 +112,11 @@ export function createServer(opts: ServerOptions): Promise<Server> {
     // real NextDog sidecar (issue #17). The marker is shared with consumers via
     // @nextdog/core so producer and consumer can never drift apart.
     if (req.method === 'GET' && pathname === '/health') {
-      return json(res, 200, { status: 'ok', service: NEXTDOG_HEALTH_MARKER, uptime: process.uptime() });
+      return json(res, 200, {
+        status: 'ok',
+        service: NEXTDOG_HEALTH_MARKER,
+        uptime: process.uptime(),
+      });
     }
 
     // Ingest spans
@@ -134,9 +146,10 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       const logs = body.logs ?? [];
 
       for (const log of logs) {
-        const event: NextDogEvent = log.type === 'log'
-          ? log as NextDogEvent
-          : { type: 'log' as const, timestamp: Date.now(), data: log };
+        const event: NextDogEvent =
+          log.type === 'log'
+            ? (log as NextDogEvent)
+            : { type: 'log' as const, timestamp: Date.now(), data: log };
         if (event.data.serviceName) services.add(event.data.serviceName);
         bus.emit(event);
       }
@@ -147,9 +160,7 @@ export function createServer(opts: ServerOptions): Promise<Server> {
     if (req.method === 'GET' && pathname === '/api/spans') {
       const service = url.searchParams.get('service') ?? undefined;
       const traceId = url.searchParams.get('traceId') ?? undefined;
-      const last = url.searchParams.has('last')
-        ? Number(url.searchParams.get('last'))
-        : undefined;
+      const last = url.searchParams.has('last') ? Number(url.searchParams.get('last')) : undefined;
 
       // Serve from ring buffer for recent queries, file store for deeper
       if (last && last <= 500 && !service && !traceId) {
@@ -173,9 +184,7 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       const before = url.searchParams.has('before')
         ? Number(url.searchParams.get('before'))
         : undefined;
-      const last = url.searchParams.has('last')
-        ? Number(url.searchParams.get('last'))
-        : undefined;
+      const last = url.searchParams.has('last') ? Number(url.searchParams.get('last')) : undefined;
 
       const events = await fileStore.query({ service, traceId, type, since, before, last });
       return json(res, 200, { events });
@@ -235,9 +244,9 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       }
 
       // Add cookies
-      const cookies = attrs['http.request.cookies'] ?? attrs['cookie'];
+      const cookies = attrs['http.request.cookies'] ?? attrs.cookie;
       if (cookies) {
-        headers['cookie'] = String(cookies);
+        headers.cookie = String(cookies);
       }
 
       // Request body
@@ -255,13 +264,18 @@ export function createServer(opts: ServerOptions): Promise<Server> {
         const duration = Date.now() - startTime;
         const responseBody = await response.text();
         const responseHeaders: Record<string, string> = {};
-        response.headers.forEach((v, k) => { responseHeaders[k] = v; });
+        response.headers.forEach((v, k) => {
+          responseHeaders[k] = v;
+        });
 
         return json(res, 200, {
           status: response.status,
           statusText: response.statusText,
           headers: responseHeaders,
-          body: responseBody.length > 50_000 ? responseBody.slice(0, 50_000) + '\n... (truncated)' : responseBody,
+          body:
+            responseBody.length > 50_000
+              ? `${responseBody.slice(0, 50_000)}\n... (truncated)`
+              : responseBody,
           duration,
           url: targetUrl,
           method,
@@ -291,9 +305,7 @@ export function createServer(opts: ServerOptions): Promise<Server> {
         if (fileStat.isFile()) {
           const ext = extname(filePath);
           const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
-          const cacheControl = ext === '.html'
-            ? 'no-cache'
-            : 'public, max-age=31536000, immutable';
+          const cacheControl = ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable';
           const content = await readFile(filePath);
           res.writeHead(200, {
             'Content-Type': contentType,
@@ -338,7 +350,7 @@ export function createServer(opts: ServerOptions): Promise<Server> {
     // `!service:` filters work after a sidecar restart, before we start serving.
     fileStore
       .services()
-      .then(persisted => {
+      .then((persisted) => {
         for (const name of persisted) services.add(name);
       })
       .catch(() => {

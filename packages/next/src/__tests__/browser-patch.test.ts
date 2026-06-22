@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { getBrowserPatchScript } from '../browser-patch.js';
 
 /**
@@ -58,7 +58,8 @@ function runPatch(opts: {
     __nextdog_patched: false,
     location: { pathname: '/test' },
     addEventListener: (type: string, cb: (e: unknown) => void) => {
-      (listeners[type] ??= []).push(cb);
+      listeners[type] ??= [];
+      listeners[type].push(cb);
     },
     // setInterval is a no-op here; we flush manually.
     setInterval: () => 0,
@@ -103,20 +104,13 @@ function runPatch(opts: {
     `${script}`,
   );
 
-  fn(
-    win,
-    navigatorStub,
-    documentStub,
-    sandboxConsole,
-    BlobStub,
-    (() => 0) as unknown,
-  );
+  fn(win, navigatorStub, documentStub, sandboxConsole, BlobStub, (() => 0) as unknown);
 
   // Drive user console activity through the (now patched) sandbox console.
   opts.drive(sandboxConsole);
 
   // Trigger the registered beforeunload flush.
-  for (const cb of listeners['beforeunload'] ?? []) cb({});
+  for (const cb of listeners.beforeunload ?? []) cb({});
 
   return { logs: flushed };
 }
@@ -152,8 +146,6 @@ describe('browser-patch trace correlation', () => {
   });
 
   it('does not throw and still buffers when document lacks the injected meta', () => {
-    expect(() =>
-      runPatch({ drive: (c) => c.warn('careful') }),
-    ).not.toThrow();
+    expect(() => runPatch({ drive: (c) => c.warn('careful') })).not.toThrow();
   });
 });

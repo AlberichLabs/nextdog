@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  parseFilterTokens,
-  groupFilterTokens,
   composeOrExpression,
-  normalizeExpression,
   type FilterToken,
+  groupFilterTokens,
+  normalizeExpression,
+  parseFilterTokens,
 } from '../filter-query.js';
 
 /** Compact a group into a readable signature for assertions. */
@@ -38,8 +38,16 @@ describe('parseFilterTokens — token extraction', () => {
   });
 
   it('negation via ! or - is captured', () => {
-    expect(parseFilterTokens('!service:noisy')[0]).toMatchObject({ negated: true, key: 'service', value: 'noisy' });
-    expect(parseFilterTokens('-service:noisy')[0]).toMatchObject({ negated: true, key: 'service', value: 'noisy' });
+    expect(parseFilterTokens('!service:noisy')[0]).toMatchObject({
+      negated: true,
+      key: 'service',
+      value: 'noisy',
+    });
+    expect(parseFilterTokens('-service:noisy')[0]).toMatchObject({
+      negated: true,
+      key: 'service',
+      value: 'noisy',
+    });
   });
 
   it('the token after OR carries operator OR', () => {
@@ -67,7 +75,9 @@ describe('groupFilterTokens — OR groups the matcher consumes', () => {
   });
 
   it('`a OR b` → a single OR group', () => {
-    expect(sig(groupFilterTokens('status:ERROR OR statusCode:404'))).toEqual(['status:ERROR OR statusCode:404']);
+    expect(sig(groupFilterTokens('status:ERROR OR statusCode:404'))).toEqual([
+      'status:ERROR OR statusCode:404',
+    ]);
   });
 
   it('mixed `a OR b` then `c` → (a OR b) AND c, i.e. two groups', () => {
@@ -82,7 +92,10 @@ describe('groupFilterTokens — OR groups the matcher consumes', () => {
   });
 
   it('multiple AND tokens → one group each', () => {
-    expect(sig(groupFilterTokens('service:web status:ERROR'))).toEqual(['service:web', 'status:ERROR']);
+    expect(sig(groupFilterTokens('service:web status:ERROR'))).toEqual([
+      'service:web',
+      'status:ERROR',
+    ]);
   });
 });
 
@@ -107,7 +120,9 @@ describe('groupFilterTokens — malformed input handled gracefully', () => {
 
 describe('composeOrExpression', () => {
   it('joins raw tokens with OR, ignoring blanks', () => {
-    expect(composeOrExpression(['status:ERROR', 'statusCode:404'])).toBe('status:ERROR OR statusCode:404');
+    expect(composeOrExpression(['status:ERROR', 'statusCode:404'])).toBe(
+      'status:ERROR OR statusCode:404',
+    );
     expect(composeOrExpression(['a', '', '  ', 'b'])).toBe('a OR b');
   });
 
@@ -130,7 +145,9 @@ describe('normalizeExpression — what the UI commits on Enter', () => {
   });
 
   it('collapses internal whitespace', () => {
-    expect(normalizeExpression('status:ERROR    OR    statusCode:404')).toBe('status:ERROR OR statusCode:404');
+    expect(normalizeExpression('status:ERROR    OR    statusCode:404')).toBe(
+      'status:ERROR OR statusCode:404',
+    );
   });
 
   it('a lone operator normalizes to empty', () => {

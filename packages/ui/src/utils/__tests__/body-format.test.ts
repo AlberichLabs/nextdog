@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { formatBody, buildResponseSection, stripResponseAttributes } from '../body-format.js';
+import { describe, expect, it } from 'vitest';
+import { buildResponseSection, formatBody, stripResponseAttributes } from '../body-format.js';
 
 describe('stripResponseAttributes', () => {
   it('removes http.response.* keys so they do not render twice alongside ResponseSection', () => {
@@ -30,7 +30,7 @@ describe('stripResponseAttributes', () => {
 describe('formatBody', () => {
   it('pretty-prints JSON bodies', () => {
     expect(formatBody('{"a":1,"b":[2,3]}', 'application/json')).toBe(
-      '{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}'
+      '{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}',
     );
   });
 

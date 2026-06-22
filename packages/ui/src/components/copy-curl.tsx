@@ -1,12 +1,17 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { extractHttpMeta } from '../utils/format.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { extractHttpMeta } from '../utils/format.js';
 
 /** Sensitive headers to strip in safe mode */
 const SENSITIVE_HEADERS = new Set([
-  'authorization', 'cookie', 'set-cookie', 'x-csrf-token',
-  'x-api-key', 'x-auth-token', 'proxy-authorization',
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'x-csrf-token',
+  'x-api-key',
+  'x-auth-token',
+  'proxy-authorization',
 ]);
 
 function buildCurl(event: SSEEvent, includeSensitive: boolean): string {
@@ -25,7 +30,7 @@ function buildCurl(event: SSEEvent, includeSensitive: boolean): string {
   }
 
   // Add cookies if present and in full mode
-  const cookies = attrs['http.request.cookies'] ?? attrs['cookie'];
+  const cookies = attrs['http.request.cookies'] ?? attrs.cookie;
   if (cookies && includeSensitive) {
     parts.push(`  -b '${String(cookies)}'`);
   } else if (cookies && !includeSensitive) {
@@ -86,12 +91,15 @@ interface CopyCurlProps {
 export function CopyCurl({ event }: CopyCurlProps) {
   const [copied, setCopied] = useState<'safe' | 'full' | null>(null);
 
-  const copy = useCallback(async (mode: 'safe' | 'full') => {
-    const curl = buildCurl(event, mode === 'full');
-    await navigator.clipboard.writeText(curl);
-    setCopied(mode);
-    setTimeout(() => setCopied(null), 2000);
-  }, [event]);
+  const copy = useCallback(
+    async (mode: 'safe' | 'full') => {
+      const curl = buildCurl(event, mode === 'full');
+      await navigator.clipboard.writeText(curl);
+      setCopied(mode);
+      setTimeout(() => setCopied(null), 2000);
+    },
+    [event],
+  );
 
   return (
     <div className={styles.wrapper}>

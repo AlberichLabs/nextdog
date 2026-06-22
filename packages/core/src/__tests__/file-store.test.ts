@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { FileStore } from '../file-store.js';
-import { mkdtemp, rm, readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { FileStore } from '../file-store.js';
 import type { NextDogEvent } from '../types.js';
 
 const makeEvent = (id: number, serviceName = 'test'): NextDogEvent => ({
@@ -36,7 +36,7 @@ const makeLog = (id: number, serviceName = 'test'): NextDogEvent => ({
 // Serialize the way FileStore does (BigInt -> "<n>n" strings) so test fixtures
 // written directly to disk round-trip through the store's deserializer.
 const line = (event: NextDogEvent): string =>
-  JSON.stringify(event, (_k, v) => (typeof v === 'bigint' ? v.toString() + 'n' : v));
+  JSON.stringify(event, (_k, v) => (typeof v === 'bigint' ? `${v.toString()}n` : v));
 
 describe('FileStore', () => {
   let dir: string;
@@ -68,11 +68,7 @@ describe('FileStore', () => {
 
   it('reads events back with query filters', async () => {
     const store = new FileStore(dir);
-    await store.flush([
-      makeEvent(1, 'app-a'),
-      makeEvent(2, 'app-b'),
-      makeEvent(3, 'app-a'),
-    ]);
+    await store.flush([makeEvent(1, 'app-a'), makeEvent(2, 'app-b'), makeEvent(3, 'app-a')]);
 
     const all = await store.query({});
     expect(all).toHaveLength(3);
@@ -96,11 +92,11 @@ describe('FileStore', () => {
 
     const spans = await store.query({ type: 'span' });
     expect(spans).toHaveLength(2);
-    expect(spans.every(e => e.type === 'span')).toBe(true);
+    expect(spans.every((e) => e.type === 'span')).toBe(true);
 
     const logs = await store.query({ type: 'log' });
     expect(logs).toHaveLength(2);
-    expect(logs.every(e => e.type === 'log')).toBe(true);
+    expect(logs.every((e) => e.type === 'log')).toBe(true);
   });
 
   it('filters by since (timestamp, inclusive of newer)', async () => {
@@ -109,7 +105,7 @@ describe('FileStore', () => {
 
     const result = await store.query({ since: 2 });
     // since is exclusive — only events strictly newer than 2
-    expect(result.map(e => e.timestamp)).toEqual([3]);
+    expect(result.map((e) => e.timestamp)).toEqual([3]);
   });
 
   it('filters by before (timestamp, for load-older paging)', async () => {
@@ -117,7 +113,7 @@ describe('FileStore', () => {
     await store.flush([makeEvent(1), makeEvent(2), makeEvent(3)]);
 
     const result = await store.query({ before: 3 });
-    expect(result.map(e => e.timestamp)).toEqual([1, 2]);
+    expect(result.map((e) => e.timestamp)).toEqual([1, 2]);
   });
 
   it('returns distinct service names via services()', async () => {
@@ -145,24 +141,24 @@ describe('FileStore', () => {
     await mkdir(dir, { recursive: true });
     await writeFile(
       join(dir, '2026-01-01-00.ndjson'),
-      [
+      `${[
         line(makeEvent(1, 'app-a')),
-        'not valid json at all',          // unparseable
-        '42',                              // parses, but not an object
-        'null',                            // parses to null
-        '{"type":"span"}',                 // object, but missing data/timestamp
+        'not valid json at all', // unparseable
+        '42', // parses, but not an object
+        'null', // parses to null
+        '{"type":"span"}', // object, but missing data/timestamp
         '{"type":"mystery","timestamp":9,"data":{"serviceName":"x"}}', // unknown type
         line(makeLog(2, 'app-b')),
-        '',                                // blank line
-      ].join('\n') + '\n',
-      'utf-8'
+        '', // blank line
+      ].join('\n')}\n`,
+      'utf-8',
     );
 
     const store = new FileStore(dir);
     const all = await store.query({});
     // Only the two well-formed events survive.
-    expect(all.map(e => e.type).sort()).toEqual(['log', 'span']);
-    expect(all.map(e => e.data.serviceName).sort()).toEqual(['app-a', 'app-b']);
+    expect(all.map((e) => e.type).sort()).toEqual(['log', 'span']);
+    expect(all.map((e) => e.data.serviceName).sort()).toEqual(['app-a', 'app-b']);
   });
 
   it('tolerates old-shape lines missing newer optional fields', async () => {
@@ -184,7 +180,7 @@ describe('FileStore', () => {
         serviceName: 'legacy',
       },
     };
-    await writeFile(join(dir, '2026-01-01-00.ndjson'), JSON.stringify(oldSpan) + '\n', 'utf-8');
+    await writeFile(join(dir, '2026-01-01-00.ndjson'), `${JSON.stringify(oldSpan)}\n`, 'utf-8');
 
     const store = new FileStore(dir);
     const all = await store.query({});
@@ -196,14 +192,14 @@ describe('FileStore', () => {
     await mkdir(dir, { recursive: true });
     await writeFile(
       join(dir, '2026-01-01-00.ndjson'),
-      [
+      `${[
         line(makeEvent(1, 'app-a')),
         'garbage',
         'null',
         '{"type":"span","timestamp":2}', // no data → no serviceName
         line(makeLog(2, 'worker')),
-      ].join('\n') + '\n',
-      'utf-8'
+      ].join('\n')}\n`,
+      'utf-8',
     );
 
     const store = new FileStore(dir);

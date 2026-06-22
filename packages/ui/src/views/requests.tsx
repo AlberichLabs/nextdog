@@ -1,18 +1,18 @@
-import { useMemo, useState, useEffect, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { ServicePills } from '../components/service-pills.js';
-import { SearchBar } from '../components/search-bar.js';
 import { ColumnPicker } from '../components/column-picker.js';
+import { attrContextActions, showContextMenu } from '../components/context-menu.js';
 import { SavedSearches, useSavedSearches } from '../components/saved-searches.js';
+import { SearchBar } from '../components/search-bar.js';
+import { ServicePills } from '../components/service-pills.js';
 import { SortIndicator } from '../components/sort-indicator.js';
-import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useColumnResize } from '../hooks/use-column-resize.js';
-import { useVirtualList } from '../hooks/use-virtual-list.js';
-import { showContextMenu, attrContextActions } from '../components/context-menu.js';
-import { formatTime, formatDurationMs, spanDurationMs, extractHttpMeta } from '../utils/format.js';
-import { pillStyle, pillActiveStyle, emptyStyle, colHeaderStyle, colResizeStyle, toolbarStyle, mlAutoStyle } from '../styles/shared.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
 import type { UseEventsResult } from '../hooks/use-events.js';
+import { useKeyboard } from '../hooks/use-keyboard.js';
+import type { SSEEvent } from '../hooks/use-sse.js';
+import { useVirtualList } from '../hooks/use-virtual-list.js';
+import { colHeaderStyle, colResizeStyle, emptyStyle } from '../styles/shared.js';
+import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format.js';
 
 interface RequestGroup {
   traceId: string;
@@ -59,7 +59,9 @@ function loadCustomColumns(): ColumnDef[] {
 }
 
 function saveCustomColumns(cols: ColumnDef[]) {
-  try { localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(cols)); } catch {}
+  try {
+    localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(cols));
+  } catch {}
 }
 
 function groupByTrace(events: SSEEvent[], customColumns: ColumnDef[]): RequestGroup[] {
@@ -71,31 +73,54 @@ function groupByTrace(events: SSEEvent[], customColumns: ColumnDef[]): RequestGr
     groups.get(traceId)!.push(event);
   }
 
-  return [...groups.entries()].map(([traceId, spans]) => {
-    const rootSpan = spans.find((s) => s.data.kind === 'SERVER' && !s.data.parentSpanId) ?? spans[0];
-    const { method, route: routePath } = extractHttpMeta(rootSpan.data.attributes, rootSpan.data.name);
-    const statusCode = rootSpan.data.status?.code ?? 'OK';
-    const httpCode = (rootSpan.data as any).statusCode ?? (Number(rootSpan.data.attributes['http.status_code']) || undefined);
-    const durationMs = spanDurationMs(rootSpan);
-    const duration = formatDurationMs(durationMs);
+  return [...groups.entries()]
+    .map(([traceId, spans]) => {
+      const rootSpan =
+        spans.find((s) => s.data.kind === 'SERVER' && !s.data.parentSpanId) ?? spans[0];
+      const { method, route: routePath } = extractHttpMeta(
+        rootSpan.data.attributes,
+        rootSpan.data.name,
+      );
+      const statusCode = rootSpan.data.status?.code ?? 'OK';
+      const httpCode =
+        (rootSpan.data as any).statusCode ??
+        (Number(rootSpan.data.attributes['http.status_code']) || undefined);
+      const durationMs = spanDurationMs(rootSpan);
+      const duration = formatDurationMs(durationMs);
 
-    // Extract custom column values
-    const extraAttrs: Record<string, string> = {};
-    for (const col of customColumns) {
-      if (col.attrKey) {
-        const val = rootSpan.data.attributes[col.attrKey];
-        extraAttrs[col.id] = val != null ? String(val) : '';
+      // Extract custom column values
+      const extraAttrs: Record<string, string> = {};
+      for (const col of customColumns) {
+        if (col.attrKey) {
+          const val = rootSpan.data.attributes[col.attrKey];
+          extraAttrs[col.id] = val != null ? String(val) : '';
+        }
       }
-    }
 
-    return { traceId, method, routePath, status: statusCode, httpCode, duration, durationMs, serviceName: rootSpan.data.serviceName, spans, timestamp: rootSpan.timestamp, extraAttrs };
-  }).reverse();
+      return {
+        traceId,
+        method,
+        routePath,
+        status: statusCode,
+        httpCode,
+        duration,
+        durationMs,
+        serviceName: rootSpan.data.serviceName,
+        spans,
+        timestamp: rootSpan.timestamp,
+        extraAttrs,
+      };
+    })
+    .reverse();
 }
 
 /** Compute percentile thresholds from durations */
 function computePercentiles(groups: RequestGroup[]): { p50: number; p90: number; p99: number } {
   if (groups.length === 0) return { p50: 0, p90: 0, p99: 0 };
-  const sorted = groups.map((g) => g.durationMs).filter((d) => d > 0).sort((a, b) => a - b);
+  const sorted = groups
+    .map((g) => g.durationMs)
+    .filter((d) => d > 0)
+    .sort((a, b) => a - b);
   if (sorted.length === 0) return { p50: 0, p90: 0, p99: 0 };
   const at = (p: number) => sorted[Math.min(Math.floor(sorted.length * p), sorted.length - 1)];
   return { p50: at(0.5), p90: at(0.9), p99: at(0.99) };
@@ -109,7 +134,8 @@ type SortDir = 'asc' | 'desc';
 const requestRowStyle = css({
   display: 'grid',
   gap: '2',
-  py: '1.5', px: '4',
+  py: '1.5',
+  px: '4',
   borderBottom: '1px solid token(colors.border.subtle)',
   alignItems: 'center',
   cursor: 'pointer',
@@ -133,7 +159,8 @@ const requestRowHeaderStyle = css({
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   color: 'fg.dim',
-  py: '1', px: '4',
+  py: '1',
+  px: '4',
   borderBottom: '1px solid token(colors.border.subtle)',
   background: 'surface.panel',
   position: 'sticky',
@@ -186,7 +213,8 @@ const httpStatusStyle = css({
   fontWeight: '600',
   fontSize: 'sm',
   textAlign: 'center',
-  py: '1px', px: '1',
+  py: '1px',
+  px: '1',
   borderRadius: 'sm',
 });
 
@@ -289,13 +317,24 @@ interface RequestsProps {
 }
 
 export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
-  const { filtered, services, activeServices, toggleService, setServices, searchQuery, setSearchQuery } = eventsResult;
+  const {
+    filtered,
+    services,
+    activeServices,
+    toggleService,
+    setServices,
+    searchQuery,
+    setSearchQuery,
+  } = eventsResult;
   const { recordRecent } = useSavedSearches();
 
-  const applySearch = useCallback((query: string, svcs: string[]) => {
-    setSearchQuery(query);
-    setServices(svcs);
-  }, [setSearchQuery, setServices]);
+  const applySearch = useCallback(
+    (query: string, svcs: string[]) => {
+      setSearchQuery(query);
+      setServices(svcs);
+    },
+    [setSearchQuery, setServices],
+  );
 
   // Record the active filter in the recent ring once it settles (debounced so
   // we capture searches the user actually ran, not every keystroke). De-dupe
@@ -312,10 +351,33 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [customColumns, setCustomColumns] = useState<ColumnDef[]>(loadCustomColumns);
 
+  // TODO(parked 2026-06-22): `allColumns` (and its input `CORE_COLUMNS`) are an
+  // unwired column-customization feature — computed but never rendered. Biome flags
+  // it as dead; suppressed rather than ripple-deleted here to avoid a feature-removal
+  // refactor inside a lint-adoption PR. See memos/parked-questions.md.
+  // biome-ignore lint/correctness/noUnusedVariables: unwired feature, see TODO above
   const allColumns = useMemo(() => [...CORE_COLUMNS, ...customColumns], [customColumns]);
 
   // Built-in fields already shown as core columns
-  const BUILTIN_FIELDS = new Set(['http.method', 'http.request.method', 'http.route', 'http.target', 'http.status_code', 'http.response.status_code', 'runtime', 'level', 'message', 'service', 'serviceName', 'traceId', 'spanId', 'timestamp', 'kind', 'name', 'type']);
+  const BUILTIN_FIELDS = new Set([
+    'http.method',
+    'http.request.method',
+    'http.route',
+    'http.target',
+    'http.status_code',
+    'http.response.status_code',
+    'runtime',
+    'level',
+    'message',
+    'service',
+    'serviceName',
+    'traceId',
+    'spanId',
+    'timestamp',
+    'kind',
+    'name',
+    'type',
+  ]);
 
   // Discover available attribute keys from the events for the column picker
   const availableAttrs = useMemo(() => {
@@ -336,7 +398,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
 
   const toggleSort = (field: SortField) => {
     if (sortBy === field) {
-      setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortBy(field);
       setSortDir(field === 'time' ? 'desc' : 'asc');
@@ -348,18 +410,25 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     const dir = sortDir === 'asc' ? 1 : -1;
     g.sort((a, b) => {
       switch (sortBy) {
-        case 'time': return (a.timestamp - b.timestamp) * dir;
-        case 'method': return a.method.localeCompare(b.method) * dir;
-        case 'route': return a.routePath.localeCompare(b.routePath) * dir;
-        case 'status': return ((a.httpCode ?? 0) - (b.httpCode ?? 0)) * dir;
-        case 'duration': return (a.durationMs - b.durationMs) * dir;
-        case 'service': return a.serviceName.localeCompare(b.serviceName) * dir;
+        case 'time':
+          return (a.timestamp - b.timestamp) * dir;
+        case 'method':
+          return a.method.localeCompare(b.method) * dir;
+        case 'route':
+          return a.routePath.localeCompare(b.routePath) * dir;
+        case 'status':
+          return ((a.httpCode ?? 0) - (b.httpCode ?? 0)) * dir;
+        case 'duration':
+          return (a.durationMs - b.durationMs) * dir;
+        case 'service':
+          return a.serviceName.localeCompare(b.serviceName) * dir;
         default: {
           // Custom column sort
           const av = a.extraAttrs[sortBy] ?? '';
           const bv = b.extraAttrs[sortBy] ?? '';
-          const an = Number(av), bn = Number(bv);
-          if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
+          const an = Number(av),
+            bn = Number(bv);
+          if (!Number.isNaN(an) && !Number.isNaN(bn)) return (an - bn) * dir;
           return av.localeCompare(bv) * dir;
         }
       }
@@ -404,45 +473,63 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     saveCustomColumns(next);
   };
 
-  const activeColumnKeys = useMemo(() => new Set(customColumns.map((c) => c.attrKey)), [customColumns]);
+  const activeColumnKeys = useMemo(
+    () => new Set(customColumns.map((c) => c.attrKey)),
+    [customColumns],
+  );
 
-  const handleCellContext = useCallback((e: MouseEvent, key: string, value: string) => {
-    e.preventDefault();
-    const actions = attrContextActions(key, value, {
-      onFilter: (q) => setSearchQuery((prev) => prev ? `${prev} ${q}` : q),
-      onAddColumn: (k) => addColumn(k),
-      onRemoveColumn: (k) => {
-        const col = customColumns.find((c) => c.attrKey === k);
-        if (col) removeColumn(col.id);
-      },
-      isColumnActive: activeColumnKeys.has(key),
-    });
-    showContextMenu(e.clientX, e.clientY, actions);
-  }, [setSearchQuery, addColumn, removeColumn, customColumns, activeColumnKeys]);
+  const handleCellContext = useCallback(
+    (e: MouseEvent, key: string, value: string) => {
+      e.preventDefault();
+      const actions = attrContextActions(key, value, {
+        onFilter: (q) => setSearchQuery((prev) => (prev ? `${prev} ${q}` : q)),
+        onAddColumn: (k) => addColumn(k),
+        onRemoveColumn: (k) => {
+          const col = customColumns.find((c) => c.attrKey === k);
+          if (col) removeColumn(col.id);
+        },
+        isColumnActive: activeColumnKeys.has(key),
+      });
+      showContextMenu(e.clientX, e.clientY, actions);
+    },
+    [setSearchQuery, addColumn, removeColumn, customColumns, activeColumnKeys],
+  );
 
   // Draggable column widths
-  const columnConfigs = useMemo(() => [
-    { id: 'time', defaultWidth: 75 },
-    { id: 'method', defaultWidth: 55 },
-    { id: 'route', defaultWidth: 0 }, // 0 = flex (1fr)
-    { id: 'status', defaultWidth: 50 },
-    { id: 'duration', defaultWidth: 75 },
-    { id: 'service', defaultWidth: 90 },
-    ...customColumns.map((col) => ({ id: col.id, defaultWidth: 120 })),
-  ], [customColumns]);
+  const columnConfigs = useMemo(
+    () => [
+      { id: 'time', defaultWidth: 75 },
+      { id: 'method', defaultWidth: 55 },
+      { id: 'route', defaultWidth: 0 }, // 0 = flex (1fr)
+      { id: 'status', defaultWidth: 50 },
+      { id: 'duration', defaultWidth: 75 },
+      { id: 'service', defaultWidth: 90 },
+      ...customColumns.map((col) => ({ id: col.id, defaultWidth: 120 })),
+    ],
+    [customColumns],
+  );
 
   const { gridTemplate, startResize } = useColumnResize('requests', columnConfigs);
 
   return (
     <>
-      <ServicePills services={services} active={activeServices} onToggle={toggleService} events={filtered} />
+      <ServicePills
+        services={services}
+        active={activeServices}
+        onToggle={toggleService}
+        events={filtered}
+      />
       <SearchBar
         value={searchQuery}
         onChange={setSearchQuery}
         events={filtered}
         rightSlot={
           <>
-            <SavedSearches query={searchQuery} services={[...activeServices]} onApply={applySearch} />
+            <SavedSearches
+              query={searchQuery}
+              services={[...activeServices]}
+              onApply={applySearch}
+            />
             <ColumnPicker
               customColumns={customColumns}
               availableAttrs={availableAttrs}
@@ -454,7 +541,10 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
       />
 
       {/* Column headers — click to sort, drag edge to resize */}
-      <div className={`${requestRowStyle} ${requestRowHeaderStyle}`} style={{ gridTemplateColumns: gridTemplate }}>
+      <div
+        className={`${requestRowStyle} ${requestRowHeaderStyle}`}
+        style={{ gridTemplateColumns: gridTemplate }}
+      >
         {[
           { id: 'time', label: 'Time' },
           { id: 'method', label: 'Method' },
@@ -465,15 +555,36 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
           ...customColumns.map((col) => ({ id: col.id, label: col.label })),
         ].map((col) => (
           <span key={col.id} className={colHeaderStyle} onClick={() => toggleSort(col.id)}>
-            {col.label}<SortIndicator field={col.id} sortBy={sortBy} sortDir={sortDir} />
-            <span className={colResizeStyle} onPointerDown={(e: PointerEvent) => { e.stopPropagation(); startResize(col.id, e.clientX); }} />
+            {col.label}
+            <SortIndicator field={col.id} sortBy={sortBy} sortDir={sortDir} />
+            <span
+              className={colResizeStyle}
+              onPointerDown={(e: PointerEvent) => {
+                e.stopPropagation();
+                startResize(col.id, e.clientX);
+              }}
+            />
           </span>
         ))}
       </div>
 
-      <div ref={scrollRef} onScroll={onScroll} className={css({ flex: 1, overflowY: 'auto', overflowX: 'hidden', fontFamily: 'mono', fontSize: 'md' })}>
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className={css({
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          fontFamily: 'mono',
+          fontSize: 'md',
+        })}
+      >
         {groups.length === 0 ? (
-          <div className={emptyStyle}>{searchQuery || activeServices.size > 0 ? 'No requests match this filter' : 'No requests yet'}</div>
+          <div className={emptyStyle}>
+            {searchQuery || activeServices.size > 0
+              ? 'No requests match this filter'
+              : 'No requests yet'}
+          </div>
         ) : (
           <>
             {range.paddingTop > 0 && <div style={{ height: `${range.paddingTop}px` }} />}
@@ -485,20 +596,69 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
                   ref={j === 0 ? rowRef : undefined}
                   className={`${requestRowStyle} ${i === selectedIndex ? requestRowSelectedStyle : ''}`}
                   style={{ gridTemplateColumns: gridTemplate }}
-                  onClick={() => { setSelectedIndex(i); onOpenTrace?.(group.traceId); }}
+                  onClick={() => {
+                    setSelectedIndex(i);
+                    onOpenTrace?.(group.traceId);
+                  }}
                 >
                   <span className={timestampStyle}>{formatTime(group.timestamp)}</span>
-                  <span className={getMethodClassName(group.method)} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'http.method', group.method)}>{group.method}</span>
-                  <span className={routeStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'route', group.routePath)}>{group.routePath}</span>
+                  <span
+                    className={getMethodClassName(group.method)}
+                    onContextMenu={(e: MouseEvent) =>
+                      handleCellContext(e, 'http.method', group.method)
+                    }
+                  >
+                    {group.method}
+                  </span>
+                  <span
+                    className={routeStyle}
+                    onContextMenu={(e: MouseEvent) =>
+                      handleCellContext(e, 'route', group.routePath)
+                    }
+                  >
+                    {group.routePath}
+                  </span>
                   {group.httpCode ? (
-                    <span className={getHttpStatusClassName(group.httpCode)} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'statusCode', String(group.httpCode))}>{group.httpCode}</span>
+                    <span
+                      className={getHttpStatusClassName(group.httpCode)}
+                      onContextMenu={(e: MouseEvent) =>
+                        handleCellContext(e, 'statusCode', String(group.httpCode))
+                      }
+                    >
+                      {group.httpCode}
+                    </span>
                   ) : (
-                    <span className={group.status === 'ERROR' ? statusErrorStyle : statusOkStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'status', group.status)}>{group.status}</span>
+                    <span
+                      className={group.status === 'ERROR' ? statusErrorStyle : statusOkStyle}
+                      onContextMenu={(e: MouseEvent) =>
+                        handleCellContext(e, 'status', group.status)
+                      }
+                    >
+                      {group.status}
+                    </span>
                   )}
-                  <span className={getDurationClassName(group.durationMs, percentiles)}>{group.duration}</span>
-                  <span className={serviceStyle} onContextMenu={(e: MouseEvent) => handleCellContext(e, 'service', group.serviceName)}>{group.serviceName}</span>
+                  <span className={getDurationClassName(group.durationMs, percentiles)}>
+                    {group.duration}
+                  </span>
+                  <span
+                    className={serviceStyle}
+                    onContextMenu={(e: MouseEvent) =>
+                      handleCellContext(e, 'service', group.serviceName)
+                    }
+                  >
+                    {group.serviceName}
+                  </span>
                   {customColumns.map((col) => (
-                    <span key={col.id} className={customColStyle} title={group.extraAttrs[col.id]} onContextMenu={(e: MouseEvent) => handleCellContext(e, col.attrKey, group.extraAttrs[col.id])}>{group.extraAttrs[col.id] || '—'}</span>
+                    <span
+                      key={col.id}
+                      className={customColStyle}
+                      title={group.extraAttrs[col.id]}
+                      onContextMenu={(e: MouseEvent) =>
+                        handleCellContext(e, col.attrKey, group.extraAttrs[col.id])
+                      }
+                    >
+                      {group.extraAttrs[col.id] || '—'}
+                    </span>
                   ))}
                 </div>
               );

@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach, beforeAll } from 'vitest';
-import { trace, context, TraceFlags, type Context, type ContextManager } from '@opentelemetry/api';
+import { type Context, type ContextManager, context, TraceFlags, trace } from '@opentelemetry/api';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 /**
  * Minimal synchronous context manager so trace.setSpan/getActiveSpan work in a
@@ -9,7 +9,11 @@ import { trace, context, TraceFlags, type Context, type ContextManager } from '@
 class SyncContextManager implements ContextManager {
   private _stack: Context[] = [];
   active(): Context {
-    return this._stack[this._stack.length - 1] ?? (context as unknown as { _getRoot?: () => Context })._getRoot?.() ?? rootCtx;
+    return (
+      this._stack[this._stack.length - 1] ??
+      (context as unknown as { _getRoot?: () => Context })._getRoot?.() ??
+      rootCtx
+    );
   }
   with<A extends unknown[], F extends (...args: A) => ReturnType<F>>(
     ctx: Context,

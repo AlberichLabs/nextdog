@@ -1,4 +1,4 @@
-import { defineNuxtModule, addServerPlugin, createResolver } from '@nuxt/kit';
+import { addServerPlugin, createResolver, defineNuxtModule } from '@nuxt/kit';
 
 export interface NextDogOptions {
   serviceName?: string;

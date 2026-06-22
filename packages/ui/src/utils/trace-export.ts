@@ -90,7 +90,10 @@ export function parseImport(text: string): ParseResult {
   try {
     parsed = JSON.parse(text);
   } catch {
-    return { ok: false, error: 'Could not parse the file — it is not valid JSON (malformed or truncated).' };
+    return {
+      ok: false,
+      error: 'Could not parse the file — it is not valid JSON (malformed or truncated).',
+    };
   }
 
   if (typeof parsed !== 'object' || parsed === null) {

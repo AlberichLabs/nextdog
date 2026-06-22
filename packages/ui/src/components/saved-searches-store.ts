@@ -146,7 +146,10 @@ export class SavedSearchStore {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((s): s is Record<string, unknown> => typeof s === 'object' && s !== null)
-      .filter((s) => typeof s.id === 'string' && typeof s.name === 'string' && typeof s.query === 'string')
+      .filter(
+        (s) =>
+          typeof s.id === 'string' && typeof s.name === 'string' && typeof s.query === 'string',
+      )
       .map((s) => ({
         id: s.id as string,
         name: s.name as string,

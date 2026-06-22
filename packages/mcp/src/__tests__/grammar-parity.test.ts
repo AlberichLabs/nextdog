@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { matchesQuery } from '../matcher.js';
+import { describe, expect, it } from 'vitest';
 import { groupFilterTokens } from '../filter-query.js';
+import { matchesQuery } from '../matcher.js';
 import { ALL_EVENTS } from './fixtures.js';
 
 /**
@@ -28,9 +28,7 @@ describe('grammar grouping parity', () => {
   });
 
   it('a leading OR starts a fresh group rather than matching nothing', () => {
-    expect(groupFilterTokens('OR a')).toEqual([
-      [expect.objectContaining({ value: 'a' })],
-    ]);
+    expect(groupFilterTokens('OR a')).toEqual([[expect.objectContaining({ value: 'a' })]]);
   });
 });
 
@@ -80,7 +78,7 @@ describe('matcher parity', () => {
   it('status:ERROR matches spans by status code field', () => {
     const r = run('status:ERROR');
     expect(r.map((e) => e.data.spanId).sort()).toEqual(
-      ['payments-charge', 'web-checkout-root'].sort()
+      ['payments-charge', 'web-checkout-root'].sort(),
     );
   });
 });

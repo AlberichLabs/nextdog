@@ -19,10 +19,7 @@ export function Sparkline({ events }: { events: SSEEvent[] }) {
     for (const event of events) {
       const t = event.timestamp;
       if (t < start) continue;
-      const idx = Math.min(
-        Math.floor((t - start) / bucketSize),
-        BUCKET_COUNT - 1,
-      );
+      const idx = Math.min(Math.floor((t - start) / bucketSize), BUCKET_COUNT - 1);
       buckets[idx]++;
     }
 
@@ -44,17 +41,8 @@ export function Sparkline({ events }: { events: SSEEvent[] }) {
 
   return (
     <svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`}>
-      <polygon
-        points={areaPoints}
-        fill={greenColor}
-        opacity={0.1}
-      />
-      <polyline
-        points={polylinePoints}
-        fill="none"
-        stroke={greenColor}
-        stroke-width="1.5"
-      />
+      <polygon points={areaPoints} fill={greenColor} opacity={0.1} />
+      <polyline points={polylinePoints} fill="none" stroke={greenColor} stroke-width="1.5" />
     </svg>
   );
 }

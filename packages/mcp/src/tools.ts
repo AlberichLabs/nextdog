@@ -57,9 +57,7 @@ export interface TraceSummary {
 function summarizeTrace(traceId: string, spans: SpanEvent[]): TraceSummary {
   // Prefer the root (no parent) SERVER span; fall back to the earliest.
   const sorted = [...spans].sort((a, b) => a.timestamp - b.timestamp);
-  const root =
-    sorted.find((s) => !s.data.parentSpanId) ??
-    sorted[0];
+  const root = sorted.find((s) => !s.data.parentSpanId) ?? sorted[0];
   return {
     traceId,
     rootName: root?.data.name,
@@ -104,12 +102,10 @@ export interface ListRecentTracesArgs {
  */
 export async function listRecentTraces(
   client: SidecarClient,
-  args: ListRecentTracesArgs = {}
+  args: ListRecentTracesArgs = {},
 ): Promise<{ traces: TraceSummary[] }> {
   const since =
-    args.withinMinutes !== undefined
-      ? Date.now() - args.withinMinutes * 60_000
-      : undefined;
+    args.withinMinutes !== undefined ? Date.now() - args.withinMinutes * 60_000 : undefined;
 
   const events = await client.events({ type: 'span', service: args.service, since });
   const spans = events.filter(isSpan);
@@ -125,8 +121,7 @@ export async function listRecentTraces(
     const wanted = args.status.toLowerCase();
     summaries = summaries.filter(
       (t) =>
-        (t.status ?? '').toLowerCase() === wanted ||
-        String(t.statusCode ?? '') === args.status
+        (t.status ?? '').toLowerCase() === wanted || String(t.statusCode ?? '') === args.status,
     );
   }
   if (args.errorsOnly) {
@@ -238,10 +233,10 @@ export interface GetTraceResult {
  */
 export async function getTrace(
   client: SidecarClient,
-  args: { traceId: string }
+  args: { traceId: string },
 ): Promise<GetTraceResult> {
   const events = (await client.events({ traceId: args.traceId })).filter(
-    (e) => e.data.traceId === args.traceId
+    (e) => e.data.traceId === args.traceId,
   );
   const spans = events.filter(isSpan);
   const logs = events.filter(isLog);
@@ -278,11 +273,9 @@ export interface SearchLogsArgs {
  */
 export async function searchLogs(
   client: SidecarClient,
-  args: SearchLogsArgs = {}
+  args: SearchLogsArgs = {},
 ): Promise<{ results: SidecarEvent[]; count: number }> {
-  const events = await client.events(
-    args.includeSpans ? {} : { type: 'log' }
-  );
+  const events = await client.events(args.includeSpans ? {} : { type: 'log' });
   const filter = args.filter ?? '';
   const matched = events
     .filter((e) => matchesQuery(e, filter))
@@ -307,11 +300,7 @@ export interface ErrorSpanSummary {
 
 function stackTrace(span: SpanEvent): string | undefined {
   const a = span.data.attributes;
-  const s =
-    a['exception.stacktrace'] ??
-    a['exception.stack'] ??
-    a['error.stack'] ??
-    a['stack'];
+  const s = a['exception.stacktrace'] ?? a['exception.stack'] ?? a['error.stack'] ?? a.stack;
   return s === undefined ? undefined : String(s);
 }
 
@@ -321,29 +310,29 @@ function stackTrace(span: SpanEvent): string | undefined {
  */
 export async function getErrors(
   client: SidecarClient,
-  args: { service?: string; withinMinutes?: number; limit?: number } = {}
+  args: { service?: string; withinMinutes?: number; limit?: number } = {},
 ): Promise<{ errors: ErrorSpanSummary[] }> {
   const since =
-    args.withinMinutes !== undefined
-      ? Date.now() - args.withinMinutes * 60_000
-      : undefined;
+    args.withinMinutes !== undefined ? Date.now() - args.withinMinutes * 60_000 : undefined;
   const events = await client.events({ type: 'span', service: args.service, since });
   const errors = events
     .filter(isSpan)
     .filter(isErrorSpan)
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, args.limit ?? DEFAULT_LIMIT)
-    .map((s): ErrorSpanSummary => ({
-      traceId: s.data.traceId,
-      spanId: s.data.spanId,
-      name: s.data.name,
-      service: s.data.serviceName,
-      route: route(s),
-      statusCode: statusCode(s),
-      status: s.data.status?.code,
-      message: s.data.status?.message,
-      stack: stackTrace(s),
-      timestamp: s.timestamp,
-    }));
+    .map(
+      (s): ErrorSpanSummary => ({
+        traceId: s.data.traceId,
+        spanId: s.data.spanId,
+        name: s.data.name,
+        service: s.data.serviceName,
+        route: route(s),
+        statusCode: statusCode(s),
+        status: s.data.status?.code,
+        message: s.data.status?.message,
+        stack: stackTrace(s),
+        timestamp: s.timestamp,
+      }),
+    );
   return { errors };
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * Cold-start init race regression (QA finding #4).
@@ -57,7 +57,9 @@ describe('withNextDog — cold-start init race', () => {
       NodeTracerProvider: vi.fn().mockImplementation(() => ({ register })),
       BatchSpanProcessor: vi.fn(),
     }));
-    vi.doMock('@opentelemetry/resources', () => ({ Resource: vi.fn().mockImplementation(() => ({})) }));
+    vi.doMock('@opentelemetry/resources', () => ({
+      Resource: vi.fn().mockImplementation(() => ({})),
+    }));
     vi.doMock('@opentelemetry/semantic-conventions', () => ({ ATTR_SERVICE_NAME: 'service.name' }));
     vi.doMock('@nextdog/node/exporter', () => ({ NextDogExporter: vi.fn() }));
     vi.doMock('@nextdog/node/sidecar', () => ({ ensureSidecar }));

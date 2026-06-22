@@ -6,7 +6,13 @@
 // ---------------------------------------------------------------------------
 
 import type { SSEEvent } from '../hooks/use-sse.js';
-import { serializeExport, parseImport, exportFilename, type ExportMeta, type ParseResult } from './trace-export.js';
+import {
+  type ExportMeta,
+  exportFilename,
+  type ParseResult,
+  parseImport,
+  serializeExport,
+} from './trace-export.js';
 
 /** Serialize events and trigger a browser download of the self-contained file. */
 export function downloadExport(events: SSEEvent[], meta: ExportMeta): void {

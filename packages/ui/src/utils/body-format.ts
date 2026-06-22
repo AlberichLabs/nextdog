@@ -33,9 +33,7 @@ export interface CapturedResponse {
  *   http.response.header.{name}     -> string (lowercased header name)
  *   http.response.body              -> string (text/JSON; binary is summarized)
  */
-export function buildResponseSection(
-  attributes: Record<string, unknown>
-): CapturedResponse | null {
+export function buildResponseSection(attributes: Record<string, unknown>): CapturedResponse | null {
   const headerPrefix = 'http.response.header.';
   let status: number | undefined;
   let body: string | undefined;
@@ -67,7 +65,7 @@ export function buildResponseSection(
  * (http.request.*) are intentionally left untouched.
  */
 export function stripResponseAttributes(
-  attributes: Record<string, unknown>
+  attributes: Record<string, unknown>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(attributes)) {

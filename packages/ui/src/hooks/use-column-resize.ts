@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 const STORAGE_KEY_PREFIX = 'nextdog:col-widths:';
 const MIN_WIDTH = 40;
@@ -12,11 +12,15 @@ function loadWidths(viewId: string): Record<string, number> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PREFIX + viewId);
     return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
+  } catch {
+    return {};
+  }
 }
 
 function saveWidths(viewId: string, widths: Record<string, number>) {
-  try { localStorage.setItem(STORAGE_KEY_PREFIX + viewId, JSON.stringify(widths)); } catch {}
+  try {
+    localStorage.setItem(STORAGE_KEY_PREFIX + viewId, JSON.stringify(widths));
+  } catch {}
 }
 
 interface DragState {
@@ -88,40 +92,47 @@ export function useColumnResize(viewId: string, columns: ColumnConfig[]) {
     };
   }, []);
 
-  const startResize = useCallback((colId: string, startX: number) => {
-    const colIndex = columns.findIndex((c) => c.id === colId);
-    const col = columns[colIndex];
-    if (!col) return;
+  const startResize = useCallback(
+    (colId: string, startX: number) => {
+      const colIndex = columns.findIndex((c) => c.id === colId);
+      const col = columns[colIndex];
+      if (!col) return;
 
-    const width = overrides[colId] ?? col.defaultWidth ?? 100;
+      const width = overrides[colId] ?? col.defaultWidth ?? 100;
 
-    // Find the right neighbor (skip flex columns — they adjust automatically)
-    let rightColId: string | null = null;
-    let rightStartWidth = 0;
-    for (let i = colIndex + 1; i < columns.length; i++) {
-      if (columns[i].defaultWidth !== 0) {
-        rightColId = columns[i].id;
-        rightStartWidth = overrides[columns[i].id] ?? columns[i].defaultWidth;
-        break;
+      // Find the right neighbor (skip flex columns — they adjust automatically)
+      let rightColId: string | null = null;
+      let rightStartWidth = 0;
+      for (let i = colIndex + 1; i < columns.length; i++) {
+        if (columns[i].defaultWidth !== 0) {
+          rightColId = columns[i].id;
+          rightStartWidth = overrides[columns[i].id] ?? columns[i].defaultWidth;
+          break;
+        }
       }
-    }
 
-    dragging.current = { colId, rightColId, startX, startWidth: width, rightStartWidth };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, [overrides, columns]);
+      dragging.current = { colId, rightColId, startX, startWidth: width, rightStartWidth };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [overrides, columns],
+  );
 
   const gridTemplate = useMemo(() => {
-    return columns.map((col) => {
-      const w = overrides[col.id] ?? col.defaultWidth;
-      if (col.defaultWidth === 0) return '1fr';
-      return `${w}px`;
-    }).join(' ');
+    return columns
+      .map((col) => {
+        const w = overrides[col.id] ?? col.defaultWidth;
+        if (col.defaultWidth === 0) return '1fr';
+        return `${w}px`;
+      })
+      .join(' ');
   }, [columns, overrides]);
 
   const resetWidths = useCallback(() => {
     setOverrides({});
-    try { localStorage.removeItem(STORAGE_KEY_PREFIX + viewId); } catch {}
+    try {
+      localStorage.removeItem(STORAGE_KEY_PREFIX + viewId);
+    } catch {}
   }, [viewId]);
 
   return { gridTemplate, startResize, resetWidths };

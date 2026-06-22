@@ -1,9 +1,10 @@
 import { css } from 'styled-system/css';
-import { showContextMenu, attrContextActions } from './context-menu.js';
+import { attrContextActions, showContextMenu } from './context-menu.js';
 
 const attrTableStyle = css({
   fontSize: 'md',
-  py: '1', px: '0',
+  py: '1',
+  px: '0',
   width: '100%',
   '& table': {
     width: '100%',
@@ -23,7 +24,8 @@ const attrTableTitleStyle = css({
   fontSize: 'xs',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
-  py: '2', px: '0',
+  py: '2',
+  px: '0',
   marginBottom: '0.5',
 });
 
@@ -32,7 +34,8 @@ const attrKeyStyle = css({
   whiteSpace: 'nowrap',
   fontFamily: 'mono',
   fontSize: 'sm',
-  py: '2', px: '0',
+  py: '2',
+  px: '0',
   paddingRight: '6',
   verticalAlign: 'top',
   width: '1%',
@@ -42,7 +45,8 @@ const attrValueStyle = css({
   color: 'fg',
   fontFamily: 'mono',
   fontSize: 'sm',
-  py: '2', px: '0',
+  py: '2',
+  px: '0',
   wordBreak: 'break-all',
   verticalAlign: 'top',
 });
@@ -96,7 +100,14 @@ function isFilterable(value: unknown): boolean {
   return String(value).length > 0 && String(value).length < 100;
 }
 
-export function AttributeTable({ attributes, title, onFilter, onAddColumn, onRemoveColumn, activeColumns }: AttributeTableProps) {
+export function AttributeTable({
+  attributes,
+  title,
+  onFilter,
+  onAddColumn,
+  onRemoveColumn,
+  activeColumns,
+}: AttributeTableProps) {
   const entries = Object.entries(attributes).filter(([_, v]) => v !== undefined && v !== '');
   if (entries.length === 0) return null;
 

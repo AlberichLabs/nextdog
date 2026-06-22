@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SSEStream } from '../sse-stream.js';
-import { RingBuffer } from '../ring-buffer.js';
-import type { NextDogEvent } from '../types.js';
-import { PassThrough } from 'node:stream';
 import type { ServerResponse } from 'node:http';
+import { PassThrough } from 'node:stream';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RingBuffer } from '../ring-buffer.js';
+import { SSEStream } from '../sse-stream.js';
+import type { NextDogEvent } from '../types.js';
 
 const makeEvent = (id: number): NextDogEvent => ({
   type: 'span',
@@ -52,11 +52,14 @@ describe('SSEStream', () => {
     sse.addClient(res);
 
     // Should have sent 2 backfill events
-    expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({
-      'Content-Type': 'text/event-stream',
-    }));
+    expect(res.writeHead).toHaveBeenCalledWith(
+      200,
+      expect.objectContaining({
+        'Content-Type': 'text/event-stream',
+      }),
+    );
     // Each event = "data: {...}\n\n"
-    const dataChunks = res.chunks.filter(c => c.startsWith('data:'));
+    const dataChunks = res.chunks.filter((c) => c.startsWith('data:'));
     expect(dataChunks).toHaveLength(2);
   });
 
@@ -84,7 +87,7 @@ describe('SSEStream', () => {
 
     sse.broadcast(makeEvent(99));
 
-    const dataChunks = res.chunks.filter(c => c.startsWith('data:'));
+    const dataChunks = res.chunks.filter((c) => c.startsWith('data:'));
     expect(dataChunks).toHaveLength(1);
     expect(dataChunks[0]).toContain('trace-99');
   });

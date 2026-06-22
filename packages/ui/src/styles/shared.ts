@@ -70,7 +70,8 @@ export const colResizeStyle = css({
 
 /** Toolbar row below the search bar */
 export const toolbarStyle = css({
-  py: '1', px: '4',
+  py: '1',
+  px: '4',
   display: 'flex',
   gap: '2',
   alignItems: 'center',
@@ -79,7 +80,9 @@ export const toolbarStyle = css({
 
 /** JSON pre block used in detail panels */
 export const jsonViewStyle = css({
-  mt: '2', mx: '4', mb: '3',
+  mt: '2',
+  mx: '4',
+  mb: '3',
   padding: '3',
   background: 'surface.bg',
   borderRadius: 'sm',

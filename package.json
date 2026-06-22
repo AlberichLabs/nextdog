@@ -5,13 +5,18 @@
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",
-    "lint": "turbo lint"
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check --write ."
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.0",
     "turbo": "^2",
     "typescript": "^5"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

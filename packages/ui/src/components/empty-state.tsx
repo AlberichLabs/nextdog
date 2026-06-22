@@ -73,7 +73,14 @@ export function EmptyState({ connected, everReceived = false, sidecarUrl }: Empt
           NextDog is connected
         </div>
 
-        <div className={css({ fontSize: 'lg', color: 'fg.dim', textAlign: 'center', maxWidth: '420px' })}>
+        <div
+          className={css({
+            fontSize: 'lg',
+            color: 'fg.dim',
+            textAlign: 'center',
+            maxWidth: '420px',
+          })}
+        >
           Make a request to your app to see your first trace.
         </div>
 

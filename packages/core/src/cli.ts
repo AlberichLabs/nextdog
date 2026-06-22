@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { createServer } from './server.js';
-import { homedir } from 'node:os';
-import { join, dirname } from 'node:path';
 import { stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import type { Socket } from 'node:net';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { createServer } from './server.js';
 
 const DEFAULT_PORT = 6789;
 const DEFAULT_DATA_DIR = join(homedir(), '.nextdog', 'data');
@@ -28,7 +28,7 @@ async function main() {
   const port = Number(parsed.port) || DEFAULT_PORT;
   const host = parsed.hostname;
   const dataDir = process.env.NEXTDOG_DATA_DIR ?? DEFAULT_DATA_DIR;
-  const uiDir = process.env.NEXTDOG_UI_DIR ?? await resolveUiDir();
+  const uiDir = process.env.NEXTDOG_UI_DIR ?? (await resolveUiDir());
 
   const server = await createServer({ port, host, dataDir, uiDir });
   console.log(`[nextdog] sidecar running at http://${host}:${port}`);
@@ -75,7 +75,7 @@ async function main() {
   process.on('SIGTERM', shutdown);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('[nextdog] failed to start:', err);
   process.exit(1);
 });

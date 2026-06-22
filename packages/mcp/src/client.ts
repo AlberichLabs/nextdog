@@ -23,12 +23,12 @@ export const DEFAULT_SIDECAR_URL = 'http://localhost:6789';
 export class SidecarUnavailableError extends Error {
   constructor(
     public readonly baseUrl: string,
-    public readonly cause?: unknown
+    public readonly cause?: unknown,
   ) {
     super(
       `Could not reach the NextDog sidecar at ${baseUrl}. ` +
         `Make sure your dev server is running with NextDog enabled (the sidecar ` +
-        `normally starts automatically), or set NEXTDOG_URL to the correct address.`
+        `normally starts automatically), or set NEXTDOG_URL to the correct address.`,
     );
     this.name = 'SidecarUnavailableError';
   }
@@ -121,7 +121,7 @@ export class SidecarClient {
     if (query.last !== undefined) params.set('last', String(query.last));
     const qs = params.toString();
     const body = await this.getJson<{ events?: SidecarEvent[] }>(
-      `/api/events${qs ? `?${qs}` : ''}`
+      `/api/events${qs ? `?${qs}` : ''}`,
     );
     return body.events ?? [];
   }

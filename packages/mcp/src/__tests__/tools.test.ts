@@ -1,11 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { SidecarClient } from '../client.js';
 import { getErrors, getTrace, listRecentTraces, searchLogs } from '../tools.js';
-import {
-  makeFetch,
-  TRACE_ERR,
-  TRACE_OK,
-} from './fixtures.js';
+import { makeFetch, TRACE_ERR, TRACE_OK } from './fixtures.js';
 
 function client() {
   return new SidecarClient({ fetchImpl: makeFetch().fetchImpl });
@@ -95,7 +91,14 @@ describe('get_trace', () => {
       {
         type: 'log' as const,
         timestamp: 2010,
-        data: { traceId: TRACE_ERR, spanId: 'root', level: 'error', message: 'real', serviceName: 'web', attributes: {} },
+        data: {
+          traceId: TRACE_ERR,
+          spanId: 'root',
+          level: 'error',
+          message: 'real',
+          serviceName: 'web',
+          attributes: {},
+        },
       },
     ]).fetchImpl;
     const res = await getTrace(new SidecarClient({ fetchImpl }), { traceId: TRACE_ERR });

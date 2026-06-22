@@ -1,10 +1,10 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { createServer } from '../server.js';
-import { NEXTDOG_HEALTH_MARKER } from '../health.js';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { request as httpRequest, type Server } from 'node:http';
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { NEXTDOG_HEALTH_MARKER } from '../health.js';
+import { createServer } from '../server.js';
 
 describe('Server', () => {
   let server: Server;
@@ -12,7 +12,7 @@ describe('Server', () => {
 
   afterEach(async () => {
     if (server) {
-      await new Promise<void>(resolve => server.close(() => resolve()));
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
 
@@ -37,17 +37,19 @@ describe('Server', () => {
   it('POST /v1/spans ingests spans and returns 202', async () => {
     server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
 
-    const spans = [{
-      traceId: 'trace-1',
-      spanId: 'span-1',
-      name: 'GET /test',
-      kind: 'SERVER',
-      startTimeUnixNano: '1000000000',
-      endTimeUnixNano: '1050000000',
-      attributes: {},
-      status: { code: 'OK' },
-      serviceName: 'test-app',
-    }];
+    const spans = [
+      {
+        traceId: 'trace-1',
+        spanId: 'span-1',
+        name: 'GET /test',
+        kind: 'SERVER',
+        startTimeUnixNano: '1000000000',
+        endTimeUnixNano: '1050000000',
+        attributes: {},
+        status: { code: 'OK' },
+        serviceName: 'test-app',
+      },
+    ];
 
     const res = await fetch(`http://localhost:${port}/v1/spans`, {
       method: 'POST',
@@ -65,11 +67,19 @@ describe('Server', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        spans: [{
-          traceId: 't1', spanId: 's1', name: 'test', kind: 'SERVER',
-          startTimeUnixNano: '1000', endTimeUnixNano: '2000',
-          attributes: {}, status: { code: 'OK' }, serviceName: 'my-service',
-        }],
+        spans: [
+          {
+            traceId: 't1',
+            spanId: 's1',
+            name: 'test',
+            kind: 'SERVER',
+            startTimeUnixNano: '1000',
+            endTimeUnixNano: '2000',
+            attributes: {},
+            status: { code: 'OK' },
+            serviceName: 'my-service',
+          },
+        ],
       }),
     });
 
@@ -81,7 +91,10 @@ describe('Server', () => {
 
   it('handles CORS preflight', async () => {
     server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
-    const res = await new Promise<{ status: number; headers: Record<string, string | string[] | undefined> }>(resolve => {
+    const res = await new Promise<{
+      status: number;
+      headers: Record<string, string | string[] | undefined>;
+    }>((resolve) => {
       const req = httpRequest(`http://localhost:${port}/v1/spans`, { method: 'OPTIONS' }, (res) => {
         resolve({ status: res.statusCode!, headers: res.headers });
       });
@@ -108,37 +121,55 @@ describe('Server rehydration from FileStore on boot', () => {
     // Simulate a prior sidecar run: NDJSON already on disk (spans + logs, multiple services).
     const lines = [
       JSON.stringify({
-        type: 'span', timestamp: 1,
+        type: 'span',
+        timestamp: 1,
         data: {
-          traceId: 't1', spanId: 's1', name: 'GET /a', kind: 'SERVER',
-          startTimeUnixNano: '1000n', endTimeUnixNano: '2000n',
-          attributes: {}, status: { code: 'OK' }, serviceName: 'web-app',
+          traceId: 't1',
+          spanId: 's1',
+          name: 'GET /a',
+          kind: 'SERVER',
+          startTimeUnixNano: '1000n',
+          endTimeUnixNano: '2000n',
+          attributes: {},
+          status: { code: 'OK' },
+          serviceName: 'web-app',
         },
       }),
       JSON.stringify({
-        type: 'span', timestamp: 2,
+        type: 'span',
+        timestamp: 2,
         data: {
-          traceId: 't2', spanId: 's2', name: 'GET /b', kind: 'SERVER',
-          startTimeUnixNano: '3000n', endTimeUnixNano: '4000n',
-          attributes: {}, status: { code: 'OK' }, serviceName: 'api-worker',
+          traceId: 't2',
+          spanId: 's2',
+          name: 'GET /b',
+          kind: 'SERVER',
+          startTimeUnixNano: '3000n',
+          endTimeUnixNano: '4000n',
+          attributes: {},
+          status: { code: 'OK' },
+          serviceName: 'api-worker',
         },
       }),
       JSON.stringify({
-        type: 'log', timestamp: 3,
+        type: 'log',
+        timestamp: 3,
         data: {
-          timestamp: 3, level: 'info', message: 'hello from disk',
-          attributes: {}, serviceName: 'web-app',
+          timestamp: 3,
+          level: 'info',
+          message: 'hello from disk',
+          attributes: {},
+          serviceName: 'web-app',
         },
       }),
     ];
     // Use an hourly filename the FileStore would recognize.
     const now = new Date();
     const fn = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}.ndjson`;
-    await writeFile(join(dataDir, fn), lines.join('\n') + '\n');
+    await writeFile(join(dataDir, fn), `${lines.join('\n')}\n`);
   });
 
   afterEach(async () => {
-    if (server) await new Promise<void>(resolve => server.close(() => resolve()));
+    if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(dataDir, { recursive: true, force: true });
   });
 
@@ -154,10 +185,11 @@ describe('Server rehydration from FileStore on boot', () => {
     const res = await fetch(`http://localhost:${port}/api/events`);
     expect(res.status).toBe(200);
     const data = await res.json();
-    const types = (data.events as { type: string }[]).map(e => e.type).sort();
+    const types = (data.events as { type: string }[]).map((e) => e.type).sort();
     expect(types).toEqual(['log', 'span', 'span']);
-    const log = (data.events as { type: string; data: { message?: string } }[])
-      .find(e => e.type === 'log');
+    const log = (data.events as { type: string; data: { message?: string } }[]).find(
+      (e) => e.type === 'log',
+    );
     expect(log?.data.message).toBe('hello from disk');
   });
 
@@ -200,7 +232,7 @@ describe('Server static files', () => {
 
   afterEach(async () => {
     if (server) {
-      await new Promise<void>(resolve => server.close(() => resolve()));
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
     await rm(tmpDir, { recursive: true, force: true });
   });

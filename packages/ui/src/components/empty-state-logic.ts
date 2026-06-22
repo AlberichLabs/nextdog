@@ -19,11 +19,7 @@
  *  - `filterActive`  — is a search query or service filter currently applied.
  */
 
-export type EmptyStateKind =
-  | 'disconnected'
-  | 'connected-idle'
-  | 'filter-empty'
-  | 'populated';
+export type EmptyStateKind = 'disconnected' | 'connected-idle' | 'filter-empty' | 'populated';
 
 export interface EmptyStateInput {
   /** SSE connection established. */

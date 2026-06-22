@@ -1,8 +1,8 @@
 import type { ComponentChildren } from 'preact';
-import { useState, useRef, useMemo } from 'preact/hooks';
+import { useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import type { SSEEvent } from '../hooks/use-sse.js';
-import { parseFilterTokens, normalizeExpression } from '../utils/filter-query.js';
+import { normalizeExpression, parseFilterTokens } from '../utils/filter-query.js';
 
 // ---------------------------------------------------------------------------
 // Style constants (defined outside the component)
@@ -10,15 +10,10 @@ import { parseFilterTokens, normalizeExpression } from '../utils/filter-query.js
 
 const containerStyle = css({
   position: 'relative',
-  py: '2', px: '4',
+  py: '2',
+  px: '4',
   borderBottom: '1px solid token(colors.border.subtle)',
   transition: 'all 0.15s ease',
-});
-
-const rowStyle = css({
-  display: 'flex',
-  gap: '6px',
-  alignItems: 'stretch',
 });
 
 const inputWrapperBase = css({
@@ -27,7 +22,8 @@ const inputWrapperBase = css({
   gap: '1',
   alignItems: 'center',
   minHeight: '32px',
-  py: '1', px: '2',
+  py: '1',
+  px: '2',
   background: 'surface.bg',
   border: '1px solid token(colors.border.subtle)',
   borderRadius: 'sm',
@@ -53,20 +49,6 @@ const searchInputStyle = css({
     color: 'fg.dim',
     opacity: 0.6,
   },
-});
-
-const helpBtnStyle = css({
-  fontSize: 'md',
-  py: '1', px: '2',
-  flexShrink: 0,
-  position: 'relative',
-  borderRadius: '12px',
-  fontWeight: 500,
-  border: '1px solid token(colors.border.subtle)',
-  cursor: 'pointer',
-  background: 'transparent',
-  color: 'fg.dim',
-  _hover: { background: 'surface.hover' },
 });
 
 const helpPanelStyle = css({
@@ -252,14 +234,20 @@ interface SearchBarProps {
 function pillColorClass(key?: string, negated?: boolean): string {
   if (negated) return `${pillFilterBase} ${pillNegated}`;
   switch (key) {
-    case 'level': return `${pillFilterBase} ${pillLevel}`;
-    case 'service': return `${pillFilterBase} ${pillService}`;
-    case 'status': return `${pillFilterBase} ${pillStatus}`;
+    case 'level':
+      return `${pillFilterBase} ${pillLevel}`;
+    case 'service':
+      return `${pillFilterBase} ${pillService}`;
+    case 'status':
+      return `${pillFilterBase} ${pillStatus}`;
     case 'route':
-    case 'name': return `${pillFilterBase} ${pillRoute}`;
+    case 'name':
+      return `${pillFilterBase} ${pillRoute}`;
     case 'trace':
-    case 'traceId': return `${pillFilterBase} ${pillTrace}`;
-    default: return pillFilterBase;
+    case 'traceId':
+      return `${pillFilterBase} ${pillTrace}`;
+    default:
+      return pillFilterBase;
   }
 }
 
@@ -286,7 +274,17 @@ function removeToken(query: string, tokenRaw: string): string {
 
 // Collect known facets from events for autocomplete
 function collectFacets(events: SSEEvent[]): string[] {
-  const facets = new Set<string>(['level', 'service', 'status', 'route', 'name', 'message', 'type', 'kind', 'trace']);
+  const facets = new Set<string>([
+    'level',
+    'service',
+    'status',
+    'route',
+    'name',
+    'message',
+    'type',
+    'kind',
+    'trace',
+  ]);
   for (const e of events.slice(-200)) {
     for (const key of Object.keys(e.data.attributes)) {
       facets.add(key);
@@ -394,76 +392,138 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
   return (
     <div class={containerStyle}>
       <div class={css({ display: 'flex', gap: '2', alignItems: 'center' })}>
-      <div class={`${inputWrapperBase} ${focused ? inputWrapperFocused : ''}`} style="flex:1" onClick={() => inputRef.current?.focus()}>
-        {/* Search icon */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;opacity:0.4">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        {tokens.map((token, i) => (
-          <span
-            key={i}
-            class={pillColorClass(token.key, token.negated)}
-            onDblClick={(e) => { e.stopPropagation(); editToken(token.raw); }}
-            title="Double-click to edit"
+        <div
+          class={`${inputWrapperBase} ${focused ? inputWrapperFocused : ''}`}
+          style="flex:1"
+          onClick={() => inputRef.current?.focus()}
+        >
+          {/* Search icon */}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            style="flex-shrink:0;opacity:0.4"
           >
-            {token.operator === 'OR' && i > 0 && <span class={pillOperatorStyle}>OR</span>}
-            {token.negated && <span class={pillNegStyle}>!</span>}
-            {token.key && <span class={pillKeyStyle}>{token.key}</span>}
-            {token.key && <span class={pillSepStyle}>:</span>}
-            <span class={pillValStyle}>{token.value}</span>
-            <button class={pillRemoveStyle} onClick={(e) => { e.stopPropagation(); handleRemoveToken(token.raw); }}>×</button>
-          </span>
-        ))}
-        <input
-          ref={inputRef}
-          type="text"
-          class={searchInputStyle}
-          placeholder={tokens.length === 0 ? 'Filter... (e.g. level:error, status:ERROR OR statusCode:404)' : ''}
-          value={inputValue}
-          onInput={(e) => {
-            setInputValue((e.target as HTMLInputElement).value);
-            setShowSuggestions(true);
-            setSelectedSuggestion(-1);
-          }}
-          onFocus={() => { setFocused(true); setShowSuggestions(true); }}
-          onBlur={() => { setFocused(false); setTimeout(() => setShowSuggestions(false), 150); }}
-          onKeyDown={handleKeyDown}
-        />
-        {focused && inputValue.trim() && (
-          <span class={enterHintStyle}>
-            {pendingOr && <span class={enterHintOr}>OR group · </span>}
-            press <span class={enterHintKbd}>Enter</span> to apply
-          </span>
-        )}
-      </div>
-      {/* Help icon */}
-      <button
-        class={css({
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: '28px', height: '28px', flexShrink: 0,
-          borderRadius: 'md', border: '1px solid token(colors.border.subtle)',
-          background: 'transparent', color: 'fg.dim', cursor: 'pointer',
-          fontSize: 'sm', fontFamily: 'mono', transition: 'all 0.15s ease',
-          _hover: { background: 'surface.hover', color: 'fg.bright' },
-        })}
-        onClick={() => setShowHelp((v) => !v)}
-        title="Filter syntax help"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" /><path d="M9 9a3 3 0 015.12 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
-        </svg>
-      </button>
-      {rightSlot}
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          {tokens.map((token, i) => (
+            <span
+              key={i}
+              class={pillColorClass(token.key, token.negated)}
+              onDblClick={(e) => {
+                e.stopPropagation();
+                editToken(token.raw);
+              }}
+              title="Double-click to edit"
+            >
+              {token.operator === 'OR' && i > 0 && <span class={pillOperatorStyle}>OR</span>}
+              {token.negated && <span class={pillNegStyle}>!</span>}
+              {token.key && <span class={pillKeyStyle}>{token.key}</span>}
+              {token.key && <span class={pillSepStyle}>:</span>}
+              <span class={pillValStyle}>{token.value}</span>
+              <button
+                class={pillRemoveStyle}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveToken(token.raw);
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <input
+            ref={inputRef}
+            type="text"
+            class={searchInputStyle}
+            placeholder={
+              tokens.length === 0
+                ? 'Filter... (e.g. level:error, status:ERROR OR statusCode:404)'
+                : ''
+            }
+            value={inputValue}
+            onInput={(e) => {
+              setInputValue((e.target as HTMLInputElement).value);
+              setShowSuggestions(true);
+              setSelectedSuggestion(-1);
+            }}
+            onFocus={() => {
+              setFocused(true);
+              setShowSuggestions(true);
+            }}
+            onBlur={() => {
+              setFocused(false);
+              setTimeout(() => setShowSuggestions(false), 150);
+            }}
+            onKeyDown={handleKeyDown}
+          />
+          {focused && inputValue.trim() && (
+            <span class={enterHintStyle}>
+              {pendingOr && <span class={enterHintOr}>OR group · </span>}
+              press <span class={enterHintKbd}>Enter</span> to apply
+            </span>
+          )}
+        </div>
+        {/* Help icon */}
+        <button
+          class={css({
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '28px',
+            height: '28px',
+            flexShrink: 0,
+            borderRadius: 'md',
+            border: '1px solid token(colors.border.subtle)',
+            background: 'transparent',
+            color: 'fg.dim',
+            cursor: 'pointer',
+            fontSize: 'sm',
+            fontFamily: 'mono',
+            transition: 'all 0.15s ease',
+            _hover: { background: 'surface.hover', color: 'fg.bright' },
+          })}
+          onClick={() => setShowHelp((v) => !v)}
+          title="Filter syntax help"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9 9a3 3 0 015.12 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </button>
+        {rightSlot}
       </div>
       {showHelp && (
         <div class={helpPanelStyle}>
           <div class={helpTitleStyle}>Filter Syntax</div>
           <div class={helpBodyStyle}>
-            <div><span class={helpKeywordStyle}>key:value</span> — filter by attribute</div>
-            <div><span class={helpKeywordStyle}>!key:value</span> — exclude matches</div>
-            <div><span class={helpKeywordStyle}>a OR b</span> — match either</div>
-            <div><span class={helpKeywordStyle}>text</span> — search name, message, route</div>
-            <div class={helpFooterStyle}>Keys: level, service, route, status, name, kind, runtime, traceId</div>
+            <div>
+              <span class={helpKeywordStyle}>key:value</span> — filter by attribute
+            </div>
+            <div>
+              <span class={helpKeywordStyle}>!key:value</span> — exclude matches
+            </div>
+            <div>
+              <span class={helpKeywordStyle}>a OR b</span> — match either
+            </div>
+            <div>
+              <span class={helpKeywordStyle}>text</span> — search name, message, route
+            </div>
+            <div class={helpFooterStyle}>
+              Keys: level, service, route, status, name, kind, runtime, traceId
+            </div>
           </div>
         </div>
       )}

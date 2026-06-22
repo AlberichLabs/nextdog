@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock @nuxt/kit before importing module
 const mockAddServerPlugin = vi.fn();
@@ -55,9 +55,7 @@ describe('@nextdog/nuxt module', () => {
 
     // Should add server plugin
     expect(mockAddServerPlugin).toHaveBeenCalledTimes(1);
-    expect(mockAddServerPlugin).toHaveBeenCalledWith(
-      expect.stringContaining('server-plugin')
-    );
+    expect(mockAddServerPlugin).toHaveBeenCalledWith(expect.stringContaining('server-plugin'));
   });
 
   it('uses default options when none provided', () => {

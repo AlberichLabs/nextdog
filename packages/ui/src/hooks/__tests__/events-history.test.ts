@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { eventKey, mergeEvents, oldestTimestamp } from '../events-history.js';
 import type { SSEEvent } from '../use-sse.js';
 
@@ -64,25 +64,24 @@ describe('mergeEvents', () => {
       data: { name: '', serviceName: 'legacy', message: 'from old schema', attributes: {} },
     } as unknown as SSEEvent;
     const merged = mergeEvents([oldShape], [span('s1', 2)]);
-    expect(merged.map(e => e.type)).toEqual(['log', 'span']);
+    expect(merged.map((e) => e.type)).toEqual(['log', 'span']);
   });
-
 
   it('merges history under live events and de-duplicates spans by spanId', () => {
     const live = [span('s2', 2), span('s3', 3)];
     const history = [span('s1', 1), span('s2', 2)]; // s2 overlaps with live
     const merged = mergeEvents(history, live);
-    expect(merged.map(e => e.data.spanId)).toEqual(['s1', 's2', 's3']);
+    expect(merged.map((e) => e.data.spanId)).toEqual(['s1', 's2', 's3']);
   });
 
   it('reloads logs (not just spans) from history', () => {
     const live: SSEEvent[] = [];
     const history = [log(1, 'hello from disk'), span('s1', 2)];
     const merged = mergeEvents(history, live);
-    const types = merged.map(e => e.type);
+    const types = merged.map((e) => e.type);
     expect(types).toContain('log');
     expect(types).toContain('span');
-    expect(merged.find(e => e.type === 'log')?.data.message).toBe('hello from disk');
+    expect(merged.find((e) => e.type === 'log')?.data.message).toBe('hello from disk');
   });
 
   it('de-duplicates identical logs delivered both via history and SSE', () => {
@@ -93,7 +92,7 @@ describe('mergeEvents', () => {
 
   it('keeps result sorted oldest-first', () => {
     const merged = mergeEvents([span('s3', 30)], [span('s1', 10), span('s2', 20)]);
-    expect(merged.map(e => e.timestamp)).toEqual([10, 20, 30]);
+    expect(merged.map((e) => e.timestamp)).toEqual([10, 20, 30]);
   });
 });
 

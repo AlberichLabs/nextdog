@@ -37,12 +37,21 @@
     "nuxt": "^3.8.0"
   },
   "peerDependenciesMeta": {
-    "nuxt": { "optional": false }
+    "nuxt": {
+      "optional": false
+    }
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/cscherban/NextDog"
   },
-  "keywords": ["nuxt", "observability", "tracing", "opentelemetry", "devtools", "instrumentation"]
+  "keywords": [
+    "nuxt",
+    "observability",
+    "tracing",
+    "opentelemetry",
+    "devtools",
+    "instrumentation"
+  ]
 }

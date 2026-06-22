@@ -1,9 +1,9 @@
-import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { FunctionComponent } from 'preact';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import { ToastStore } from './toast-store.js';
 import type { Toast, ToastInput } from './toast-store.js';
+import { ToastStore } from './toast-store.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,7 +71,8 @@ const cardBaseStyle = css({
   background: 'surface.panel',
   border: '1px solid token(colors.border.subtle)',
   borderRadius: 'md',
-  py: '2', px: '3',
+  py: '2',
+  px: '3',
   display: 'flex',
   alignItems: 'center',
   gap: '2',
@@ -144,16 +145,10 @@ const ToastCard: FunctionComponent<{
       }}
     >
       {/* Message */}
-      <span className={messageStyle}>
-        {toast.message}
-      </span>
+      <span className={messageStyle}>{toast.message}</span>
 
       {/* Duration badge */}
-      {toast.duration && (
-        <span className={durationStyle}>
-          {toast.duration}
-        </span>
-      )}
+      {toast.duration && <span className={durationStyle}>{toast.duration}</span>}
 
       {/* Close button */}
       <button
@@ -192,11 +187,7 @@ export const ToastContainer: FunctionComponent<ToastContainerProps> = ({
   if (isHidden) return null;
 
   return (
-    <div
-      className={containerStyle}
-      onMouseEnter={onPause}
-      onMouseLeave={onResume}
-    >
+    <div className={containerStyle} onMouseEnter={onPause} onMouseLeave={onResume}>
       {toasts.map((toast) => (
         <ToastCard
           key={toast.id}

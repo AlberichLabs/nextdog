@@ -51,8 +51,7 @@ export class ToastStore {
   }
 
   add(input: ToastInput): string {
-    const id =
-      input.id ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const id = input.id ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const toast: Toast = { ...input, id };
 
     // Append, then cap to the newest MAX_VISIBLE — evicting (and clearing the
@@ -112,9 +111,7 @@ export class ToastStore {
 
   private startTimer(id: string, ms: number): void {
     const deadline = Date.now() + ms;
-    const handle = this.paused
-      ? null
-      : setTimeout(() => this.remove(id), ms);
+    const handle = this.paused ? null : setTimeout(() => this.remove(id), ms);
     this.timers.set(id, {
       handle,
       deadline,

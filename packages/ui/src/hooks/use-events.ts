@@ -1,6 +1,6 @@
-import { useMemo, useState, useCallback, useEffect } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { type FilterToken, groupFilterTokens } from '../utils/filter-query.js';
 import type { SSEEvent } from './use-sse.js';
-import { groupFilterTokens, type FilterToken } from '../utils/filter-query.js';
 
 export interface UseEventsResult {
   filtered: SSEEvent[];
@@ -24,8 +24,9 @@ function matchesField(event: SSEEvent, key: string, value: string): boolean {
     case 'route': {
       const route = String(
         event.data.attributes['http.route'] ??
-        event.data.attributes['http.target'] ??
-        event.data.name ?? ''
+          event.data.attributes['http.target'] ??
+          event.data.name ??
+          '',
       ).toLowerCase();
       return route.includes(valueLower);
     }
@@ -49,7 +50,9 @@ function matchesField(event: SSEEvent, key: string, value: string): boolean {
       return String(event.data.attributes.runtime ?? '').toLowerCase() === valueLower;
     case 'statusCode':
     case 'status_code':
-      return String(event.data.statusCode ?? event.data.attributes['http.status_code'] ?? '') === value;
+      return (
+        String(event.data.statusCode ?? event.data.attributes['http.status_code'] ?? '') === value
+      );
   }
 
   const attrVal = event.data.attributes[key];
@@ -68,7 +71,10 @@ function matchesFreetext(event: SSEEvent, text: string): boolean {
     event.data.level,
     event.data.status?.code,
     ...Object.values(event.data.attributes).map(String),
-  ].filter(Boolean).join(' ').toLowerCase();
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 
   return searchText.includes(text.toLowerCase());
 }
@@ -91,9 +97,7 @@ function matchesQuery(event: SSEEvent, query: string): boolean {
   if (groups.length === 0) return true;
 
   // Every group must have at least one matching token (AND between groups, OR within)
-  return groups.every((group) =>
-    group.some((token) => matchesSingleToken(event, token))
-  );
+  return groups.every((group) => group.some((token) => matchesSingleToken(event, token)));
 }
 
 function readUrlParams() {
@@ -106,8 +110,10 @@ function readUrlParams() {
 
 function syncUrlParams(query: string, services: Set<string>) {
   const params = new URLSearchParams(window.location.search);
-  if (query) params.set('q', query); else params.delete('q');
-  if (services.size > 0) params.set('services', [...services].join(',')); else params.delete('services');
+  if (query) params.set('q', query);
+  else params.delete('q');
+  if (services.size > 0) params.set('services', [...services].join(','));
+  else params.delete('services');
   const qs = params.toString();
   const url = window.location.pathname + (qs ? `?${qs}` : '');
   history.replaceState(null, '', url);
@@ -115,7 +121,9 @@ function syncUrlParams(query: string, services: Set<string>) {
 
 export function useEvents(events: SSEEvent[]): UseEventsResult {
   const initial = useMemo(readUrlParams, []);
-  const [activeServices, setActiveServices] = useState<Set<string>>(() => new Set(initial.services));
+  const [activeServices, setActiveServices] = useState<Set<string>>(
+    () => new Set(initial.services),
+  );
   const [searchQuery, setSearchQuery] = useState(initial.query);
 
   // Sync state → URL (debounced via replaceState — no history spam)
@@ -149,5 +157,13 @@ export function useEvents(events: SSEEvent[]): UseEventsResult {
     });
   }, [events, activeServices, searchQuery]);
 
-  return { filtered, services, activeServices, toggleService, setServices, searchQuery, setSearchQuery };
+  return {
+    filtered,
+    services,
+    activeServices,
+    toggleService,
+    setServices,
+    searchQuery,
+    setSearchQuery,
+  };
 }

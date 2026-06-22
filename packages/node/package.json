@@ -42,5 +42,12 @@
     "type": "git",
     "url": "https://github.com/cscherban/NextDog"
   },
-  "keywords": ["node", "observability", "tracing", "opentelemetry", "devtools", "instrumentation"]
+  "keywords": [
+    "node",
+    "observability",
+    "tracing",
+    "opentelemetry",
+    "devtools",
+    "instrumentation"
+  ]
 }

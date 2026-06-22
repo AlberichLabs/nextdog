@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process';
-import { readFile, writeFile, mkdir, open } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, dirname, parse as parsePath } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { mkdir, open, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
+import { dirname, join, parse as parsePath } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NEXTDOG_HEALTH_MARKER } from '@nextdog/core';
 
 const NEXTDOG_DIR = join(homedir(), '.nextdog');
@@ -140,7 +140,7 @@ function coreCliFromPackageJson(corePkgPath: string): string {
  * @internal exported for testing.
  */
 export function resolveCoreCliPath(
-  opts: { anchorUrl?: string; projectRoot?: string } = {}
+  opts: { anchorUrl?: string; projectRoot?: string } = {},
 ): string {
   const anchorUrl = opts.anchorUrl ?? import.meta.url;
   const projectRoot = opts.projectRoot ?? process.cwd();
@@ -194,7 +194,7 @@ export function resolveCoreCliPath(
 
   throw new Error(
     '@nextdog/core not found. Make sure it is installed: npm install @nextdog/core' +
-      (tried.length ? ` (looked in: ${tried.join(', ')})` : '')
+      (tried.length ? ` (looked in: ${tried.join(', ')})` : ''),
   );
 }
 
@@ -235,7 +235,7 @@ async function spawnSidecar(url: string): Promise<void> {
 
   // Wait for the sidecar to become healthy (up to 3 seconds)
   for (let i = 0; i < 6; i++) {
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
     if (await isHealthy(url)) return;
   }
 
@@ -251,11 +251,11 @@ function warnForeignOccupant(url: string): void {
   warnedForeignPorts.add(url);
   console.warn(
     `[nextdog] ${url} is already in use by a process that is NOT a NextDog sidecar ` +
-      `(its /health response lacks the NextDog signature).`
+      `(its /health response lacks the NextDog signature).`,
   );
   console.warn(
     `[nextdog] refusing to adopt it — no telemetry will be sent and no dashboard will start. ` +
-      `Free the port, or set NEXTDOG_URL to a different port.`
+      `Free the port, or set NEXTDOG_URL to a different port.`,
   );
 }
 
@@ -277,9 +277,9 @@ export async function ensureSidecar(url: string): Promise<SidecarStatus> {
 
   // PID file exists and process is alive — wait for it to become healthy
   const pid = await readPid();
-  if (pid && await isProcessRunning(pid)) {
+  if (pid && (await isProcessRunning(pid))) {
     for (let i = 0; i < 4; i++) {
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));
       if (await isHealthy(url)) return { ready: true, foreignOccupant: false };
     }
     console.warn(`[nextdog] sidecar process ${pid} is running but not responding at ${url}`);

@@ -1,19 +1,27 @@
-import { useRef, useEffect, useState, useMemo, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { LogRow } from '../components/log-row.js';
-import { ServicePills } from '../components/service-pills.js';
-import { SearchBar } from '../components/search-bar.js';
 import { AttributeTable } from '../components/attribute-table.js';
 import { ColumnPicker } from '../components/column-picker.js';
+import { attrContextActions, showContextMenu } from '../components/context-menu.js';
+import { LogRow } from '../components/log-row.js';
 import { SavedSearches, useSavedSearches } from '../components/saved-searches.js';
+import { SearchBar } from '../components/search-bar.js';
+import { ServicePills } from '../components/service-pills.js';
 import { SortIndicator } from '../components/sort-indicator.js';
-import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useColumnResize } from '../hooks/use-column-resize.js';
-import { useVirtualList } from '../hooks/use-virtual-list.js';
-import { showContextMenu, attrContextActions } from '../components/context-menu.js';
-import { pillStyle, pillActiveStyle, emptyStyle, colHeaderStyle, colResizeStyle, toolbarStyle, mlAutoStyle, jsonViewStyle } from '../styles/shared.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
 import type { UseEventsResult } from '../hooks/use-events.js';
+import { useKeyboard } from '../hooks/use-keyboard.js';
+import type { SSEEvent } from '../hooks/use-sse.js';
+import { useVirtualList } from '../hooks/use-virtual-list.js';
+import {
+  colHeaderStyle,
+  colResizeStyle,
+  emptyStyle,
+  jsonViewStyle,
+  pillActiveStyle,
+  pillStyle,
+  toolbarStyle,
+} from '../styles/shared.js';
 
 const SIDEBAR_STORAGE_KEY = 'nextdog:log-detail-width';
 const LOG_COLUMNS_STORAGE_KEY = 'nextdog:log-columns';
@@ -47,7 +55,9 @@ function loadCustomColumns(): ColumnDef[] {
 }
 
 function saveCustomColumns(cols: ColumnDef[]) {
-  try { localStorage.setItem(LOG_COLUMNS_STORAGE_KEY, JSON.stringify(cols)); } catch {}
+  try {
+    localStorage.setItem(LOG_COLUMNS_STORAGE_KEY, JSON.stringify(cols));
+  } catch {}
 }
 
 /* ── PandaCSS style constants ─────────────────────────────────────────── */
@@ -86,7 +96,8 @@ const logDetailHeaderStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  py: '3', px: '4',
+  py: '3',
+  px: '4',
   borderBottom: '1px solid token(colors.border.subtle)',
   fontSize: 'md',
   background: 'surface.bg',
@@ -95,14 +106,16 @@ const logDetailHeaderStyle = css({
 const logDetailBodyStyle = css({
   flex: '1',
   overflowY: 'auto',
-  py: '3', px: '4',
+  py: '3',
+  px: '4',
 });
 
 const logDetailMessageStyle = css({
   fontFamily: 'mono',
   fontSize: 'md',
   color: 'fg.bright',
-  py: '3', px: '3',
+  py: '3',
+  px: '3',
   background: 'surface.hover',
   borderRadius: 'md',
   marginBottom: '4',
@@ -121,7 +134,8 @@ const logRowHeaderStyle = css({
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   color: 'fg.dim',
-  py: '1', px: '4',
+  py: '1',
+  px: '4',
   borderBottom: '1px solid token(colors.border.subtle)',
   background: 'surface.panel',
   position: 'sticky',
@@ -171,7 +185,8 @@ const tabButtonGroupStyle = css({
 });
 
 const tabBtnStyle = css({
-  py: '1', px: '3',
+  py: '1',
+  px: '3',
   fontSize: 'sm',
   fontFamily: 'mono',
   fontWeight: 500,
@@ -200,13 +215,24 @@ interface LogsProps {
 }
 
 export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsProps) {
-  const { filtered, services, activeServices, toggleService, setServices, searchQuery, setSearchQuery } = eventsResult;
+  const {
+    filtered,
+    services,
+    activeServices,
+    toggleService,
+    setServices,
+    searchQuery,
+    setSearchQuery,
+  } = eventsResult;
   const { recordRecent } = useSavedSearches();
 
-  const applySearch = useCallback((query: string, svcs: string[]) => {
-    setSearchQuery(query);
-    setServices(svcs);
-  }, [setSearchQuery, setServices]);
+  const applySearch = useCallback(
+    (query: string, svcs: string[]) => {
+      setSearchQuery(query);
+      setServices(svcs);
+    },
+    [setSearchQuery, setServices],
+  );
 
   // Record the active filter in the recent ring once it settles (debounced).
   useEffect(() => {
@@ -260,7 +286,9 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarWidth)); } catch {}
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarWidth));
+    } catch {}
   }, [sidebarWidth]);
 
   // Filter to logs only
@@ -272,7 +300,7 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
 
   const toggleSort = (field: string) => {
     if (sortBy === field) {
-      setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortBy(field);
       setSortDir(field === 'time' ? 'desc' : 'asc');
@@ -286,15 +314,24 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
     const dir = sortDir === 'asc' ? 1 : -1;
     sorted.sort((a, b) => {
       switch (sortBy) {
-        case 'time': return ((a.data.timestamp ?? a.timestamp) - (b.data.timestamp ?? b.timestamp)) * dir;
-        case 'level': return (a.data.level ?? '').localeCompare(b.data.level ?? '') * dir;
-        case 'service': return a.data.serviceName.localeCompare(b.data.serviceName) * dir;
-        case 'message': return (a.data.message ?? a.data.name ?? '').localeCompare(b.data.message ?? b.data.name ?? '') * dir;
+        case 'time':
+          return ((a.data.timestamp ?? a.timestamp) - (b.data.timestamp ?? b.timestamp)) * dir;
+        case 'level':
+          return (a.data.level ?? '').localeCompare(b.data.level ?? '') * dir;
+        case 'service':
+          return a.data.serviceName.localeCompare(b.data.serviceName) * dir;
+        case 'message':
+          return (
+            (a.data.message ?? a.data.name ?? '').localeCompare(
+              b.data.message ?? b.data.name ?? '',
+            ) * dir
+          );
         default: {
           const av = String(a.data.attributes[sortBy.replace('custom-', '')] ?? '');
           const bv = String(b.data.attributes[sortBy.replace('custom-', '')] ?? '');
-          const an = Number(av), bn = Number(bv);
-          if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
+          const an = Number(av),
+            bn = Number(bv);
+          if (!Number.isNaN(an) && !Number.isNaN(bn)) return (an - bn) * dir;
           return av.localeCompare(bv) * dir;
         }
       }
@@ -303,7 +340,14 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
   }, [displayLogs, sortBy, sortDir]);
 
   // Windowed rendering — only visible rows (+ overscan) reach the DOM (issue #9).
-  const { scrollRef: listRef, onScroll: onVirtualScroll, rowRef, range, scrollToIndex, scrollToBottom } = useVirtualList(sortedLogs.length);
+  const {
+    scrollRef: listRef,
+    onScroll: onVirtualScroll,
+    rowRef,
+    range,
+    scrollToIndex,
+    scrollToBottom,
+  } = useVirtualList(sortedLogs.length);
 
   const toggleLiveTail = () => {
     if (liveTail) {
@@ -316,7 +360,19 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
   };
 
   // Built-in fields that are already shown as core columns — hide from column picker
-  const BUILTIN_FIELDS = new Set(['runtime', 'level', 'message', 'service', 'serviceName', 'traceId', 'spanId', 'timestamp', 'kind', 'name', 'type']);
+  const BUILTIN_FIELDS = new Set([
+    'runtime',
+    'level',
+    'message',
+    'service',
+    'serviceName',
+    'traceId',
+    'spanId',
+    'timestamp',
+    'kind',
+    'name',
+    'type',
+  ]);
 
   // Discover available attribute keys for the column picker
   const availableAttrs = useMemo(() => {
@@ -346,31 +402,40 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
     saveCustomColumns(next);
   };
 
-  const activeColumnKeys = useMemo(() => new Set(customColumns.map((c) => c.attrKey)), [customColumns]);
+  const activeColumnKeys = useMemo(
+    () => new Set(customColumns.map((c) => c.attrKey)),
+    [customColumns],
+  );
 
-  const handleCellContext = useCallback((e: MouseEvent, key: string, value: string) => {
-    e.preventDefault();
-    const actions = attrContextActions(key, value, {
-      onFilter: (q) => setSearchQuery((prev: string) => prev ? `${prev} ${q}` : q),
-      onAddColumn: (k) => addColumn(k),
-      onRemoveColumn: (k) => {
-        const col = customColumns.find((c) => c.attrKey === k);
-        if (col) removeColumn(col.id);
-      },
-      isColumnActive: activeColumnKeys.has(key),
-    });
-    showContextMenu(e.clientX, e.clientY, actions);
-  }, [setSearchQuery, addColumn, removeColumn, customColumns, activeColumnKeys]);
+  const handleCellContext = useCallback(
+    (e: MouseEvent, key: string, value: string) => {
+      e.preventDefault();
+      const actions = attrContextActions(key, value, {
+        onFilter: (q) => setSearchQuery((prev: string) => (prev ? `${prev} ${q}` : q)),
+        onAddColumn: (k) => addColumn(k),
+        onRemoveColumn: (k) => {
+          const col = customColumns.find((c) => c.attrKey === k);
+          if (col) removeColumn(col.id);
+        },
+        isColumnActive: activeColumnKeys.has(key),
+      });
+      showContextMenu(e.clientX, e.clientY, actions);
+    },
+    [setSearchQuery, addColumn, removeColumn, customColumns, activeColumnKeys],
+  );
 
   // Draggable column widths
-  const columnConfigs = useMemo(() => [
-    { id: 'time', defaultWidth: 90 },
-    { id: 'level', defaultWidth: 50 },
-    { id: 'service', defaultWidth: 80 },
-    { id: 'runtime', defaultWidth: 50 },
-    { id: 'message', defaultWidth: 0 }, // 0 = flex (1fr)
-    ...customColumns.map((col) => ({ id: col.id, defaultWidth: 120 })),
-  ], [customColumns]);
+  const columnConfigs = useMemo(
+    () => [
+      { id: 'time', defaultWidth: 90 },
+      { id: 'level', defaultWidth: 50 },
+      { id: 'service', defaultWidth: 80 },
+      { id: 'runtime', defaultWidth: 50 },
+      { id: 'message', defaultWidth: 0 }, // 0 = flex (1fr)
+      ...customColumns.map((col) => ({ id: col.id, defaultWidth: 120 })),
+    ],
+    [customColumns],
+  );
 
   const { gridTemplate, startResize } = useColumnResize('logs', columnConfigs);
 
@@ -426,14 +491,23 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
   return (
     <div className={outerFlexStyle}>
       <div className={innerColumnStyle}>
-        <ServicePills services={services} active={activeServices} onToggle={toggleService} events={filtered} />
+        <ServicePills
+          services={services}
+          active={activeServices}
+          onToggle={toggleService}
+          events={filtered}
+        />
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
           events={filtered}
           rightSlot={
             <>
-              <SavedSearches query={searchQuery} services={[...activeServices]} onApply={applySearch} />
+              <SavedSearches
+                query={searchQuery}
+                services={[...activeServices]}
+                onApply={applySearch}
+              />
               <ColumnPicker
                 customColumns={customColumns}
                 availableAttrs={availableAttrs}
@@ -444,20 +518,22 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
           }
         />
         <div className={toolbarStyle}>
-          <button className={`${pillStyle} ${liveTail ? pillActiveStyle : ''}`} onClick={toggleLiveTail}>
+          <button
+            className={`${pillStyle} ${liveTail ? pillActiveStyle : ''}`}
+            onClick={toggleLiveTail}
+          >
             {liveTail ? '● Live' : '○ Paused'}
           </button>
           <span className={logCountStyle}>{displayLogs.length} logs</span>
           {!liveTail && (
-            <button className={pillStyle} onClick={toggleLiveTail}>Resume</button>
+            <button className={pillStyle} onClick={toggleLiveTail}>
+              Resume
+            </button>
           )}
         </div>
 
         {/* Column headers — click to sort, drag edge to resize */}
-        <div
-          className={logRowHeaderStyle}
-          style={{ gridTemplateColumns: gridTemplate }}
-        >
+        <div className={logRowHeaderStyle} style={{ gridTemplateColumns: gridTemplate }}>
           {[
             { id: 'time', label: 'Time' },
             { id: 'level', label: 'Level' },
@@ -466,16 +542,41 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
             { id: 'message', label: 'Message' },
             ...customColumns.map((col) => ({ id: col.id, label: col.label })),
           ].map((col) => (
-            <span key={col.id} className={colHeaderStyle} onClick={col.label ? () => toggleSort(col.id) : undefined}>
-              {col.label}{col.label && <SortIndicator field={col.id} sortBy={sortBy} sortDir={sortDir} />}
-              {col.label && <span className={colResizeStyle} onPointerDown={(e: PointerEvent) => { e.stopPropagation(); startResize(col.id, e.clientX); }} />}
+            <span
+              key={col.id}
+              className={colHeaderStyle}
+              onClick={col.label ? () => toggleSort(col.id) : undefined}
+            >
+              {col.label}
+              {col.label && <SortIndicator field={col.id} sortBy={sortBy} sortDir={sortDir} />}
+              {col.label && (
+                <span
+                  className={colResizeStyle}
+                  onPointerDown={(e: PointerEvent) => {
+                    e.stopPropagation();
+                    startResize(col.id, e.clientX);
+                  }}
+                />
+              )}
             </span>
           ))}
         </div>
 
-        <div className={css({ flex: 1, overflowY: 'auto', overflowX: 'hidden', fontFamily: 'mono', fontSize: 'md' })} ref={listRef} onScroll={handleScroll}>
+        <div
+          className={css({
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            fontFamily: 'mono',
+            fontSize: 'md',
+          })}
+          ref={listRef}
+          onScroll={handleScroll}
+        >
           {sortedLogs.length === 0 ? (
-            <div className={emptyStyle}>{searchQuery || activeServices.size > 0 ? 'No logs match this filter' : 'No logs yet'}</div>
+            <div className={emptyStyle}>
+              {searchQuery || activeServices.size > 0 ? 'No logs match this filter' : 'No logs yet'}
+            </div>
           ) : (
             <>
               {range.paddingTop > 0 && <div style={{ height: `${range.paddingTop}px` }} />}
@@ -494,7 +595,10 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
                     extraColumns={customColumns.map((col) => ({
                       id: col.id,
                       attrKey: col.attrKey,
-                      value: log.data.attributes[col.attrKey] != null ? String(log.data.attributes[col.attrKey]) : '',
+                      value:
+                        log.data.attributes[col.attrKey] != null
+                          ? String(log.data.attributes[col.attrKey])
+                          : '',
                     }))}
                   />
                 );
@@ -520,9 +624,32 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
                   View Trace
                 </button>
               )}
-              <button className={css({ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', border: 'none', borderRadius: 'sm', background: 'transparent', color: 'fg.dim', cursor: 'pointer', _hover: { background: 'surface.hover', color: 'fg.bright' } })} onClick={() => setSelectedLog(null)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              <button
+                className={css({
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '28px',
+                  height: '28px',
+                  border: 'none',
+                  borderRadius: 'sm',
+                  background: 'transparent',
+                  color: 'fg.dim',
+                  cursor: 'pointer',
+                  _hover: { background: 'surface.hover', color: 'fg.bright' },
+                })}
+                onClick={() => setSelectedLog(null)}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
@@ -532,8 +659,18 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
               {selectedLog.data.message ?? selectedLog.data.name}
             </div>
             <div className={tabButtonGroupStyle}>
-              <button className={`${tabBtnStyle} ${!showJson ? tabBtnActiveStyle : ''}`} onClick={() => setShowJson(false)}>Table</button>
-              <button className={`${tabBtnStyle} ${showJson ? tabBtnActiveStyle : ''}`} onClick={() => setShowJson(true)}>JSON</button>
+              <button
+                className={`${tabBtnStyle} ${!showJson ? tabBtnActiveStyle : ''}`}
+                onClick={() => setShowJson(false)}
+              >
+                Table
+              </button>
+              <button
+                className={`${tabBtnStyle} ${showJson ? tabBtnActiveStyle : ''}`}
+                onClick={() => setShowJson(true)}
+              >
+                JSON
+              </button>
             </div>
             {showJson ? (
               <pre className={jsonViewStyle}>{JSON.stringify(selectedLog.data, null, 2)}</pre>
@@ -543,7 +680,10 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
                   title="Properties"
                   onFilter={onFilter}
                   onAddColumn={addColumn}
-                  onRemoveColumn={(key) => { const col = customColumns.find((c) => c.attrKey === key); if (col) removeColumn(col.id); }}
+                  onRemoveColumn={(key) => {
+                    const col = customColumns.find((c) => c.attrKey === key);
+                    if (col) removeColumn(col.id);
+                  }}
                   activeColumns={activeColumnKeys}
                   attributes={{
                     level: selectedLog.data.level,
@@ -558,7 +698,10 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
                     title="Attributes"
                     onFilter={onFilter}
                     onAddColumn={addColumn}
-                    onRemoveColumn={(key) => { const col = customColumns.find((c) => c.attrKey === key); if (col) removeColumn(col.id); }}
+                    onRemoveColumn={(key) => {
+                      const col = customColumns.find((c) => c.attrKey === key);
+                      if (col) removeColumn(col.id);
+                    }}
                     activeColumns={activeColumnKeys}
                     attributes={selectedLog.data.attributes as Record<string, unknown>}
                   />

@@ -1,4 +1,4 @@
-import { appendFile, readdir, readFile, unlink, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { NextDogEvent } from './types.js';
 
@@ -12,7 +12,7 @@ function hourlyFilename(date = new Date()): string {
 
 function serialize(event: NextDogEvent): string {
   return JSON.stringify(event, (_key, value) =>
-    typeof value === 'bigint' ? value.toString() + 'n' : value
+    typeof value === 'bigint' ? `${value.toString()}n` : value,
   );
 }
 
@@ -74,15 +74,13 @@ export class FileStore {
     if (events.length === 0) return;
     await mkdir(this.dir, { recursive: true });
     const filename = hourlyFilename();
-    const lines = events.map(e => serialize(e)).join('\n') + '\n';
+    const lines = `${events.map((e) => serialize(e)).join('\n')}\n`;
     await appendFile(join(this.dir, filename), lines, 'utf-8');
   }
 
   async query(opts: QueryOptions): Promise<NextDogEvent[]> {
     await mkdir(this.dir, { recursive: true });
-    const files = (await readdir(this.dir))
-      .filter(f => f.endsWith('.ndjson'))
-      .sort();
+    const files = (await readdir(this.dir)).filter((f) => f.endsWith('.ndjson')).sort();
 
     const results: NextDogEvent[] = [];
 
@@ -97,8 +95,9 @@ export class FileStore {
         if (opts.since !== undefined && event.timestamp <= opts.since) continue;
         if (opts.before !== undefined && event.timestamp >= opts.before) continue;
         if (opts.service && event.data.serviceName !== opts.service) continue;
-        if (opts.traceId && ('traceId' in event.data) && event.data.traceId !== opts.traceId) continue;
-        if (opts.spanId && ('spanId' in event.data) && event.data.spanId !== opts.spanId) continue;
+        if (opts.traceId && 'traceId' in event.data && event.data.traceId !== opts.traceId)
+          continue;
+        if (opts.spanId && 'spanId' in event.data && event.data.spanId !== opts.spanId) continue;
         results.push(event);
         // Short-circuit: spanId is unique, no need to keep scanning
         if (opts.spanId) return results;
@@ -117,7 +116,7 @@ export class FileStore {
     const names = new Set<string>();
     let files: string[];
     try {
-      files = (await readdir(this.dir)).filter(f => f.endsWith('.ndjson'));
+      files = (await readdir(this.dir)).filter((f) => f.endsWith('.ndjson'));
     } catch {
       // Data dir does not exist yet — no history, no services.
       return names;
@@ -147,7 +146,10 @@ export class FileStore {
       if (!match) continue;
 
       const fileDate = new Date(
-        Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4])
+        Number(match[1]),
+        Number(match[2]) - 1,
+        Number(match[3]),
+        Number(match[4]),
       );
 
       if (now - fileDate.getTime() > maxAgeMs) {

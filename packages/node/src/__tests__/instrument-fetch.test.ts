@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
-import { trace, context, SpanKind } from '@opentelemetry/api';
+import { context, SpanKind, trace } from '@opentelemetry/api';
 import {
-  NodeTracerProvider,
   InMemorySpanExporter,
+  NodeTracerProvider,
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-node';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { instrumentOutboundHttp } from '../instrument-fetch.js';
 
 const memoryExporter = new InMemorySpanExporter();

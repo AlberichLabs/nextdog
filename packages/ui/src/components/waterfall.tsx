@@ -2,7 +2,13 @@ import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
 import type { SSEEvent } from '../hooks/use-sse.js';
 
-const COLORS = [token('colors.accent'), token('colors.blue'), token('colors.green'), token('colors.yellow'), token('colors.red')];
+const COLORS = [
+  token('colors.accent'),
+  token('colors.blue'),
+  token('colors.green'),
+  token('colors.yellow'),
+  token('colors.red'),
+];
 
 const waterfallStyle = css({
   display: 'flex',
@@ -78,7 +84,11 @@ interface SpanTiming {
   source: SSEEvent;
 }
 
-function buildTimings(spans: SSEEvent[]): { timings: SpanTiming[]; minNano: bigint; maxNano: bigint } {
+function buildTimings(spans: SSEEvent[]): {
+  timings: SpanTiming[];
+  minNano: bigint;
+  maxNano: bigint;
+} {
   const timed = spans.filter((s) => s.data.startTimeUnixNano && s.data.endTimeUnixNano);
   if (timed.length === 0) return { timings: [], minNano: 0n, maxNano: 0n };
 
@@ -128,8 +138,11 @@ function buildTimings(spans: SSEEvent[]): { timings: SpanTiming[]; minNano: bigi
     if (startNano < minNano) minNano = startNano;
     if (endNano > maxNano) maxNano = endNano;
     return {
-      name: String(s.data.attributes['http.route'] ?? s.data.attributes['http.target'] ?? s.data.name),
-      startNano, endNano,
+      name: String(
+        s.data.attributes['http.route'] ?? s.data.attributes['http.target'] ?? s.data.name,
+      ),
+      startNano,
+      endNano,
       durationMs: Number(endNano - startNano) / 1_000_000,
       depth: depths.get(s.data.spanId ?? '') ?? 0,
       color: COLORS[i % COLORS.length],
@@ -151,20 +164,47 @@ export function Waterfall({ spans, onSpanClick }: WaterfallProps) {
   const { timings, minNano, maxNano } = buildTimings(spans);
   const totalNano = maxNano - minNano;
 
-  if (timings.length === 0) return <div className={css({ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'fg.dim', fontSize: 'xl' })}>No timing data available</div>;
+  if (timings.length === 0)
+    return (
+      <div
+        className={css({
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: 1,
+          color: 'fg.dim',
+          fontSize: 'xl',
+        })}
+      >
+        No timing data available
+      </div>
+    );
 
   return (
     <div className={waterfallStyle}>
       {timings.map((t, i) => {
-        const leftPct = totalNano > 0n ? Number((t.startNano - minNano) * 10000n / totalNano) / 100 : 0;
-        const widthPct = totalNano > 0n ? Math.max(0.5, Number((t.endNano - t.startNano) * 10000n / totalNano) / 100) : 100;
+        const leftPct =
+          totalNano > 0n ? Number(((t.startNano - minNano) * 10000n) / totalNano) / 100 : 0;
+        const widthPct =
+          totalNano > 0n
+            ? Math.max(0.5, Number(((t.endNano - t.startNano) * 10000n) / totalNano) / 100)
+            : 100;
         return (
-          <div key={i} className={waterfallRowStyle} style={`padding-left:${t.depth * 16}px;${onSpanClick ? 'cursor:pointer' : ''}`} onClick={() => onSpanClick?.(t.source)}>
+          <div
+            key={i}
+            className={waterfallRowStyle}
+            style={`padding-left:${t.depth * 16}px;${onSpanClick ? 'cursor:pointer' : ''}`}
+            onClick={() => onSpanClick?.(t.source)}
+          >
             <span className={waterfallLabelStyle} title={t.name}>
-              <span className={serviceNameStyle}>{t.serviceName} </span>{t.name}
+              <span className={serviceNameStyle}>{t.serviceName} </span>
+              {t.name}
             </span>
             <div className={waterfallBarContainerStyle}>
-              <div className={waterfallBarStyle} style={`left:${leftPct}%;width:${widthPct}%;background:${t.color}`} />
+              <div
+                className={waterfallBarStyle}
+                style={`left:${leftPct}%;width:${widthPct}%;background:${t.color}`}
+              />
             </div>
             <span className={waterfallDurationStyle}>{formatDuration(t.durationMs)}</span>
           </div>

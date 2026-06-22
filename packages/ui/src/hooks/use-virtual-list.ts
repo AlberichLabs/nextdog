@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useLayoutEffect } from 'preact/hooks';
+import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { computeRange, scrollOffsetForIndex, type VirtualRange } from '../utils/virtual-window.js';
 
 /** Rows rendered above and below the visible window to cover fast scrolling. */
@@ -33,7 +33,10 @@ export interface UseVirtualListResult {
  * a month. The windowing math lives in `utils/virtual-window.ts`; this hook owns
  * the DOM measurement and scroll wiring.
  */
-export function useVirtualList(itemCount: number, overscan = DEFAULT_OVERSCAN): UseVirtualListResult {
+export function useVirtualList(
+  itemCount: number,
+  overscan = DEFAULT_OVERSCAN,
+): UseVirtualListResult {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -68,15 +71,18 @@ export function useVirtualList(itemCount: number, overscan = DEFAULT_OVERSCAN): 
 
   const range = computeRange(scrollTop, viewportHeight, rowHeight, itemCount, overscan);
 
-  const scrollToIndex = useCallback((index: number) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const next = scrollOffsetForIndex(index, rowHeight, el.clientHeight, el.scrollTop, itemCount);
-    if (next !== null) {
-      el.scrollTop = next;
-      setScrollTop(next);
-    }
-  }, [rowHeight, itemCount]);
+  const scrollToIndex = useCallback(
+    (index: number) => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const next = scrollOffsetForIndex(index, rowHeight, el.clientHeight, el.scrollTop, itemCount);
+      if (next !== null) {
+        el.scrollTop = next;
+        setScrollTop(next);
+      }
+    },
+    [rowHeight, itemCount],
+  );
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;

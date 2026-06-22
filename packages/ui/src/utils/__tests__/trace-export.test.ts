@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { SSEEvent } from '../../hooks/use-sse.js';
 import {
-  serializeExport,
-  parseImport,
   EXPORT_MARKER,
   EXPORT_VERSION,
   type ExportEnvelope,
+  parseImport,
+  serializeExport,
 } from '../trace-export.js';
-import type { SSEEvent } from '../../hooks/use-sse.js';
 
 function span(traceId: string, spanId: string, extra: Partial<SSEEvent['data']> = {}): SSEEvent {
   return {
@@ -90,7 +90,9 @@ describe('parseImport — validation', () => {
   });
 
   it('rejects a wrong marker value', () => {
-    const result = parseImport(JSON.stringify({ nextdog: 'something-else', version: 1, events: [] }));
+    const result = parseImport(
+      JSON.stringify({ nextdog: 'something-else', version: 1, events: [] }),
+    );
     expect(result.ok).toBe(false);
   });
 
@@ -132,7 +134,9 @@ describe('parseImport — validation', () => {
 describe('exportFilename', () => {
   it('builds a trace filename from the traceId', async () => {
     const { exportFilename } = await import('../trace-export.js');
-    expect(exportFilename({ kind: 'trace', traceId: 'abc123' })).toMatch(/^nextdog-trace-abc123.*\.json$/);
+    expect(exportFilename({ kind: 'trace', traceId: 'abc123' })).toMatch(
+      /^nextdog-trace-abc123.*\.json$/,
+    );
   });
 
   it('builds a view filename', async () => {

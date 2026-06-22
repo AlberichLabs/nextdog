@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { enterImported, exitImported, type ImportedSession } from '../imported-session.js';
-import { serializeExport, parseImport } from '../trace-export.js';
+import { describe, expect, it } from 'vitest';
 import type { SSEEvent } from '../../hooks/use-sse.js';
+import { enterImported, exitImported, type ImportedSession } from '../imported-session.js';
+import { parseImport, serializeExport } from '../trace-export.js';
 
 function span(traceId: string, spanId: string): SSEEvent {
   return {

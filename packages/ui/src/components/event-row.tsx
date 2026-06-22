@@ -42,9 +42,12 @@ interface EventRowProps {
 }
 
 export function EventRow({ event, selected, onClick }: EventRowProps) {
-  const route = event.data.attributes['http.route'] ?? event.data.attributes['http.target'] ?? event.data.name;
-  const method = event.data.attributes['http.method'] ?? event.data.attributes['http.request.method'] ?? '';
-  const httpCode = event.data.statusCode ?? Number(event.data.attributes['http.status_code']) || undefined;
+  const route =
+    event.data.attributes['http.route'] ?? event.data.attributes['http.target'] ?? event.data.name;
+  const method =
+    event.data.attributes['http.method'] ?? event.data.attributes['http.request.method'] ?? '';
+  const httpCode =
+    event.data.statusCode ?? (Number(event.data.attributes['http.status_code']) || undefined);
 
   return (
     <div class={`event-row ${selected ? 'selected' : ''}`} onClick={onClick}>

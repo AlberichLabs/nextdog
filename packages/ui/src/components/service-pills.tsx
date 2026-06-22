@@ -1,12 +1,13 @@
-import { css } from 'styled-system/css';
 import { useMemo } from 'preact/hooks';
-import { pillStyle, pillActiveStyle } from '../styles/shared.js';
+import { css } from 'styled-system/css';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { pillActiveStyle, pillStyle } from '../styles/shared.js';
 
 const servicePillsStyle = css({
   display: 'flex',
   gap: '6px',
-  py: '2', px: '4',
+  py: '2',
+  px: '4',
   borderBottom: '1px solid token(colors.border.subtle)',
   flexWrap: 'wrap',
 });
@@ -34,8 +35,9 @@ interface ServiceStats {
 }
 
 export function ServicePills({ services, active, onToggle, events }: ServicePillsProps) {
-  if (services.length === 0) return null;
-
+  // NOTE: hooks must run on every render (Rules of Hooks), so useMemo comes
+  // before the early `services.length === 0` return — otherwise the hook order
+  // changes as services toggle between empty/non-empty and corrupts hook state.
   const stats = useMemo(() => {
     const map = new Map<string, ServiceStats>();
     if (!events) return map;
@@ -51,17 +53,21 @@ export function ServicePills({ services, active, onToggle, events }: ServicePill
     return map;
   }, [events]);
 
+  if (services.length === 0) return null;
+
   return (
     <div className={servicePillsStyle}>
       {services.map((name) => {
         const s = stats.get(name);
         const hasErrors = s && s.errors > 0;
         return (
-          <button key={name} className={`${pillStyle} ${active.has(name) ? pillActiveStyle : ''}`} onClick={() => onToggle(name)}>
+          <button
+            key={name}
+            className={`${pillStyle} ${active.has(name) ? pillActiveStyle : ''}`}
+            onClick={() => onToggle(name)}
+          >
             {name}
-            {hasErrors && (
-              <span className={pillErrorDotStyle} title={`${s!.errors} errors`} />
-            )}
+            {hasErrors && <span className={pillErrorDotStyle} title={`${s!.errors} errors`} />}
           </button>
         );
       })}

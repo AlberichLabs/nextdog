@@ -1,15 +1,15 @@
-import { useMemo, useState, useRef, useEffect, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import { Waterfall } from '../components/waterfall.js';
-import { LogRow } from '../components/log-row.js';
 import { AttributeTable } from '../components/attribute-table.js';
 import { CopyCurl } from '../components/copy-curl.js';
+import { LogRow } from '../components/log-row.js';
 import { ReplayButton } from '../components/replay-button.js';
 import { ExportButton } from '../components/trace-io.js';
-import { formatSpanDuration } from '../utils/format.js';
-import { emptyStyle, jsonViewStyle } from '../styles/shared.js';
+import { Waterfall } from '../components/waterfall.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { emptyStyle, jsonViewStyle } from '../styles/shared.js';
+import { formatSpanDuration } from '../utils/format.js';
 
 /* ── Styles ───────────────────────────────────────────────────────────── */
 
@@ -21,7 +21,8 @@ const s = {
     overflow: 'hidden',
   }),
   header: css({
-    py: '3', px: '4',
+    py: '3',
+    px: '4',
     borderBottom: '1px solid token(colors.border.subtle)',
     background: 'surface.panel',
     flexShrink: 0,
@@ -33,7 +34,8 @@ const s = {
     alignItems: 'center',
     gap: '1',
     textDecoration: 'none',
-    py: '1', px: '2',
+    py: '1',
+    px: '2',
     borderRadius: 'sm',
     margin: '-4px -8px',
     transition: 'all 0.15s ease',
@@ -96,7 +98,8 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    py: '1.5', px: '4',
+    py: '1.5',
+    px: '4',
     fontSize: 'xs',
     fontWeight: 600,
     textTransform: 'uppercase',
@@ -122,7 +125,8 @@ const s = {
     flexShrink: 0,
   }),
   tab: css({
-    py: '2', px: '4',
+    py: '2',
+    px: '4',
     fontSize: 'sm',
     fontWeight: 500,
     color: 'fg.dim',
@@ -144,7 +148,8 @@ const s = {
     justifyContent: 'center',
     minWidth: '16px',
     height: '14px',
-    py: '0', px: '1',
+    py: '0',
+    px: '1',
     marginLeft: '1.5',
     borderRadius: 'full',
     fontSize: 'xs',
@@ -173,7 +178,8 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    py: '2', px: '4',
+    py: '2',
+    px: '4',
     borderBottom: '1px solid token(colors.border.subtle)',
     background: 'surface.bg',
     flexShrink: 0,
@@ -186,12 +192,20 @@ const s = {
   detailBody: css({
     flex: 1,
     overflowY: 'auto',
-    py: '2', px: '0',
+    py: '2',
+    px: '0',
   }),
   closeBtn: css({
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    width: '24px', height: '24px', border: 'none', borderRadius: 'sm',
-    background: 'transparent', color: 'fg.dim', cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '24px',
+    height: '24px',
+    border: 'none',
+    borderRadius: 'sm',
+    background: 'transparent',
+    color: 'fg.dim',
+    cursor: 'pointer',
     transition: 'all 0.12s ease',
     _hover: { background: 'surface.hover', color: 'fg.bright' },
   }),
@@ -202,7 +216,8 @@ const s = {
     overflow: 'hidden',
   }),
   segmentBtn: css({
-    py: '0.5', px: '2',
+    py: '0.5',
+    px: '2',
     fontSize: 'xs',
     fontFamily: 'mono',
     fontWeight: 500,
@@ -281,7 +296,12 @@ const PANEL_STORAGE_KEY = 'nextdog:trace-panel-width';
 const WATERFALL_STORAGE_KEY = 'nextdog:trace-waterfall-height';
 
 function loadNum(key: string, fallback: number) {
-  try { const v = localStorage.getItem(key); return v ? Number(v) : fallback; } catch { return fallback; }
+  try {
+    const v = localStorage.getItem(key);
+    return v ? Number(v) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export function Trace({ traceId, events }: TraceProps) {
@@ -314,11 +334,15 @@ export function Trace({ traceId, events }: TraceProps) {
     const onUp = () => {
       if (panelDrag.current) {
         panelDrag.current = null;
-        try { localStorage.setItem(PANEL_STORAGE_KEY, String(panelWidth)); } catch {}
+        try {
+          localStorage.setItem(PANEL_STORAGE_KEY, String(panelWidth));
+        } catch {}
       }
       if (wfDrag.current) {
         wfDrag.current = null;
-        try { localStorage.setItem(WATERFALL_STORAGE_KEY, String(waterfallHeight)); } catch {}
+        try {
+          localStorage.setItem(WATERFALL_STORAGE_KEY, String(waterfallHeight));
+        } catch {}
       }
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -331,21 +355,27 @@ export function Trace({ traceId, events }: TraceProps) {
     };
   }, [panelWidth, waterfallHeight]);
 
-  const startPanelDrag = useCallback((e: PointerEvent) => {
-    panelDrag.current = { startX: e.clientX, startW: panelWidth };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, [panelWidth]);
+  const startPanelDrag = useCallback(
+    (e: PointerEvent) => {
+      panelDrag.current = { startX: e.clientX, startW: panelWidth };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [panelWidth],
+  );
 
-  const startWfDrag = useCallback((e: PointerEvent) => {
-    wfDrag.current = { startY: e.clientY, startH: waterfallHeight };
-    document.body.style.cursor = 'row-resize';
-    document.body.style.userSelect = 'none';
-  }, [waterfallHeight]);
+  const startWfDrag = useCallback(
+    (e: PointerEvent) => {
+      wfDrag.current = { startY: e.clientY, startH: waterfallHeight };
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [waterfallHeight],
+  );
 
   const traceEvents = useMemo(
     () => events.filter((e) => e.data.traceId === traceId),
-    [events, traceId]
+    [events, traceId],
   );
 
   const spans = useMemo(() => traceEvents.filter((e) => e.type === 'span'), [traceEvents]);
@@ -353,7 +383,7 @@ export function Trace({ traceId, events }: TraceProps) {
 
   const rootSpan = useMemo(
     () => spans.find((s) => s.data.kind === 'SERVER' && !s.data.parentSpanId) ?? spans[0],
-    [spans]
+    [spans],
   );
 
   // Auto-switch to spans tab if no logs
@@ -364,7 +394,13 @@ export function Trace({ traceId, events }: TraceProps) {
   if (!traceId) return <div className={emptyStyle}>No trace selected</div>;
 
   const method = rootSpan ? String(rootSpan.data.attributes['http.method'] ?? '') : '';
-  const routePath = rootSpan ? String(rootSpan.data.attributes['http.route'] ?? rootSpan.data.attributes['http.target'] ?? rootSpan.data.name) : traceId;
+  const routePath = rootSpan
+    ? String(
+        rootSpan.data.attributes['http.route'] ??
+          rootSpan.data.attributes['http.target'] ??
+          rootSpan.data.name,
+      )
+    : traceId;
   const listItems = activeTab === 'spans' ? spans : logs;
 
   return (
@@ -372,11 +408,22 @@ export function Trace({ traceId, events }: TraceProps) {
       {/* Header */}
       <div className={s.header}>
         <a href="/" className={s.backLink}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
           Back
         </a>
         <div className={s.titleRow}>
-          {method && <span className={`${s.methodBase} ${methodColorStyle(method)}`}>{method}</span>}
+          {method && (
+            <span className={`${s.methodBase} ${methodColorStyle(method)}`}>{method}</span>
+          )}
           <h2 className={s.routeHeading}>{routePath}</h2>
         </div>
         <div className={s.metaRow}>
@@ -387,7 +434,12 @@ export function Trace({ traceId, events }: TraceProps) {
           <span>{rootSpan ? formatSpanDuration(rootSpan) : ''}</span>
           <span className={s.sep}>|</span>
           <span>{spans.length} spans</span>
-          {logs.length > 0 && <><span className={s.sep}>|</span><span>{logs.length} logs</span></>}
+          {logs.length > 0 && (
+            <>
+              <span className={s.sep}>|</span>
+              <span>{logs.length} logs</span>
+            </>
+          )}
         </div>
         <div className={s.actionsRow}>
           <ExportButton
@@ -396,7 +448,7 @@ export function Trace({ traceId, events }: TraceProps) {
             label="Export trace"
             title="Download this trace (all spans + logs) as a portable file"
           />
-          {rootSpan && rootSpan.data.attributes['http.method'] && (
+          {rootSpan?.data.attributes['http.method'] && (
             <>
               <ReplayButton event={rootSpan} />
               <CopyCurl event={rootSpan} />
@@ -413,7 +465,12 @@ export function Trace({ traceId, events }: TraceProps) {
           <div className={s.waterfallSection}>
             <div className={s.sectionHeader} onClick={() => setWaterfallOpen(!waterfallOpen)}>
               <span>Waterfall</span>
-              <span className={s.collapseIcon} style={{ transform: waterfallOpen ? 'rotate(0)' : 'rotate(-90deg)' }}>▾</span>
+              <span
+                className={s.collapseIcon}
+                style={{ transform: waterfallOpen ? 'rotate(0)' : 'rotate(-90deg)' }}
+              >
+                ▾
+              </span>
             </div>
             {waterfallOpen && (
               <div style={{ height: `${waterfallHeight}px`, overflow: 'auto' }}>
@@ -470,12 +527,30 @@ export function Trace({ traceId, events }: TraceProps) {
               </span>
               <div className={css({ display: 'flex', gap: '2', alignItems: 'center' })}>
                 <div className={s.segmentGroup}>
-                  <button className={`${s.segmentBtn} ${!showJson ? s.segmentBtnActive : ''}`} onClick={() => setShowJson(false)}>Table</button>
-                  <button className={`${s.segmentBtn} ${showJson ? s.segmentBtnActive : ''}`} onClick={() => setShowJson(true)}>JSON</button>
+                  <button
+                    className={`${s.segmentBtn} ${!showJson ? s.segmentBtnActive : ''}`}
+                    onClick={() => setShowJson(false)}
+                  >
+                    Table
+                  </button>
+                  <button
+                    className={`${s.segmentBtn} ${showJson ? s.segmentBtnActive : ''}`}
+                    onClick={() => setShowJson(true)}
+                  >
+                    JSON
+                  </button>
                 </div>
                 <button className={s.closeBtn} onClick={() => setSelectedEvent(null)}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -492,7 +567,9 @@ export function Trace({ traceId, events }: TraceProps) {
                       service: selectedEvent.data.serviceName,
                       kind: selectedEvent.data.kind,
                       status: selectedEvent.data.status?.code,
-                      ...(selectedEvent.data.message ? { message: selectedEvent.data.message } : {}),
+                      ...(selectedEvent.data.message
+                        ? { message: selectedEvent.data.message }
+                        : {}),
                       ...(selectedEvent.data.level ? { level: selectedEvent.data.level } : {}),
                       traceId: selectedEvent.data.traceId,
                       spanId: selectedEvent.data.spanId,
@@ -500,7 +577,10 @@ export function Trace({ traceId, events }: TraceProps) {
                     }}
                   />
                   {Object.keys(selectedEvent.data.attributes).length > 0 && (
-                    <AttributeTable title="Attributes" attributes={selectedEvent.data.attributes as Record<string, unknown>} />
+                    <AttributeTable
+                      title="Attributes"
+                      attributes={selectedEvent.data.attributes as Record<string, unknown>}
+                    />
                   )}
                 </>
               )}
@@ -509,9 +589,7 @@ export function Trace({ traceId, events }: TraceProps) {
         ) : (
           <div className={s.rightPanel} style={{ width: `${panelWidth}px` }}>
             <div className={s.hDragHandle} onPointerDown={startPanelDrag} />
-            <div className={s.noSelection}>
-              Click a span or log to view details
-            </div>
+            <div className={s.noSelection}>Click a span or log to view details</div>
           </div>
         )}
       </div>

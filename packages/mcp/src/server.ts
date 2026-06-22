@@ -6,13 +6,8 @@
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { SidecarClient, SidecarUnavailableError, type SidecarClientOptions } from './client.js';
-import {
-  getErrors,
-  getTrace,
-  listRecentTraces,
-  searchLogs,
-} from './tools.js';
+import { SidecarClient, type SidecarClientOptions, SidecarUnavailableError } from './client.js';
+import { getErrors, getTrace, listRecentTraces, searchLogs } from './tools.js';
 
 /** Wrap a handler so a sidecar-down (or any) failure becomes a clean MCP tool error. */
 function ok(data: unknown) {
@@ -65,14 +60,20 @@ export function createMcpServer(opts: CreateServerOptions = {}): McpServer {
         'service, a recent time window, or errors only.',
       inputSchema: {
         route: z.string().optional().describe('Substring match on the request route/target/name'),
-        status: z.string().optional().describe('Root span status: "ERROR"/"OK" or an HTTP code like "500"'),
+        status: z
+          .string()
+          .optional()
+          .describe('Root span status: "ERROR"/"OK" or an HTTP code like "500"'),
         service: z.string().optional().describe('Restrict to one service name'),
-        withinMinutes: z.number().optional().describe('Only traces started within the last N minutes'),
+        withinMinutes: z
+          .number()
+          .optional()
+          .describe('Only traces started within the last N minutes'),
         errorsOnly: z.boolean().optional().describe('Only include traces containing an error span'),
         limit: z.number().optional().describe('Max traces to return (default 50)'),
       },
     },
-    (args) => run(() => listRecentTraces(client, args))
+    (args) => run(() => listRecentTraces(client, args)),
   );
 
   server.registerTool(
@@ -86,7 +87,7 @@ export function createMcpServer(opts: CreateServerOptions = {}): McpServer {
         traceId: z.string().describe('The trace id to fetch'),
       },
     },
-    (args) => run(() => getTrace(client, args))
+    (args) => run(() => getTrace(client, args)),
   );
 
   server.registerTool(
@@ -104,12 +105,14 @@ export function createMcpServer(opts: CreateServerOptions = {}): McpServer {
         filter: z
           .string()
           .optional()
-          .describe('Filter expression, e.g. "level:error service:web OR status:ERROR !route:/health"'),
+          .describe(
+            'Filter expression, e.g. "level:error service:web OR status:ERROR !route:/health"',
+          ),
         includeSpans: z.boolean().optional().describe('Also match spans, not just logs'),
         limit: z.number().optional().describe('Max results (default 50)'),
       },
     },
-    (args) => run(() => searchLogs(client, args))
+    (args) => run(() => searchLogs(client, args)),
   );
 
   server.registerTool(
@@ -125,7 +128,7 @@ export function createMcpServer(opts: CreateServerOptions = {}): McpServer {
         limit: z.number().optional().describe('Max errors to return (default 50)'),
       },
     },
-    (args) => run(() => getErrors(client, args))
+    (args) => run(() => getErrors(client, args)),
   );
 
   return server;

@@ -24,7 +24,7 @@
  * Parent linkage is automatic: the span is started inside the active OTel
  * context, so it nests under the in-flight request span in the waterfall.
  */
-import { trace, context, SpanKind, SpanStatusCode, type Span } from '@opentelemetry/api';
+import { context, type Span, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 
 const TRACER_NAME = 'nextdog/db';
 const WRAPPED = Symbol.for('nextdog.db.wrapped');
@@ -55,7 +55,11 @@ function paramsCountOf(args: unknown[]): number | undefined {
   // pg: query(text, values, cb) — values is args[1]
   // pg config object: { values: [...] }
   const first = args[0];
-  if (first && typeof first === 'object' && Array.isArray((first as { values?: unknown[] }).values)) {
+  if (
+    first &&
+    typeof first === 'object' &&
+    Array.isArray((first as { values?: unknown[] }).values)
+  ) {
     return (first as { values: unknown[] }).values.length;
   }
   if (Array.isArray(args[1])) return (args[1] as unknown[]).length;
@@ -71,7 +75,11 @@ function rowsAffectedOf(result: unknown): number | undefined {
   if (Array.isArray(result)) {
     const head = result[0];
     if (Array.isArray(head)) return head.length; // read → row array
-    if (head && typeof head === 'object' && typeof (head as { affectedRows?: number }).affectedRows === 'number') {
+    if (
+      head &&
+      typeof head === 'object' &&
+      typeof (head as { affectedRows?: number }).affectedRows === 'number'
+    ) {
       return (head as { affectedRows: number }).affectedRows; // write → ResultSetHeader
     }
   }
@@ -124,7 +132,12 @@ function wrapQueryMethod(
     const lastArg = args[args.length - 1];
     if (typeof lastArg === 'function') {
       const cb = lastArg as AnyFn;
-      args[args.length - 1] = function (this: unknown, err: unknown, result: unknown, ...rest: unknown[]) {
+      args[args.length - 1] = function (
+        this: unknown,
+        err: unknown,
+        result: unknown,
+        ...rest: unknown[]
+      ) {
         if (err) finishErr(err);
         else finishOk(result);
         return cb.call(this, err, result, ...rest);
@@ -192,7 +205,9 @@ function instrumentDriverModule(
 
   for (const ctorName of ctorNames) {
     const ctor = (mod as Record<string, unknown>)[ctorName] as Wrappable | undefined;
-    const proto = ctor?.prototype as (Record<string, unknown> & { [WRAPPED]?: boolean }) | undefined;
+    const proto = ctor?.prototype as
+      | (Record<string, unknown> & { [WRAPPED]?: boolean })
+      | undefined;
     if (!proto || proto[WRAPPED]) continue;
 
     const originals: Record<string, unknown> = {};

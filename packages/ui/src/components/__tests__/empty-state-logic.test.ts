@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { selectEmptyState, type EmptyStateInput } from '../empty-state-logic.js';
+import { describe, expect, it } from 'vitest';
+import { type EmptyStateInput, selectEmptyState } from '../empty-state-logic.js';
 
 const base: EmptyStateInput = {
   connected: false,
@@ -56,12 +56,12 @@ describe('selectEmptyState — branch table', () => {
   it('filter active but nothing ever received → disconnected/idle, not filter-empty', () => {
     // A filter can be present from the URL on first load before any event
     // arrives; "no events yet" must win over "filter hides everything".
-    expect(
-      selectEmptyState({ ...base, connected: false, filterActive: true }),
-    ).toBe('disconnected');
-    expect(
-      selectEmptyState({ ...base, connected: true, filterActive: true }),
-    ).toBe('connected-idle');
+    expect(selectEmptyState({ ...base, connected: false, filterActive: true })).toBe(
+      'disconnected',
+    );
+    expect(selectEmptyState({ ...base, connected: true, filterActive: true })).toBe(
+      'connected-idle',
+    );
   });
 
   it('connection dropped after events arrived, filter active → still filter-empty', () => {

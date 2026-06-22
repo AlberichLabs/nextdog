@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { NEXTDOG_HEALTH_MARKER, NEXTDOG_HEALTH_SERVICE_FIELD } from '../health.js';
 import * as core from '../index.js';
 

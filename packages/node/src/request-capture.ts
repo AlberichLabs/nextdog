@@ -7,7 +7,7 @@
  * in the exporter (since the OTel active span is not available at request time).
  */
 import * as http from 'node:http';
-import { requestContextStorage, createRequestContext } from './request-context.js';
+import { createRequestContext, requestContextStorage } from './request-context.js';
 
 export interface RequestMetadata {
   method: string;
@@ -66,7 +66,7 @@ function compressionOf(contentEncoding: string): string | null {
   if (!ce || ce === 'identity') return null;
   // content-encoding can be a comma-separated list (e.g. "gzip, br").
   const found = COMPRESSED_ENCODINGS.find((enc) =>
-    ce.split(',').some((part) => part.trim() === enc)
+    ce.split(',').some((part) => part.trim() === enc),
   );
   return found ?? ce; // unknown non-identity encoding: still treat as compressed
 }
@@ -100,27 +100,29 @@ function captureBody(req: http.IncomingMessage, metadata: RequestMetadata): void
   const originalOn = req.on;
 
   // Intercept listener registration to piggyback on whoever reads the body
-  req.on = function (this: http.IncomingMessage, event: string, listener: (...args: any[]) => void) {
+  req.on = function (
+    this: http.IncomingMessage,
+    event: string,
+    listener: (...args: any[]) => void,
+  ) {
     if (event === 'data') {
-      const self = this;
       const wrappedListener = (chunk: Buffer) => {
         if (size < MAX_BODY_SIZE) {
           chunks.push(chunk);
           size += chunk.length;
         }
-        return listener.call(self, chunk);
+        return listener.call(this, chunk);
       };
       return originalOn.call(this, event, wrappedListener);
     }
     if (event === 'end') {
-      const self = this;
       const wrappedListener = (...args: any[]) => {
         if (chunks.length > 0) {
           const body = Buffer.concat(chunks).toString('utf-8');
           metadata.body = body.length > MAX_BODY_SIZE ? body.slice(0, MAX_BODY_SIZE) : body;
           chunks.length = 0;
         }
-        return listener.call(self, ...args);
+        return listener.call(this, ...args);
       };
       return originalOn.call(this, event, wrappedListener);
     }
@@ -198,7 +200,7 @@ function captureResponse(res: http.ServerResponse, metadata: RequestMetadata): v
       metadata.responseBody = `[binary ${contentType} response, ${size} bytes — not captured]`;
     } else {
       const body = Buffer.concat(chunks).toString('utf-8');
-      metadata.responseBody = overflowed ? body + '\n... (truncated)' : body;
+      metadata.responseBody = overflowed ? `${body}\n... (truncated)` : body;
     }
   };
 
@@ -214,7 +216,8 @@ function captureResponse(res: http.ServerResponse, metadata: RequestMetadata): v
         // Flat [k1, v1, k2, v2, ...] or array of [k, v] pairs.
         if (Array.isArray(last[0])) {
           for (const pair of last as [unknown, unknown][]) {
-            if (pair && pair.length === 2) writeHeadHeaders[String(pair[0]).toLowerCase()] = String(pair[1]);
+            if (pair && pair.length === 2)
+              writeHeadHeaders[String(pair[0]).toLowerCase()] = String(pair[1]);
           }
         } else {
           for (let i = 0; i + 1 < last.length; i += 2) {
@@ -223,7 +226,8 @@ function captureResponse(res: http.ServerResponse, metadata: RequestMetadata): v
         }
       } else {
         for (const [k, v] of Object.entries(last as Record<string, unknown>)) {
-          if (v != null) writeHeadHeaders[k.toLowerCase()] = Array.isArray(v) ? v.join(', ') : String(v);
+          if (v != null)
+            writeHeadHeaders[k.toLowerCase()] = Array.isArray(v) ? v.join(', ') : String(v);
         }
       }
     }
@@ -293,7 +297,7 @@ export function startRequestCapture() {
         method: req.method ?? 'GET',
         url: req.url ?? '/',
         headers,
-        cookies: headers['cookie'] ?? '',
+        cookies: headers.cookie ?? '',
         capturedAt: Date.now(),
       };
 
@@ -318,9 +322,7 @@ export function startRequestCapture() {
       // Run the rest of the request inside AsyncLocalStorage context
       // so console.log calls have access to request info
       const reqCtx = createRequestContext(metadata.method, metadata.url);
-      return requestContextStorage.run(reqCtx, () =>
-        originalEmit.apply(this, [event, ...args])
-      );
+      return requestContextStorage.run(reqCtx, () => originalEmit.apply(this, [event, ...args]));
     }
 
     return originalEmit.apply(this, [event, ...args]);

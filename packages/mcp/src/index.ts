@@ -1,27 +1,27 @@
-export { createMcpServer } from './server.js';
-export {
-  SidecarClient,
-  SidecarUnavailableError,
-  DEFAULT_SIDECAR_URL,
-} from './client.js';
 export type { EventQuery, SidecarClientOptions } from './client.js';
 export {
-  listRecentTraces,
-  getTrace,
-  searchLogs,
-  getErrors,
-  buildSpanTree,
-} from './tools.js';
-export type {
-  TraceSummary,
-  SpanTreeNode,
-  GetTraceResult,
-  CorrelatedLog,
-  SearchLogsArgs,
-  ListRecentTracesArgs,
-  ErrorSpanSummary,
-} from './tools.js';
-export { matchesQuery } from './matcher.js';
-export { groupFilterTokens, parseFilterTokens } from './filter-query.js';
+  DEFAULT_SIDECAR_URL,
+  SidecarClient,
+  SidecarUnavailableError,
+} from './client.js';
 export type { FilterToken } from './filter-query.js';
-export type { SidecarEvent, SpanEvent, LogEvent } from './types.js';
+export { groupFilterTokens, parseFilterTokens } from './filter-query.js';
+export { matchesQuery } from './matcher.js';
+export { createMcpServer } from './server.js';
+export type {
+  CorrelatedLog,
+  ErrorSpanSummary,
+  GetTraceResult,
+  ListRecentTracesArgs,
+  SearchLogsArgs,
+  SpanTreeNode,
+  TraceSummary,
+} from './tools.js';
+export {
+  buildSpanTree,
+  getErrors,
+  getTrace,
+  listRecentTraces,
+  searchLogs,
+} from './tools.js';
+export type { LogEvent, SidecarEvent, SpanEvent } from './types.js';

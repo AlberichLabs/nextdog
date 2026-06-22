@@ -8,8 +8,8 @@
  * corrupts the stdio JSON-RPC stream on stdout.
  */
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createMcpServer } from './server.js';
 import { DEFAULT_SIDECAR_URL } from './client.js';
+import { createMcpServer } from './server.js';
 
 async function main(): Promise<void> {
   const baseUrl = process.env.NEXTDOG_URL ?? DEFAULT_SIDECAR_URL;
@@ -21,6 +21,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  process.stderr.write(`[nextdog-mcp] failed to start: ${err instanceof Error ? err.message : String(err)}\n`);
+  process.stderr.write(
+    `[nextdog-mcp] failed to start: ${err instanceof Error ? err.message : String(err)}\n`,
+  );
   process.exit(1);
 });

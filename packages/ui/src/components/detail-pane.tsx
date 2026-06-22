@@ -1,18 +1,18 @@
-import { useMemo, useState, useRef, useCallback, useEffect } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { route } from 'preact-router';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import { Waterfall } from './waterfall.js';
-import { LogRow } from './log-row.js';
+import type { SSEEvent } from '../hooks/use-sse.js';
+import { jsonViewStyle } from '../styles/shared.js';
+import { stripResponseAttributes } from '../utils/body-format.js';
+import { formatSpanDuration } from '../utils/format.js';
 import { AttributeTable } from './attribute-table.js';
 import { CopyCurl } from './copy-curl.js';
+import { LogRow } from './log-row.js';
 import { ReplayButton } from './replay-button.js';
 import { ResponseSection } from './response-section.js';
-import { formatSpanDuration } from '../utils/format.js';
-import { stripResponseAttributes } from '../utils/body-format.js';
-import { pillStyle, jsonViewStyle } from '../styles/shared.js';
 import { ExportButton } from './trace-io.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
+import { Waterfall } from './waterfall.js';
 
 const STORAGE_KEY = 'nextdog:pane-width';
 const DEFAULT_WIDTH = 520;
@@ -80,7 +80,8 @@ const dragHandleStyle = css({
 });
 
 const headerStyle = css({
-  py: '3', px: '4',
+  py: '3',
+  px: '4',
   borderBottom: '1px solid token(colors.border.subtle)',
   background: 'surface.bg',
 });
@@ -159,7 +160,8 @@ const sectionTitleStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  py: '2', px: '4',
+  py: '2',
+  px: '4',
   fontSize: 'sm',
   fontWeight: 600,
   textTransform: 'uppercase',
@@ -184,7 +186,8 @@ const segmentGroupStyle = css({
 });
 
 const segmentBtnStyle = css({
-  py: '0.5', px: '2',
+  py: '0.5',
+  px: '2',
   fontSize: 'xs',
   fontFamily: 'mono',
   fontWeight: 500,
@@ -202,26 +205,6 @@ const segmentBtnActiveStyle = css({
   background: 'accent',
   color: 'surface.bg',
   fontWeight: 600,
-});
-
-// Keep for backward compat but unused now
-const toggleBtnStyle = css({
-  fontSize: 'sm',
-  fontFamily: 'mono',
-  py: '1', px: '2',
-  borderRadius: 'sm',
-  border: '1px solid token(colors.border.strong)',
-  background: 'surface.hover',
-  color: 'fg',
-  cursor: 'pointer',
-  textTransform: 'none',
-  letterSpacing: '0',
-  fontWeight: 500,
-  transition: 'all 0.15s ease',
-  _hover: {
-    background: 'surface.raised',
-    color: 'fg.bright',
-  },
 });
 
 const METHOD_COLORS: Record<string, string> = {
@@ -274,7 +257,9 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       // Persist on drag end
-      try { localStorage.setItem(STORAGE_KEY, String(loadWidth())); } catch {}
+      try {
+        localStorage.setItem(STORAGE_KEY, String(loadWidth()));
+      } catch {}
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -286,23 +271,19 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
 
   // Persist width on change (debounced via pointerup, but also save current)
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, String(width)); } catch {}
+    try {
+      localStorage.setItem(STORAGE_KEY, String(width));
+    } catch {}
   }, [width]);
 
   const traceEvents = useMemo(
     () => events.filter((e) => e.data.traceId === traceId),
-    [events, traceId]
+    [events, traceId],
   );
 
-  const spans = useMemo(
-    () => traceEvents.filter((e) => e.type === 'span'),
-    [traceEvents]
-  );
+  const spans = useMemo(() => traceEvents.filter((e) => e.type === 'span'), [traceEvents]);
 
-  const logs = useMemo(
-    () => traceEvents.filter((e) => e.type === 'log'),
-    [traceEvents]
-  );
+  const logs = useMemo(() => traceEvents.filter((e) => e.type === 'log'), [traceEvents]);
 
   // Find root span for header info
   const rootSpan = useMemo(() => {
@@ -310,9 +291,15 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
   }, [spans]);
 
   const method = rootSpan ? String(rootSpan.data.attributes['http.method'] ?? '') : '';
-  const routePath = rootSpan ? String(rootSpan.data.attributes['http.route'] ?? rootSpan.data.attributes['http.target'] ?? rootSpan.data.name) : traceId;
+  const routePath = rootSpan
+    ? String(
+        rootSpan.data.attributes['http.route'] ??
+          rootSpan.data.attributes['http.target'] ??
+          rootSpan.data.name,
+      )
+    : traceId;
   const status = rootSpan?.data.status?.code ?? '';
-  const duration = rootSpan ? (formatSpanDuration(rootSpan) || '—') : '—';
+  const duration = rootSpan ? formatSpanDuration(rootSpan) || '—' : '—';
 
   const handleExpand = () => {
     route(`/trace/${traceId}`);
@@ -339,14 +326,31 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                 title="Download this trace (all spans + logs) as a portable file"
               />
               <button class={btnStyle} onClick={handleExpand} title="Expand to full page">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="15 3 21 3 21 9" /><line x1="21" y1="3" x2="14" y2="10" />
-                  <polyline points="9 21 3 21 3 15" /><line x1="3" y1="21" x2="10" y2="14" />
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
                 </svg>
               </button>
               <button class={btnStyle} onClick={onClose} title="Close">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
@@ -363,7 +367,7 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                 <span>{logs.length} logs</span>
               </>
             )}
-            {rootSpan && rootSpan.data.attributes['http.method'] && (
+            {rootSpan?.data.attributes['http.method'] && (
               <>
                 <span class={metaSepStyle}>|</span>
                 <ReplayButton event={rootSpan} />
@@ -420,14 +424,22 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
               <div class={sectionTitleStyle}>
                 <span>{selectedEvent.type === 'span' ? 'Span' : 'Log'} Detail</span>
                 <div class={segmentGroupStyle}>
-                  <button class={`${segmentBtnStyle} ${!showJson ? segmentBtnActiveStyle : ''}`} onClick={() => setShowJson(false)}>Table</button>
-                  <button class={`${segmentBtnStyle} ${showJson ? segmentBtnActiveStyle : ''}`} onClick={() => setShowJson(true)}>JSON</button>
+                  <button
+                    class={`${segmentBtnStyle} ${!showJson ? segmentBtnActiveStyle : ''}`}
+                    onClick={() => setShowJson(false)}
+                  >
+                    Table
+                  </button>
+                  <button
+                    class={`${segmentBtnStyle} ${showJson ? segmentBtnActiveStyle : ''}`}
+                    onClick={() => setShowJson(true)}
+                  >
+                    JSON
+                  </button>
                 </div>
               </div>
               {showJson ? (
-                <pre class={jsonViewStyle}>
-                  {JSON.stringify(selectedEvent.data, null, 2)}
-                </pre>
+                <pre class={jsonViewStyle}>{JSON.stringify(selectedEvent.data, null, 2)}</pre>
               ) : (
                 <>
                   <AttributeTable
@@ -438,7 +450,9 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                       service: selectedEvent.data.serviceName,
                       kind: selectedEvent.data.kind,
                       status: selectedEvent.data.status?.code,
-                      ...(selectedEvent.data.message ? { message: selectedEvent.data.message } : {}),
+                      ...(selectedEvent.data.message
+                        ? { message: selectedEvent.data.message }
+                        : {}),
                       ...(selectedEvent.data.level ? { level: selectedEvent.data.level } : {}),
                       traceId: selectedEvent.data.traceId,
                       spanId: selectedEvent.data.spanId,
@@ -449,7 +463,7 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                       dedicated view, so the large body string isn't shown twice. */}
                   {(() => {
                     const tableAttrs = stripResponseAttributes(
-                      selectedEvent.data.attributes as Record<string, unknown>
+                      selectedEvent.data.attributes as Record<string, unknown>,
                     );
                     return Object.keys(tableAttrs).length > 0 ? (
                       <AttributeTable

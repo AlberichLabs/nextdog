@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 
 interface ColumnDef {
@@ -32,7 +32,8 @@ const headerStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  py: '2', px: '3',
+  py: '2',
+  px: '3',
   borderBottom: '1px solid token(colors.border.subtle)',
   fontSize: 'sm',
   fontWeight: '600',
@@ -45,17 +46,24 @@ const activeItemStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  py: '1', px: '3',
+  py: '1',
+  px: '3',
 });
 
 const listItemStyle = css({
-  py: '1.5', px: '3',
+  py: '1.5',
+  px: '3',
   cursor: 'pointer',
   transition: 'background 0.1s ease',
   _hover: { background: 'surface.hover' },
 });
 
-export function ColumnPicker({ customColumns, availableAttrs, onAdd, onRemove }: ColumnPickerProps) {
+export function ColumnPicker({
+  customColumns,
+  availableAttrs,
+  onAdd,
+  onRemove,
+}: ColumnPickerProps) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -74,12 +82,18 @@ export function ColumnPicker({ customColumns, availableAttrs, onAdd, onRemove }:
     if (!open) return;
     updatePos();
     const close = (e: PointerEvent) => {
-      if (popRef.current && !popRef.current.contains(e.target as Node) &&
-          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+      if (
+        popRef.current &&
+        !popRef.current.contains(e.target as Node) &&
+        btnRef.current &&
+        !btnRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     window.addEventListener('pointerdown', close);
     window.addEventListener('keydown', esc);
     return () => {
@@ -94,9 +108,15 @@ export function ColumnPicker({ customColumns, availableAttrs, onAdd, onRemove }:
         ref={btnRef}
         onClick={() => setOpen(!open)}
         className={css({
-          fontSize: 'sm', fontFamily: 'mono', py: '1', px: '2',
-          borderRadius: 'md', border: '1px solid token(colors.border.subtle)',
-          background: 'transparent', color: 'fg', cursor: 'pointer',
+          fontSize: 'sm',
+          fontFamily: 'mono',
+          py: '1',
+          px: '2',
+          borderRadius: 'md',
+          border: '1px solid token(colors.border.subtle)',
+          background: 'transparent',
+          color: 'fg',
+          cursor: 'pointer',
           transition: 'all 0.15s ease',
           _hover: { background: 'surface.hover' },
         })}
@@ -115,27 +135,56 @@ export function ColumnPicker({ customColumns, availableAttrs, onAdd, onRemove }:
             <button
               onClick={() => setOpen(false)}
               className={css({
-                background: 'none', border: 'none', color: 'fg.dim',
-                cursor: 'pointer', fontSize: 'lg', lineHeight: '1',
+                background: 'none',
+                border: 'none',
+                color: 'fg.dim',
+                cursor: 'pointer',
+                fontSize: 'lg',
+                lineHeight: '1',
                 _hover: { color: 'fg.bright' },
               })}
-            >×</button>
+            >
+              ×
+            </button>
           </div>
 
           {customColumns.length > 0 && (
-            <div className={css({ py: '1', px: '0', borderBottom: '1px solid token(colors.border.subtle)' })}>
-              <div className={css({ fontSize: 'xs', color: 'fg.dim', py: '0', px: '3', marginBottom: '0.5' })}>Active:</div>
+            <div
+              className={css({
+                py: '1',
+                px: '0',
+                borderBottom: '1px solid token(colors.border.subtle)',
+              })}
+            >
+              <div
+                className={css({
+                  fontSize: 'xs',
+                  color: 'fg.dim',
+                  py: '0',
+                  px: '3',
+                  marginBottom: '0.5',
+                })}
+              >
+                Active:
+              </div>
               {customColumns.map((col) => (
                 <div key={col.id} className={activeItemStyle}>
                   <span className={css({ fontSize: 'sm' })}>{col.attrKey}</span>
                   <button
                     onClick={() => onRemove(col.id)}
                     className={css({
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'red', fontSize: 'sm', py: '0', px: '1',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'red',
+                      fontSize: 'sm',
+                      py: '0',
+                      px: '1',
                       _hover: { opacity: 0.7 },
                     })}
-                  >remove</button>
+                  >
+                    remove
+                  </button>
                 </div>
               ))}
             </div>
@@ -143,12 +192,17 @@ export function ColumnPicker({ customColumns, availableAttrs, onAdd, onRemove }:
 
           <div className={css({ maxHeight: '240px', overflowY: 'auto' })}>
             {availableAttrs.length === 0 ? (
-              <div className={css({ py: '3', px: '3', color: 'fg.dim', textAlign: 'center' })}>No more attributes available</div>
+              <div className={css({ py: '3', px: '3', color: 'fg.dim', textAlign: 'center' })}>
+                No more attributes available
+              </div>
             ) : (
               availableAttrs.map((attr) => (
                 <div
                   key={attr}
-                  onClick={() => { onAdd(attr); setOpen(false); }}
+                  onClick={() => {
+                    onAdd(attr);
+                    setOpen(false);
+                  }}
                   className={listItemStyle}
                 >
                   {attr}

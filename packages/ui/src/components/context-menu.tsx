@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 
 export interface ContextMenuAction {
@@ -30,7 +30,7 @@ export function attrContextActions(
     onAddColumn?: (attrKey: string) => void;
     onRemoveColumn?: (attrKey: string) => void;
     isColumnActive?: boolean;
-  }
+  },
 ): ContextMenuAction[] {
   const actions: ContextMenuAction[] = [
     {
@@ -68,7 +68,8 @@ const menuStyle = css({
   background: 'surface.panel',
   border: '1px solid token(colors.border.subtle)',
   borderRadius: 'md',
-  py: '1', px: '0',
+  py: '1',
+  px: '0',
   minWidth: '200px',
   maxWidth: '320px',
   boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
@@ -80,7 +81,8 @@ const itemStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: '2',
-  py: '1', px: '3',
+  py: '1',
+  px: '3',
   cursor: 'pointer',
   color: 'fg',
   whiteSpace: 'nowrap',
@@ -93,7 +95,8 @@ const dangerItemStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: '2',
-  py: '1', px: '3',
+  py: '1',
+  px: '3',
   cursor: 'pointer',
   color: 'red',
   whiteSpace: 'nowrap',
@@ -115,7 +118,9 @@ export function ContextMenuContainer() {
 
   useEffect(() => {
     globalShowMenu = setState;
-    return () => { globalShowMenu = null; };
+    return () => {
+      globalShowMenu = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -153,16 +158,15 @@ export function ContextMenuContainer() {
   const pos = adjustedPos(state.x, state.y);
 
   return (
-    <div
-      ref={menuRef}
-      className={menuStyle}
-      style={`left:${pos.x}px;top:${pos.y}px`}
-    >
+    <div ref={menuRef} className={menuStyle} style={`left:${pos.x}px;top:${pos.y}px`}>
       {state.actions.map((action, i) => (
         <div
           key={i}
           className={action.danger ? dangerItemStyle : itemStyle}
-          onClick={() => { action.onClick(); setState(null); }}
+          onClick={() => {
+            action.onClick();
+            setState(null);
+          }}
         >
           {action.icon && <span className={iconStyle}>{action.icon}</span>}
           <span>{action.label}</span>

@@ -1,8 +1,8 @@
-import { trace, context } from '@opentelemetry/api';
+import { context, trace } from '@opentelemetry/api';
 import { getRequestContext } from './request-context.js';
 
 const LEVELS = ['debug', 'log', 'info', 'warn', 'error'] as const;
-type Level = typeof LEVELS[number];
+type Level = (typeof LEVELS)[number];
 
 const LEVEL_MAP: Record<Level, string> = {
   debug: 'debug',
@@ -15,9 +15,15 @@ const LEVEL_MAP: Record<Level, string> = {
 function tryParseJson(str: string): unknown | null {
   if (typeof str !== 'string') return null;
   const trimmed = str.trim();
-  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-      (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-    try { return JSON.parse(trimmed); } catch { return null; }
+  if (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  ) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return null;
+    }
   }
   return null;
 }
@@ -38,7 +44,11 @@ function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string
 function formatArg(arg: unknown): string {
   if (typeof arg === 'string') return arg;
   if (arg instanceof Error) return `${arg.message}\n${arg.stack ?? ''}`;
-  try { return JSON.stringify(arg); } catch { return String(arg); }
+  try {
+    return JSON.stringify(arg);
+  } catch {
+    return String(arg);
+  }
 }
 
 function extractAttributes(args: unknown[]): Record<string, unknown> {
@@ -100,10 +110,12 @@ export function patchConsole(url: string, serviceName: string) {
       const firstArg = args[0];
       if (typeof firstArg === 'string' && firstArg.startsWith('[nextdog]')) return;
       // Skip Next.js internal OTel/RSC noise
-      if (typeof firstArg === 'string' && (
-        firstArg.includes('Unexpected root span type') ||
-        firstArg.includes('Failed to fetch RSC payload')
-      )) return;
+      if (
+        typeof firstArg === 'string' &&
+        (firstArg.includes('Unexpected root span type') ||
+          firstArg.includes('Failed to fetch RSC payload'))
+      )
+        return;
 
       // Try multiple approaches to get the active span context
       // Next.js 14 has less reliable OTel context propagation

@@ -1,6 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NEXTDOG_HEALTH_MARKER } from '@nextdog/core';
-import { ensureSidecar, isHealthy, probeHealth, _resetForeignOccupantWarnings } from '../sidecar.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  _resetForeignOccupantWarnings,
+  ensureSidecar,
+  isHealthy,
+  probeHealth,
+} from '../sidecar.js';
 
 const mockFetch = vi.fn();
 
@@ -102,7 +107,7 @@ describe('ensureSidecar', () => {
     expect(result.ready).toBe(true);
     expect(mockFetch).toHaveBeenCalledWith(
       'http://localhost:6789/health',
-      expect.objectContaining({ signal: expect.any(AbortSignal) })
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 

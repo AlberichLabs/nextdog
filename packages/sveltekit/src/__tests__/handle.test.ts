@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withNextDog } from '../index.js';
 
 function makeEvent(method = 'GET', pathname = '/api/test', routeId: string | null = '/api/test') {
@@ -60,7 +60,9 @@ describe('withNextDog — instrumented requests', () => {
     };
 
     const mockTracer = {
-      startActiveSpan: vi.fn((name: string, fn: (span: typeof mockSpan) => unknown) => fn(mockSpan)),
+      startActiveSpan: vi.fn((_name: string, fn: (span: typeof mockSpan) => unknown) =>
+        fn(mockSpan),
+      ),
     };
 
     vi.doMock('@opentelemetry/api', () => ({
@@ -131,7 +133,9 @@ describe('withNextDog — instrumented requests', () => {
     };
 
     const mockTracer = {
-      startActiveSpan: vi.fn((name: string, fn: (span: typeof mockSpan) => unknown) => fn(mockSpan)),
+      startActiveSpan: vi.fn((_name: string, fn: (span: typeof mockSpan) => unknown) =>
+        fn(mockSpan),
+      ),
     };
 
     vi.doMock('@opentelemetry/api', () => ({
@@ -196,7 +200,9 @@ describe('withNextDog — instrumented requests', () => {
     };
 
     const mockTracer = {
-      startActiveSpan: vi.fn((name: string, fn: (span: typeof mockSpan) => unknown) => fn(mockSpan)),
+      startActiveSpan: vi.fn((_name: string, fn: (span: typeof mockSpan) => unknown) =>
+        fn(mockSpan),
+      ),
     };
 
     vi.doMock('@opentelemetry/api', () => ({

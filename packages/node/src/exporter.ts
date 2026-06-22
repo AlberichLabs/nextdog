@@ -1,5 +1,5 @@
-import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-node';
 import type { ExportResult } from '@opentelemetry/core';
+import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-node';
 import { getRequestMetadata } from './request-capture.js';
 
 const ExportResultCode = { SUCCESS: 0, FAILED: 1 } as const;
@@ -11,8 +11,12 @@ const ExportResultCode = { SUCCESS: 0, FAILED: 1 } as const;
  * they never ship to the sidecar or render in the dashboard.
  */
 const SKIP_HEADERS = new Set([
-  'authorization', 'proxy-authorization', 'x-api-key', 'x-auth-token',
-  'set-cookie', 'set-cookie2',
+  'authorization',
+  'proxy-authorization',
+  'x-api-key',
+  'x-auth-token',
+  'set-cookie',
+  'set-cookie2',
 ]);
 
 const SPAN_KIND_MAP: Record<number, string> = {
@@ -47,8 +51,12 @@ function convertSpan(span: ReadableSpan) {
   // Enrich SERVER spans with captured request metadata (headers, cookies, body)
   // Correlate by method + URL path (traceId is not available at capture time)
   if (kind === 'SERVER') {
-    const reqMethod = String(span.attributes['http.method'] ?? span.attributes['http.request.method'] ?? 'GET');
-    const reqUrl = String(span.attributes['http.target'] ?? span.attributes['url.path'] ?? span.name);
+    const reqMethod = String(
+      span.attributes['http.method'] ?? span.attributes['http.request.method'] ?? 'GET',
+    );
+    const reqUrl = String(
+      span.attributes['http.target'] ?? span.attributes['url.path'] ?? span.name,
+    );
     const metadata = getRequestMetadata(reqMethod, reqUrl);
     if (metadata) {
       // Add request headers as http.request.header.{name}
@@ -87,7 +95,8 @@ function convertSpan(span: ReadableSpan) {
   return {
     traceId: ctx.traceId,
     spanId: ctx.spanId,
-    parentSpanId: (span as any).parentSpanId ?? (span as any).parentSpanContext?.spanId ?? undefined,
+    parentSpanId:
+      (span as any).parentSpanId ?? (span as any).parentSpanContext?.spanId ?? undefined,
     name: span.name,
     kind,
     startTimeUnixNano: hrtimeToNano(span.startTime),
@@ -97,7 +106,10 @@ function convertSpan(span: ReadableSpan) {
       code: STATUS_CODE_MAP[span.status.code] ?? 'UNSET',
       message: span.status.message,
     },
-    statusCode: Number(span.attributes['http.status_code'] ?? span.attributes['http.response.status_code'] ?? 0) || undefined,
+    statusCode:
+      Number(
+        span.attributes['http.status_code'] ?? span.attributes['http.response.status_code'] ?? 0,
+      ) || undefined,
     serviceName,
   };
 }
@@ -126,7 +138,8 @@ export class NextDogExporter implements SpanExporter {
   export(spans: ReadableSpan[], resultCallback: (result: ExportResult) => void): void {
     const filtered = spans.filter((s) => !this.isNextdogSpan(s));
     if (filtered.length === 0) {
-      return resultCallback({ code: ExportResultCode.SUCCESS });
+      resultCallback({ code: ExportResultCode.SUCCESS });
+      return;
     }
     const converted = filtered.map(convertSpan);
 

@@ -49,7 +49,10 @@ export function getActiveTraceContext(): { traceId: string; spanId: string } | n
  * mechanism (e.g. Next.js metadata `other`). Returns null in production or when
  * there is no active trace.
  */
-export function getNextDogTraceMeta(): { [TRACE_META_NAME]: string; [SPAN_META_NAME]: string } | null {
+export function getNextDogTraceMeta(): {
+  [TRACE_META_NAME]: string;
+  [SPAN_META_NAME]: string;
+} | null {
   if (process.env.NODE_ENV !== 'development') return null;
   const ctx = getActiveTraceContext();
   if (!ctx) return null;

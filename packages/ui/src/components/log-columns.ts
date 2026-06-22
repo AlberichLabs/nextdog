@@ -44,7 +44,10 @@ interface BuildCellsOptions {
  * placeholder when the log has no runtime attribute — so a runtime-less row does
  * not shift its message into the fixed-width runtime track (issue #18).
  */
-export function buildLogRowCells(event: SSEEvent, { showService, customColumns }: BuildCellsOptions): LogCell[] {
+export function buildLogRowCells(
+  event: SSEEvent,
+  { showService, customColumns }: BuildCellsOptions,
+): LogCell[] {
   const message = event.data.message ?? event.data.name ?? '';
   const level = event.data.level ?? event.data.status?.code ?? '';
   const cells: LogCell[] = [
