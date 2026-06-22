@@ -1,0 +1,49 @@
+{
+  "name": "@nextdog/mcp",
+  "version": "0.1.0",
+  "description": "Read-only stdio MCP server that lets an AI coding agent query live local NextDog telemetry (traces, logs, errors)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "nextdog-mcp": "./dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^25",
+    "vitest": "^3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cscherban/NextDog"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "nextjs",
+    "observability",
+    "tracing",
+    "devtools",
+    "claude",
+    "cursor"
+  ]
+}
