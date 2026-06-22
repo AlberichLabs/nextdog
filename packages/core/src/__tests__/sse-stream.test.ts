@@ -60,6 +60,23 @@ describe('SSEStream', () => {
     expect(dataChunks).toHaveLength(2);
   });
 
+  it('flushes an opening comment so an idle client connects with zero backfill', () => {
+    // With an empty ring buffer the stream writes no `data:` frames. Node will
+    // not flush the response status line to the socket until something is
+    // written, so the browser EventSource never fires `onopen` and the UI can't
+    // tell "connected but idle" from "not connected at all" (issue #11). An
+    // initial SSE comment forces the headers out immediately and is ignored by
+    // the EventSource parser.
+    const sse = new SSEStream(ringBuffer);
+    const res = mockResponse();
+    sse.addClient(res);
+
+    expect(res.chunks.length).toBeGreaterThan(0);
+    expect(res.chunks[0].startsWith(':')).toBe(true);
+    // The comment must not be parsed as a data frame.
+    expect(res.chunks.filter((c) => c.startsWith('data:'))).toHaveLength(0);
+  });
+
   it('broadcasts new events to connected clients', () => {
     const sse = new SSEStream(ringBuffer);
     const res = mockResponse();
