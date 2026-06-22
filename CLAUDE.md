@@ -11,7 +11,7 @@ Zero-config local dev observability for Next.js/Nuxt/SvelteKit. Free OSS, publis
 
 ## Structure
 - `packages/core` — shared engine; `packages/next|nuxt|sveltekit|node` — framework adapters; `packages/ui` — overlay UI
-- Publish order (publish.yml): ui → node → core → next → nuxt (sveltekit NOT yet in publish.yml — known gap)
+- Publish order (publish.yml): ui → core → node → next → nuxt → sveltekit (deps before dependents). `@nextdog/mcp` is intentionally NOT published yet (#40). A drift guard in publish.yml fails the release if a publishable package is missing from the publish list.
 - Architecture & roadmap docs: `docs/architecture.md`, `docs/roadmap.md`
 
 ## Conventions

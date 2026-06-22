@@ -23,17 +23,70 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Extract version from the GitHub release tag (e.g. v0.1.1 → 0.1.1)
+      # Resolve the version from the release event's canonical field.
+      # GITHUB_REF_NAME is unreliable for release events, so prefer
+      # github.event.release.tag_name and only fall back to GITHUB_REF_NAME.
+      # Strip a leading "v" (e.g. v1.1.0 -> 1.1.0), then validate it is semver.
       - name: Set version from release tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          RAW="${RELEASE_TAG:-$GITHUB_REF_NAME}"
+          VERSION="${RAW#v}"
+          # Basic semver: MAJOR.MINOR.PATCH with optional -prerelease and +build.
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)*$'
+          if [ -z "$VERSION" ] || ! echo "$VERSION" | grep -Eq "$SEMVER_RE"; then
+            echo "::error::Could not resolve a semver version from the release tag (got: '${RAW}')"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Publishing version: $VERSION"
 
-      # Bump all package versions to match the release tag
+      # Drift guard: assert every publishable workspace package is wired into the
+      # publish list below. A package is "publishable" if its package.json does
+      # NOT have "private": true and it is not in the EXCLUDE list. If someone
+      # adds a new publishable package (e.g. a new adapter) and forgets to add it
+      # to PUBLISH_LIST, this fails the job loudly instead of silently skipping
+      # it at release time (which is how @nextdog/sveltekit got missed).
+      #
+      # PUBLISH_LIST must stay in sync with the bump loop and publish steps below.
+      # EXCLUDE is the set of intentionally-unpublished packages.
+      - name: Assert publish list covers all publishable packages
+        run: |
+          PUBLISH_LIST="@nextdog/ui @nextdog/core @nextdog/node @nextdog/next @nextdog/nuxt @nextdog/sveltekit"
+          EXCLUDE="@nextdog/mcp"
+          node - "$PUBLISH_LIST" "$EXCLUDE" <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const publishList = new Set(process.argv[2].split(/\s+/).filter(Boolean));
+          const exclude = new Set(process.argv[3].split(/\s+/).filter(Boolean));
+          const pkgsDir = 'packages';
+          const missing = [];
+          for (const entry of fs.readdirSync(pkgsDir)) {
+            const pkgJsonPath = path.join(pkgsDir, entry, 'package.json');
+            if (!fs.existsSync(pkgJsonPath)) continue;
+            const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+            if (pkg.private === true) continue;
+            if (exclude.has(pkg.name)) continue;
+            if (!publishList.has(pkg.name)) missing.push(pkg.name);
+          }
+          if (missing.length) {
+            console.error(
+              `::error::Publishable package(s) not in the workflow publish list: ${missing.join(', ')}. ` +
+              `Add them to PUBLISH_LIST, the bump loop, and a publish step in .github/workflows/publish.yml ` +
+              `(or add to EXCLUDE if intentionally unpublished).`
+            );
+            process.exit(1);
+          }
+          console.log('Drift guard OK: publish list covers all publishable packages.');
+          EOF
+
+      # Bump all published package versions to match the release tag.
+      # NOTE: @nextdog/mcp (added in #40) is intentionally excluded — not
+      # published yet — so it is deliberately absent from this loop.
       - name: Bump package versions
         run: |
-          for pkg in packages/ui packages/core packages/next packages/nuxt packages/node; do
+          for pkg in packages/ui packages/core packages/node packages/next packages/nuxt packages/sveltekit; do
             cd "$pkg"
             npm version "$VERSION" --no-git-tag-version --allow-same-version
             cd "$GITHUB_WORKSPACE"
@@ -42,19 +95,23 @@ jobs:
       - run: pnpm build
       - run: pnpm test
 
-      # Publish in dependency order: ui → core → next
+      # Publish in dependency order (deps before dependents):
+      #   ui -> core -> node -> next -> nuxt -> sveltekit
+      # core depends on ui; node depends on core; the adapters
+      # (next/nuxt/sveltekit) depend on core/node.
+      # NOTE: @nextdog/mcp is intentionally NOT published yet (added in #40).
       - name: Publish @nextdog/ui
         run: pnpm --filter @nextdog/ui publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      
-      - name: Publish @nextdog/node
-        run: pnpm --filter @nextdog/node publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @nextdog/core
         run: pnpm --filter @nextdog/core publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @nextdog/node
+        run: pnpm --filter @nextdog/node publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -65,5 +122,10 @@ jobs:
 
       - name: Publish @nextdog/nuxt
         run: pnpm --filter @nextdog/nuxt publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @nextdog/sveltekit
+        run: pnpm --filter @nextdog/sveltekit publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
