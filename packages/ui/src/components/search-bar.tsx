@@ -432,6 +432,8 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
         <input
           ref={inputRef}
           type="text"
+          // Stable hook for the global focus-filter shortcut (`/`, cmd/ctrl+k).
+          data-nextdog-filter
           class={searchInputStyle}
           placeholder={tokens.length === 0 ? 'Filter... (e.g. level:error, !service:noisy)' : ''}
           value={inputValue}

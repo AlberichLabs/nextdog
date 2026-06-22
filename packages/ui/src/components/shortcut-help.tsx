@@ -1,12 +1,45 @@
 import { useEffect, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 
-const shortcuts = [
-  { key: 'j', desc: 'Next row' },
-  { key: 'k', desc: 'Previous row' },
-  { key: 'Enter', desc: 'Open trace / select' },
-  { key: 'Esc', desc: 'Close / go back' },
-  { key: '?', desc: 'Toggle this help' },
+interface ShortcutGroup {
+  title: string;
+  items: { key: string; desc: string }[];
+}
+
+const groups: ShortcutGroup[] = [
+  {
+    title: 'Navigation',
+    items: [
+      { key: 'j', desc: 'Next row' },
+      { key: 'k', desc: 'Previous row' },
+      { key: 'Enter', desc: 'Open trace / select' },
+      { key: 'Esc', desc: 'Close / go back' },
+    ],
+  },
+  {
+    title: 'Views & filter',
+    items: [
+      { key: '[', desc: 'Spans view' },
+      { key: ']', desc: 'Logs view' },
+      { key: '/', desc: 'Focus filter' },
+      { key: '⌘/Ctrl K', desc: 'Focus filter (from anywhere)' },
+      { key: '⇧ X', desc: 'Clear filter' },
+    ],
+  },
+  {
+    title: 'In the filter bar',
+    items: [
+      { key: '↑ ↓', desc: 'Cycle suggestions' },
+      { key: 'Tab', desc: 'Accept suggestion' },
+      { key: '←', desc: 'Edit previous token' },
+      { key: 'Backspace', desc: 'Delete last token' },
+      { key: 'Esc', desc: 'Blur filter' },
+    ],
+  },
+  {
+    title: 'Help',
+    items: [{ key: '?', desc: 'Toggle this help' }],
+  },
 ];
 
 const overlayStyle = css({
@@ -24,6 +57,11 @@ const dialogStyle = css({
 
 const titleStyle = css({
   fontSize: 'lg', fontWeight: '600', color: 'fg.bright', marginBottom: '3',
+});
+
+const groupTitleStyle = css({
+  fontSize: 'xs', fontWeight: '600', textTransform: 'uppercase',
+  letterSpacing: '0.5px', color: 'fg.dim', marginTop: '3', marginBottom: '1',
 });
 
 const rowStyle = css({
@@ -67,10 +105,15 @@ export function ShortcutHelp() {
       <div className={overlayStyle} onClick={() => setOpen(false)} />
       <div className={dialogStyle}>
         <div className={titleStyle}>Keyboard Shortcuts</div>
-        {shortcuts.map(({ key, desc }) => (
-          <div key={key} className={rowStyle}>
-            <span className={css({ color: 'fg.dim' })}>{desc}</span>
-            <kbd className={kbdStyle}>{key}</kbd>
+        {groups.map((group) => (
+          <div key={group.title}>
+            <div className={groupTitleStyle}>{group.title}</div>
+            {group.items.map(({ key, desc }) => (
+              <div key={key} className={rowStyle}>
+                <span className={css({ color: 'fg.dim' })}>{desc}</span>
+                <kbd className={kbdStyle}>{key}</kbd>
+              </div>
+            ))}
           </div>
         ))}
         <div className={footerStyle}>

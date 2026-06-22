@@ -1,8 +1,9 @@
-import Router from 'preact-router';
+import Router, { route } from 'preact-router';
 import { useState, useCallback, useMemo, useEffect, useRef } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { useSSE } from './hooks/use-sse.js';
 import { useEvents } from './hooks/use-events.js';
+import { useKeyboard } from './hooks/use-keyboard.js';
 import { useTheme } from './hooks/use-theme.js';
 import { pillStyle } from './styles/shared.js';
 import { Requests } from './views/requests.js';
@@ -214,6 +215,24 @@ export function App() {
     clearEvents();
     lastProcessedIdx.current = 0;
   }, [clearEvents]);
+
+  // --- Global keyboard shortcuts (focus filter, switch view, clear filter) ---
+  // These are App-level concerns; the per-view useKeyboard hooks own j/k/Enter/Esc.
+  const focusFilter = useCallback(() => {
+    const input = document.querySelector<HTMLInputElement>('input[data-nextdog-filter]');
+    input?.focus();
+  }, []);
+
+  const clearFilter = useCallback(() => {
+    eventsResult.setSearchQuery('');
+  }, [eventsResult]);
+
+  useKeyboard({
+    onFocusFilter: focusFilter,
+    onViewSpans: () => route('/'),
+    onViewLogs: () => route('/logs'),
+    onClearFilter: clearFilter,
+  });
 
   const isActive = (path: string) => currentPath === path;
 
