@@ -21,7 +21,8 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run --passWithNoTests",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "typecheck": "tsc --noEmit"
   },
   "publishConfig": {
     "access": "public"

@@ -18,7 +18,8 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "typecheck": "tsc --noEmit"
   },
   "publishConfig": {
     "access": "public"

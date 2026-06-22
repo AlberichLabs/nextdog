@@ -5,6 +5,7 @@
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",
+    "typecheck": "turbo typecheck",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write ."

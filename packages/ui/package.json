@@ -12,7 +12,8 @@
     "build": "panda codegen && vite build",
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "typecheck": "panda codegen && tsc --noEmit -p tsconfig.typecheck.json"
   },
   "publishConfig": {
     "access": "public"
