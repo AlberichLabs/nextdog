@@ -2,6 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useState, useRef, useMemo } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { parseFilterTokens, normalizeExpression } from '../utils/filter-query.js';
 
 // ---------------------------------------------------------------------------
 // Style constants (defined outside the component)
@@ -179,6 +180,34 @@ const pillRemoveStyle = css({
   },
 });
 
+// Subtle "press Enter to apply" affordance — filtering is commit-on-Enter, not
+// live, which surprised a reviewer into thinking it was broken (issue #21).
+const enterHintStyle = css({
+  flexShrink: 0,
+  marginLeft: 'auto',
+  paddingLeft: '6px',
+  fontFamily: 'mono',
+  fontSize: '10px',
+  color: 'fg.dim',
+  opacity: 0.7,
+  whiteSpace: 'nowrap',
+  userSelect: 'none',
+  pointerEvents: 'none',
+});
+
+const enterHintKbd = css({
+  padding: '0 3px',
+  borderRadius: '3px',
+  border: '1px solid token(colors.border.subtle)',
+  background: 'surface.panel',
+  color: 'fg',
+});
+
+const enterHintOr = css({
+  color: 'yellow',
+  fontWeight: 700,
+});
+
 const suggestionsStyle = css({
   position: 'absolute',
   left: '4',
@@ -218,61 +247,6 @@ interface SearchBarProps {
   onChange: (value: string) => void;
   events?: SSEEvent[];
   rightSlot?: ComponentChildren;
-}
-
-interface FilterToken {
-  raw: string;
-  negated: boolean;
-  key?: string;
-  value: string;
-  operator: 'AND' | 'OR';
-}
-
-function parseTokens(query: string): FilterToken[] {
-  if (!query.trim()) return [];
-  const tokens: FilterToken[] = [];
-  // Split by spaces but preserve quoted strings
-  const parts = query.match(/(?:[^\s"]+|"[^"]*")+/g) ?? [];
-  let nextOperator: 'AND' | 'OR' = 'AND';
-
-  for (const part of parts) {
-    if (part.toUpperCase() === 'OR') {
-      nextOperator = 'OR';
-      continue;
-    }
-    if (part.toUpperCase() === 'AND') {
-      nextOperator = 'AND';
-      continue;
-    }
-
-    let raw = part;
-    let negated = false;
-    let working = part;
-
-    if (working.startsWith('!') || working.startsWith('-')) {
-      negated = true;
-      working = working.slice(1);
-    }
-
-    const colonIdx = working.indexOf(':');
-    if (colonIdx > 0) {
-      const key = working.slice(0, colonIdx);
-      let value = working.slice(colonIdx + 1);
-      // Strip quotes
-      if (value.startsWith('"') && value.endsWith('"')) {
-        value = value.slice(1, -1);
-      }
-      tokens.push({ raw, negated, key, value, operator: nextOperator });
-    } else {
-      let value = working;
-      if (value.startsWith('"') && value.endsWith('"')) {
-        value = value.slice(1, -1);
-      }
-      tokens.push({ raw, negated, value, operator: nextOperator });
-    }
-    nextOperator = 'AND';
-  }
-  return tokens;
 }
 
 function pillColorClass(key?: string, negated?: boolean): string {
@@ -332,8 +306,12 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
   const [selectedSuggestion, setSelectedSuggestion] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const tokens = parseTokens(value);
+  const tokens = parseFilterTokens(value);
   const facets = useMemo(() => collectFacets(events ?? []), [events]);
+
+  // True while the input holds an OR expression that has not yet been committed —
+  // surfaces the "press Enter" hint so the user knows the OR group isn't live yet.
+  const pendingOr = /\bor\b/i.test(inputValue);
 
   // Filter suggestions based on current input
   const suggestions = useMemo(() => {
@@ -367,8 +345,15 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
         setSelectedSuggestion(-1);
         setShowSuggestions(false);
       } else if (inputValue.trim()) {
-        const newQuery = value ? `${value} ${inputValue.trim()}` : inputValue.trim();
-        onChange(newQuery);
+        // Commit the full typed expression — including any `OR` between tokens —
+        // as one or more pills. The matcher treats `a OR b` as a single OR group;
+        // normalizeExpression drops a dangling trailing/leading operator so a
+        // half-typed `a OR` doesn't commit an empty token (issue #21).
+        const expr = normalizeExpression(inputValue);
+        if (expr) {
+          const newQuery = value ? `${value} ${expr}` : expr;
+          onChange(newQuery);
+        }
         setInputValue('');
         setShowSuggestions(false);
         setSelectedSuggestion(-1);
@@ -433,7 +418,7 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
           ref={inputRef}
           type="text"
           class={searchInputStyle}
-          placeholder={tokens.length === 0 ? 'Filter... (e.g. level:error, !service:noisy)' : ''}
+          placeholder={tokens.length === 0 ? 'Filter... (e.g. level:error, status:ERROR OR statusCode:404)' : ''}
           value={inputValue}
           onInput={(e) => {
             setInputValue((e.target as HTMLInputElement).value);
@@ -444,6 +429,12 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
           onBlur={() => { setFocused(false); setTimeout(() => setShowSuggestions(false), 150); }}
           onKeyDown={handleKeyDown}
         />
+        {focused && inputValue.trim() && (
+          <span class={enterHintStyle}>
+            {pendingOr && <span class={enterHintOr}>OR group · </span>}
+            press <span class={enterHintKbd}>Enter</span> to apply
+          </span>
+        )}
       </div>
       {/* Help icon */}
       <button

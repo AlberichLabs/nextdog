@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'preact/hooks';
 import type { SSEEvent } from './use-sse.js';
+import { groupFilterTokens, type FilterToken } from '../utils/filter-query.js';
 
 export interface UseEventsResult {
   filtered: SSEEvent[];
@@ -10,47 +11,6 @@ export interface UseEventsResult {
   setServices: (names: string[]) => void;
   searchQuery: string;
   setSearchQuery: (q: string | ((prev: string) => string)) => void;
-}
-
-interface FilterToken {
-  negated: boolean;
-  key?: string;
-  value: string;
-  operator: 'AND' | 'OR';
-}
-
-function parseTokens(query: string): FilterToken[] {
-  if (!query.trim()) return [];
-  const tokens: FilterToken[] = [];
-  const parts = query.match(/(?:[^\s"]+|"[^"]*")+/g) ?? [];
-  let nextOperator: 'AND' | 'OR' = 'AND';
-
-  for (const part of parts) {
-    if (part.toUpperCase() === 'OR') { nextOperator = 'OR'; continue; }
-    if (part.toUpperCase() === 'AND') { nextOperator = 'AND'; continue; }
-
-    let negated = false;
-    let working = part;
-
-    if (working.startsWith('!') || working.startsWith('-')) {
-      negated = true;
-      working = working.slice(1);
-    }
-
-    const colonIdx = working.indexOf(':');
-    if (colonIdx > 0) {
-      const key = working.slice(0, colonIdx);
-      let value = working.slice(colonIdx + 1);
-      if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
-      tokens.push({ negated, key, value, operator: nextOperator });
-    } else {
-      let value = working;
-      if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
-      tokens.push({ negated, value, operator: nextOperator });
-    }
-    nextOperator = 'AND';
-  }
-  return tokens;
 }
 
 function matchesField(event: SSEEvent, key: string, value: string): boolean {
@@ -124,24 +84,11 @@ function matchesSingleToken(event: SSEEvent, token: FilterToken): boolean {
 }
 
 function matchesQuery(event: SSEEvent, query: string): boolean {
-  const tokens = parseTokens(query);
-  if (tokens.length === 0) return true;
-
-  // Group tokens by OR chains
-  // e.g. [A, B OR C, D] → [[A], [B, C], [D]]
-  // Each group is OR'd internally, groups are AND'd
-  const groups: FilterToken[][] = [];
-  let currentGroup: FilterToken[] = [];
-
-  for (const token of tokens) {
-    if (token.operator === 'OR' && currentGroup.length > 0) {
-      currentGroup.push(token);
-    } else {
-      if (currentGroup.length > 0) groups.push(currentGroup);
-      currentGroup = [token];
-    }
-  }
-  if (currentGroup.length > 0) groups.push(currentGroup);
+  // [[A], [B, C], [D]] — each group is OR'd internally, groups are AND'd.
+  // Shared with the search-bar pill renderer so the UI can only ever express
+  // what this matcher accepts (issue #21).
+  const groups = groupFilterTokens(query);
+  if (groups.length === 0) return true;
 
   // Every group must have at least one matching token (AND between groups, OR within)
   return groups.every((group) =>
