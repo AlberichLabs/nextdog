@@ -37,7 +37,7 @@ export interface UseSSEResult {
   hasMoreHistory: boolean;
 }
 
-export function useSSE(url: string): UseSSEResult {
+export function useSSE(url: string, enabled = true): UseSSEResult {
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +48,10 @@ export function useSSE(url: string): UseSSEResult {
 
   // Reload full history (spans AND logs) from the FileStore on initial load.
   // Survives page refresh and dev-server restart — the dashboard is a persistent
-  // record, not just a live tail (issue #8).
+  // record, not just a live tail (issue #8). Skipped while disabled (e.g. an
+  // imported, read-only trace is open — issue #7).
   useEffect(() => {
+    if (!enabled) return;
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
 
@@ -63,9 +65,13 @@ export function useSSE(url: string): UseSSEResult {
         setEvents((prev) => mergeEvents(history, prev));
       })
       .catch(() => {}); // Silently fail — SSE will still work
-  }, [url]);
+  }, [url, enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      setConnected(false);
+      return;
+    }
     const es = new EventSource(`${url}/sse`);
     esRef.current = es;
 
@@ -94,7 +100,7 @@ export function useSSE(url: string): UseSSEResult {
       es.close();
       esRef.current = null;
     };
-  }, [url]);
+  }, [url, enabled]);
 
   const loadOlder = useCallback(() => {
     if (loadingOlder || !hasMoreHistory) return;

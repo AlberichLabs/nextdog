@@ -6,6 +6,7 @@ import { LogRow } from '../components/log-row.js';
 import { AttributeTable } from '../components/attribute-table.js';
 import { CopyCurl } from '../components/copy-curl.js';
 import { ReplayButton } from '../components/replay-button.js';
+import { ExportButton } from '../components/trace-io.js';
 import { formatSpanDuration } from '../utils/format.js';
 import { emptyStyle, jsonViewStyle } from '../styles/shared.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
@@ -388,12 +389,20 @@ export function Trace({ traceId, events }: TraceProps) {
           <span>{spans.length} spans</span>
           {logs.length > 0 && <><span className={s.sep}>|</span><span>{logs.length} logs</span></>}
         </div>
-        {rootSpan && rootSpan.data.attributes['http.method'] && (
-          <div className={s.actionsRow}>
-            <ReplayButton event={rootSpan} />
-            <CopyCurl event={rootSpan} />
-          </div>
-        )}
+        <div className={s.actionsRow}>
+          <ExportButton
+            events={traceEvents}
+            meta={{ kind: 'trace', traceId }}
+            label="Export trace"
+            title="Download this trace (all spans + logs) as a portable file"
+          />
+          {rootSpan && rootSpan.data.attributes['http.method'] && (
+            <>
+              <ReplayButton event={rootSpan} />
+              <CopyCurl event={rootSpan} />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Body — horizontal split */}

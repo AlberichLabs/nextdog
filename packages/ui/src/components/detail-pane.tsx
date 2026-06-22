@@ -11,6 +11,7 @@ import { ResponseSection } from './response-section.js';
 import { formatSpanDuration } from '../utils/format.js';
 import { stripResponseAttributes } from '../utils/body-format.js';
 import { pillStyle, jsonViewStyle } from '../styles/shared.js';
+import { ExportButton } from './trace-io.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
 
 const STORAGE_KEY = 'nextdog:pane-width';
@@ -331,6 +332,12 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
               <span class={routeStyle}>{routePath}</span>
             </div>
             <div class={actionsStyle}>
+              <ExportButton
+                events={traceEvents}
+                meta={{ kind: 'trace', traceId }}
+                label="Export"
+                title="Download this trace (all spans + logs) as a portable file"
+              />
               <button class={btnStyle} onClick={handleExpand} title="Expand to full page">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="15 3 21 3 21 9" /><line x1="21" y1="3" x2="14" y2="10" />
