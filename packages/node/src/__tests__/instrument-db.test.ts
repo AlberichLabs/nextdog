@@ -5,10 +5,26 @@ import {
   InMemorySpanExporter,
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-node';
-import { instrumentPgModule } from '../instrument-db.js';
+import { instrumentPgModule, instrumentMysql2Module } from '../instrument-db.js';
 
 const memoryExporter = new InMemorySpanExporter();
 let provider: NodeTracerProvider;
+
+// One global provider for the whole file. Registering then disabling the global
+// OTel API between describe blocks breaks context propagation for subsequent
+// blocks, so we set up once and tear down once.
+beforeAll(() => {
+  provider = new NodeTracerProvider({
+    spanProcessors: [new SimpleSpanProcessor(memoryExporter)],
+  });
+  provider.register();
+});
+
+afterAll(async () => {
+  await provider.shutdown();
+  context.disable();
+  trace.disable();
+});
 
 /**
  * Minimal fake of the `pg` module surface: a Client whose `query` resolves a
@@ -25,19 +41,6 @@ function makeFakePg() {
 
 describe('instrumentPgModule', () => {
   let restore: (() => void) | undefined;
-
-  beforeAll(() => {
-    provider = new NodeTracerProvider({
-      spanProcessors: [new SimpleSpanProcessor(memoryExporter)],
-    });
-    provider.register();
-  });
-
-  afterAll(async () => {
-    await provider.shutdown();
-    context.disable();
-    trace.disable();
-  });
 
   beforeEach(() => {
     memoryExporter.reset();
@@ -120,5 +123,67 @@ describe('instrumentPgModule', () => {
 
     const spans = memoryExporter.getFinishedSpans();
     expect(spans).toHaveLength(1);
+  });
+});
+
+describe('instrumentMysql2Module', () => {
+  let restore: (() => void) | undefined;
+
+  beforeEach(() => {
+    memoryExporter.reset();
+  });
+
+  afterEach(() => {
+    restore?.();
+    restore = undefined;
+  });
+
+  /**
+   * mysql2 writes (INSERT/UPDATE/DELETE) resolve to `[ResultSetHeader, undefined]`
+   * where the count is at `result[0].affectedRows`, NOT a top-level field.
+   */
+  function makeFakeMysql2Write() {
+    class Connection {
+      async execute(_sql: string, _params?: unknown[]) {
+        const header = { affectedRows: 3, insertId: 7, fieldCount: 0 };
+        return [header, undefined];
+      }
+    }
+    return { Connection, Pool: class {} };
+  }
+
+  /** mysql2 reads resolve to `[rows, fields]`. */
+  function makeFakeMysql2Read() {
+    class Connection {
+      async query(_sql: string, _params?: unknown[]) {
+        return [[{ id: 1 }, { id: 2 }], []];
+      }
+    }
+    return { Connection, Pool: class {} };
+  }
+
+  it('captures db.rows_affected for a mysql2 write (ResultSetHeader.affectedRows)', async () => {
+    const mysql = makeFakeMysql2Write();
+    restore = instrumentMysql2Module(mysql);
+
+    const conn = new mysql.Connection();
+    await conn.execute('INSERT INTO users (email) VALUES (?)', ['x@y.com']);
+
+    const spans = memoryExporter.getFinishedSpans();
+    expect(spans).toHaveLength(1);
+    expect(spans[0].attributes['db.system']).toBe('mysql');
+    expect(spans[0].attributes['db.rows_affected']).toBe(3);
+  });
+
+  it('still captures row count for a mysql2 read ([rows, fields])', async () => {
+    const mysql = makeFakeMysql2Read();
+    restore = instrumentMysql2Module(mysql);
+
+    const conn = new mysql.Connection();
+    await conn.query('SELECT * FROM users');
+
+    const spans = memoryExporter.getFinishedSpans();
+    expect(spans).toHaveLength(1);
+    expect(spans[0].attributes['db.rows_affected']).toBe(2);
   });
 });

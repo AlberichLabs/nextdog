@@ -66,9 +66,15 @@ function rowsAffectedOf(result: unknown): number | undefined {
   if (!result || typeof result !== 'object') return undefined;
   const r = result as { rowCount?: number; rows?: unknown[]; affectedRows?: number };
   if (typeof r.rowCount === 'number') return r.rowCount; // pg
-  if (typeof r.affectedRows === 'number') return r.affectedRows; // mysql2 writes
-  // mysql2 reads return [rows, fields]
-  if (Array.isArray(result) && Array.isArray(result[0])) return (result[0] as unknown[]).length;
+  if (typeof r.affectedRows === 'number') return r.affectedRows; // pg-style top-level (defensive)
+  // mysql2 returns a tuple: reads are [rows, fields], writes are [ResultSetHeader, undefined].
+  if (Array.isArray(result)) {
+    const head = result[0];
+    if (Array.isArray(head)) return head.length; // read → row array
+    if (head && typeof head === 'object' && typeof (head as { affectedRows?: number }).affectedRows === 'number') {
+      return (head as { affectedRows: number }).affectedRows; // write → ResultSetHeader
+    }
+  }
   if (Array.isArray(r.rows)) return r.rows.length;
   return undefined;
 }

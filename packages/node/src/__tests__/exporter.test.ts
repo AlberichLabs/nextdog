@@ -133,4 +133,74 @@ describe('NextDogExporter', () => {
     expect(body.spans[0].parentSpanId).toBe('parent1');
     expect(body.spans[0].statusCode).toBe(200);
   });
+
+  it('does NOT drop a user fetch to the sidecar host on a different path', async () => {
+    // Same host:port as the sidecar but NOT the exporter's own target path.
+    // This is a legitimate user request and must be forwarded.
+    const exporter = new NextDogExporter('http://localhost:6789');
+
+    const mkSpan = (httpUrl: string) => ({
+      name: `GET ${httpUrl}`,
+      spanContext: () => ({ traceId: 't', spanId: 's', traceFlags: 1 }),
+      parentSpanId: 'parent1',
+      kind: 2,
+      startTime: [0, 0] as [number, number],
+      endTime: [0, 1000] as [number, number],
+      attributes: { 'http.url': httpUrl, 'http.method': 'GET', 'http.status_code': 200 },
+      status: { code: 0 },
+      resource: { attributes: { 'service.name': 'app' } },
+      duration: [0, 1000] as [number, number],
+      events: [],
+      links: [],
+      instrumentationLibrary: { name: 'test' },
+      ended: true,
+      droppedAttributesCount: 0,
+      droppedEventsCount: 0,
+      droppedLinksCount: 0,
+    });
+
+    await new Promise<{ code: number }>((resolve) => {
+      exporter.export([mkSpan('http://localhost:6789/api/foo')] as any, resolve);
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.spans).toHaveLength(1);
+    expect(body.spans[0].attributes['http.url']).toBe('http://localhost:6789/api/foo');
+  });
+
+  it('does NOT drop a user fetch to a textual-prefix-sibling port (:6789x)', async () => {
+    // "http://localhost:67890/...".startsWith("http://localhost:6789") is true,
+    // so a naive prefix check false-drops apps on port 6789x. Must be forwarded.
+    const exporter = new NextDogExporter('http://localhost:6789');
+
+    const mkSpan = (httpUrl: string) => ({
+      name: `GET ${httpUrl}`,
+      spanContext: () => ({ traceId: 't', spanId: 's', traceFlags: 1 }),
+      parentSpanId: 'parent1',
+      kind: 2,
+      startTime: [0, 0] as [number, number],
+      endTime: [0, 1000] as [number, number],
+      attributes: { 'http.url': httpUrl, 'http.method': 'GET', 'http.status_code': 200 },
+      status: { code: 0 },
+      resource: { attributes: { 'service.name': 'app' } },
+      duration: [0, 1000] as [number, number],
+      events: [],
+      links: [],
+      instrumentationLibrary: { name: 'test' },
+      ended: true,
+      droppedAttributesCount: 0,
+      droppedEventsCount: 0,
+      droppedLinksCount: 0,
+    });
+
+    await new Promise<{ code: number }>((resolve) => {
+      exporter.export([mkSpan('http://localhost:67890/v1/data')] as any, resolve);
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.spans).toHaveLength(1);
+    expect(body.spans[0].attributes['http.url']).toBe('http://localhost:67890/v1/data');
+  });
 });
