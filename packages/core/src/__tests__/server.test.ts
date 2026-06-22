@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { createServer } from '../server.js';
+import { NEXTDOG_HEALTH_MARKER } from '../health.js';
 import { request as httpRequest, type Server } from 'node:http';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -21,6 +22,16 @@ describe('Server', () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.status).toBe('ok');
+  });
+
+  it('GET /health carries a NextDog identifying signature', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/health`);
+    const data = await res.json();
+    // A stable marker so clients can tell a real NextDog sidecar apart from any
+    // other process that happens to answer 2xx on :6789 (issue #17). The value
+    // comes from the shared constant so producer and consumer cannot drift.
+    expect(data.service).toBe(NEXTDOG_HEALTH_MARKER);
   });
 
   it('POST /v1/spans ingests spans and returns 202', async () => {

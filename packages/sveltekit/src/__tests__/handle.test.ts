@@ -93,7 +93,7 @@ describe('withNextDog — instrumented requests', () => {
     }));
 
     vi.doMock('@nextdog/node/sidecar', () => ({
-      ensureSidecar: vi.fn().mockResolvedValue(undefined),
+      ensureSidecar: vi.fn().mockResolvedValue({ ready: true, foreignOccupant: false }),
     }));
 
     vi.doMock('@nextdog/node/console-patch', () => ({
@@ -164,7 +164,7 @@ describe('withNextDog — instrumented requests', () => {
     }));
 
     vi.doMock('@nextdog/node/sidecar', () => ({
-      ensureSidecar: vi.fn().mockResolvedValue(undefined),
+      ensureSidecar: vi.fn().mockResolvedValue({ ready: true, foreignOccupant: false }),
     }));
 
     vi.doMock('@nextdog/node/console-patch', () => ({
@@ -229,7 +229,7 @@ describe('withNextDog — instrumented requests', () => {
     }));
 
     vi.doMock('@nextdog/node/sidecar', () => ({
-      ensureSidecar: vi.fn().mockResolvedValue(undefined),
+      ensureSidecar: vi.fn().mockResolvedValue({ ready: true, foreignOccupant: false }),
     }));
 
     vi.doMock('@nextdog/node/console-patch', () => ({

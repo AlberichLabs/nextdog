@@ -5,6 +5,7 @@ import { EventBus } from './event-bus.js';
 import { RingBuffer } from './ring-buffer.js';
 import { FileStore } from './file-store.js';
 import { SSEStream } from './sse-stream.js';
+import { NEXTDOG_HEALTH_MARKER } from './health.js';
 import type { NextDogEvent, Span } from './types.js';
 
 export interface ServerOptions {
@@ -97,9 +98,13 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       return cors(res);
     }
 
-    // Health check
+    // Health check. The `service: NEXTDOG_HEALTH_MARKER` field is a stable
+    // identifying signature: clients (e.g. @nextdog/node's isHealthy) require it
+    // so they never mistake an unrelated process answering 2xx on :6789 for a
+    // real NextDog sidecar (issue #17). The marker is shared with consumers via
+    // @nextdog/core so producer and consumer can never drift apart.
     if (req.method === 'GET' && pathname === '/health') {
-      return json(res, 200, { status: 'ok', uptime: process.uptime() });
+      return json(res, 200, { status: 'ok', service: NEXTDOG_HEALTH_MARKER, uptime: process.uptime() });
     }
 
     // Ingest spans

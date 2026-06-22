@@ -14,7 +14,13 @@ export default defineNitroPlugin(async () => {
   const config = useRuntimeConfig();
   const { url, serviceName } = config.nextdog;
 
-  await ensureSidecar(url);
+  const status = await ensureSidecar(url);
+
+  // A foreign process holds the port — refuse to send telemetry to it (issue
+  // #17). ensureSidecar already warned the user.
+  if (status.foreignOccupant) {
+    return;
+  }
 
   // Capture request headers/cookies/body for replay
   startRequestCapture();
