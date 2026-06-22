@@ -42,6 +42,7 @@ export function withNextDog(options?: NextDogOptions): Handle {
       const { ensureSidecar } = await import('@nextdog/node/sidecar');
       const { patchConsole } = await import('@nextdog/node/console-patch');
       const { startRequestCapture } = await import('@nextdog/node/request-capture');
+      const { registerInstrumentations } = await import('@nextdog/node/instrumentation');
 
       const status = await ensureSidecar(url);
       if (status.foreignOccupant) {
@@ -58,6 +59,9 @@ export function withNextDog(options?: NextDogOptions): Handle {
 
       patchConsole(url, serviceName);
       startRequestCapture();
+
+      // Auto-instrument outbound fetch/HTTP (#4) and DB queries (#5).
+      registerInstrumentations();
 
       console.log(`[nextdog] sveltekit instrumentation registered for "${serviceName}" → ${url}`);
     }

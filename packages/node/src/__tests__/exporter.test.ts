@@ -87,4 +87,50 @@ describe('NextDogExporter', () => {
     const exporter = new NextDogExporter('http://localhost:6789');
     await expect(exporter.shutdown()).resolves.toBeUndefined();
   });
+
+  it('drops the exporter\'s own outbound POST to the sidecar but forwards real outbound spans', async () => {
+    // Now that nextdog wraps global fetch (outbound-HTTP instrumentation), the
+    // exporter\'s own POST to /v1/spans produces a CLIENT span. It MUST be
+    // filtered out (by sidecar URL) to avoid a feedback loop, while genuine
+    // outbound calls to other hosts must still be forwarded.
+    const exporter = new NextDogExporter('http://localhost:6789');
+
+    const mkSpan = (httpUrl: string) => ({
+      name: `POST ${httpUrl}`,
+      spanContext: () => ({ traceId: 't', spanId: 's', traceFlags: 1 }),
+      parentSpanId: 'parent1',
+      kind: 2, // CLIENT
+      startTime: [0, 0] as [number, number],
+      endTime: [0, 1000] as [number, number],
+      attributes: { 'http.url': httpUrl, 'http.method': 'POST', 'http.status_code': 200 },
+      status: { code: 0 },
+      resource: { attributes: { 'service.name': 'app' } },
+      duration: [0, 1000] as [number, number],
+      events: [],
+      links: [],
+      instrumentationLibrary: { name: 'test' },
+      ended: true,
+      droppedAttributesCount: 0,
+      droppedEventsCount: 0,
+      droppedLinksCount: 0,
+    });
+
+    await new Promise<{ code: number }>((resolve) => {
+      exporter.export(
+        [
+          mkSpan('http://localhost:6789/v1/spans'), // self → drop
+          mkSpan('https://api.stripe.com/v1/charges'), // real outbound → keep
+        ] as any,
+        resolve,
+      );
+    });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.spans).toHaveLength(1);
+    expect(body.spans[0].attributes['http.url']).toBe('https://api.stripe.com/v1/charges');
+    // Parent linkage is preserved end-to-end through the exporter.
+    expect(body.spans[0].parentSpanId).toBe('parent1');
+    expect(body.spans[0].statusCode).toBe(200);
+  });
 });
