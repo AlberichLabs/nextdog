@@ -9,6 +9,7 @@ import { SavedSearches, useSavedSearches } from '../components/saved-searches.js
 import { SortIndicator } from '../components/sort-indicator.js';
 import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useColumnResize } from '../hooks/use-column-resize.js';
+import { useVirtualList } from '../hooks/use-virtual-list.js';
 import { showContextMenu, attrContextActions } from '../components/context-menu.js';
 import { pillStyle, pillActiveStyle, emptyStyle, colHeaderStyle, colResizeStyle, toolbarStyle, mlAutoStyle, jsonViewStyle } from '../styles/shared.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
@@ -216,7 +217,6 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
     return () => clearTimeout(t);
   }, [searchQuery, activeServices, recordRecent]);
 
-  const listRef = useRef<HTMLDivElement>(null);
   const [liveTail, setLiveTail] = useState(true);
   const [autoScroll, setAutoScroll] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -301,6 +301,9 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
     });
     return sorted;
   }, [displayLogs, sortBy, sortDir]);
+
+  // Windowed rendering — only visible rows (+ overscan) reach the DOM (issue #9).
+  const { scrollRef: listRef, onScroll: onVirtualScroll, rowRef, range, scrollToIndex, scrollToBottom } = useVirtualList(sortedLogs.length);
 
   const toggleLiveTail = () => {
     if (liveTail) {
@@ -388,13 +391,28 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
     },
   });
 
+  // Keyboard-selected row stays visible even when it's outside the rendered
+  // window (otherwise it isn't mounted and can't be scrolled into view). After
+  // moving, re-sync auto-scroll from the resting position so navigating up away
+  // from the tail doesn't get yanked back to the bottom by the next event.
   useEffect(() => {
-    if (liveTail && autoScroll && listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
+    if (selectedIndex < 0) return;
+    scrollToIndex(selectedIndex);
+    const el = listRef.current;
+    if (el) setAutoScroll(el.scrollHeight - el.scrollTop - el.clientHeight < 50);
+  }, [selectedIndex, scrollToIndex]);
+
+  // Re-pin to the newest row whenever the list grows OR the measured total
+  // height changes (the row-height measurement settles a frame after mount, so
+  // depending on length alone can leave the tail a few rows short).
+  useEffect(() => {
+    if (liveTail && autoScroll) {
+      scrollToBottom();
     }
-  }, [displayLogs.length, autoScroll, liveTail]);
+  }, [sortedLogs.length, range.totalHeight, autoScroll, liveTail, scrollToBottom]);
 
   const handleScroll = () => {
+    onVirtualScroll();
     if (!listRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = listRef.current;
     setAutoScroll(scrollHeight - scrollTop - clientHeight < 50);
@@ -459,22 +477,30 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
           {sortedLogs.length === 0 ? (
             <div className={emptyStyle}>{searchQuery || activeServices.size > 0 ? 'No logs match this filter' : 'No logs yet'}</div>
           ) : (
-            sortedLogs.map((log, i) => (
-              <LogRow
-                key={i}
-                event={log}
-                showService
-                selected={i === selectedIndex}
-                onClick={() => handleLogClick(log, i)}
-                onCellContext={handleCellContext}
-                style={{ gridTemplateColumns: gridTemplate }}
-                extraColumns={customColumns.map((col) => ({
-                  id: col.id,
-                  attrKey: col.attrKey,
-                  value: log.data.attributes[col.attrKey] != null ? String(log.data.attributes[col.attrKey]) : '',
-                }))}
-              />
-            ))
+            <>
+              {range.paddingTop > 0 && <div style={{ height: `${range.paddingTop}px` }} />}
+              {sortedLogs.slice(range.startIndex, range.endIndex + 1).map((log, j) => {
+                const i = range.startIndex + j;
+                return (
+                  <LogRow
+                    key={i}
+                    rootRef={j === 0 ? rowRef : undefined}
+                    event={log}
+                    showService
+                    selected={i === selectedIndex}
+                    onClick={() => handleLogClick(log, i)}
+                    onCellContext={handleCellContext}
+                    style={{ gridTemplateColumns: gridTemplate }}
+                    extraColumns={customColumns.map((col) => ({
+                      id: col.id,
+                      attrKey: col.attrKey,
+                      value: log.data.attributes[col.attrKey] != null ? String(log.data.attributes[col.attrKey]) : '',
+                    }))}
+                  />
+                );
+              })}
+              {range.paddingBottom > 0 && <div style={{ height: `${range.paddingBottom}px` }} />}
+            </>
           )}
         </div>
       </div>
