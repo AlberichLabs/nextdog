@@ -1,4 +1,4 @@
-import { appendFile, readdir, readFile, unlink, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { NextDogEvent } from './types.js';
 
@@ -12,7 +12,7 @@ function hourlyFilename(date = new Date()): string {
 
 function serialize(event: NextDogEvent): string {
   return JSON.stringify(event, (_key, value) =>
-    typeof value === 'bigint' ? value.toString() + 'n' : value,
+    typeof value === 'bigint' ? `${value.toString()}n` : value,
   );
 }
 
@@ -74,7 +74,7 @@ export class FileStore {
     if (events.length === 0) return;
     await mkdir(this.dir, { recursive: true });
     const filename = hourlyFilename();
-    const lines = events.map((e) => serialize(e)).join('\n') + '\n';
+    const lines = `${events.map((e) => serialize(e)).join('\n')}\n`;
     await appendFile(join(this.dir, filename), lines, 'utf-8');
   }
 

@@ -1,5 +1,5 @@
-import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-node';
 import type { ExportResult } from '@opentelemetry/core';
+import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-node';
 import { getRequestMetadata } from './request-capture.js';
 
 const ExportResultCode = { SUCCESS: 0, FAILED: 1 } as const;
@@ -138,7 +138,8 @@ export class NextDogExporter implements SpanExporter {
   export(spans: ReadableSpan[], resultCallback: (result: ExportResult) => void): void {
     const filtered = spans.filter((s) => !this.isNextdogSpan(s));
     if (filtered.length === 0) {
-      return resultCallback({ code: ExportResultCode.SUCCESS });
+      resultCallback({ code: ExportResultCode.SUCCESS });
+      return;
     }
     const converted = filtered.map(convertSpan);
 

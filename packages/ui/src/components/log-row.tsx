@@ -1,7 +1,7 @@
 import { css } from 'styled-system/css';
+import type { SSEEvent } from '../hooks/use-sse.js';
 import { formatTime } from '../utils/format.js';
 import { runtimeTag } from './log-columns.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
 
 const logRowStyle = css({
   display: 'grid',

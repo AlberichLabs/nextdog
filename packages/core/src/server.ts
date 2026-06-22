@@ -1,16 +1,16 @@
+import { readFile, stat } from 'node:fs/promises';
 import {
   createServer as httpCreateServer,
-  type Server,
   type IncomingMessage,
+  type Server,
   type ServerResponse,
 } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { EventBus } from './event-bus.js';
-import { RingBuffer } from './ring-buffer.js';
 import { FileStore } from './file-store.js';
-import { SSEStream } from './sse-stream.js';
 import { NEXTDOG_HEALTH_MARKER } from './health.js';
+import { RingBuffer } from './ring-buffer.js';
+import { SSEStream } from './sse-stream.js';
 import type { NextDogEvent, Span } from './types.js';
 
 export interface ServerOptions {
@@ -41,7 +41,7 @@ function readBody(req: IncomingMessage): Promise<string> {
 
 function json(res: ServerResponse, status: number, data: unknown): void {
   const body = JSON.stringify(data, (_key, value) =>
-    typeof value === 'bigint' ? value.toString() + 'n' : value,
+    typeof value === 'bigint' ? `${value.toString()}n` : value,
   );
   res.writeHead(status, {
     'Content-Type': 'application/json',
@@ -244,9 +244,9 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       }
 
       // Add cookies
-      const cookies = attrs['http.request.cookies'] ?? attrs['cookie'];
+      const cookies = attrs['http.request.cookies'] ?? attrs.cookie;
       if (cookies) {
-        headers['cookie'] = String(cookies);
+        headers.cookie = String(cookies);
       }
 
       // Request body
@@ -274,7 +274,7 @@ export function createServer(opts: ServerOptions): Promise<Server> {
           headers: responseHeaders,
           body:
             responseBody.length > 50_000
-              ? responseBody.slice(0, 50_000) + '\n... (truncated)'
+              ? `${responseBody.slice(0, 50_000)}\n... (truncated)`
               : responseBody,
           duration,
           url: targetUrl,

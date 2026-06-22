@@ -7,11 +7,11 @@
 
 import type { SSEEvent } from '../hooks/use-sse.js';
 import {
-  serializeExport,
-  parseImport,
-  exportFilename,
   type ExportMeta,
+  exportFilename,
   type ParseResult,
+  parseImport,
+  serializeExport,
 } from './trace-export.js';
 
 /** Serialize events and trigger a browser download of the self-contained file. */

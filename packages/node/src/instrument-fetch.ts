@@ -14,7 +14,7 @@
  * runtime deps that would land in every consumer's tree; we already depend on
  * `@opentelemetry/api`, which is all this needs.
  */
-import { trace, context, SpanKind, SpanStatusCode, type Span } from '@opentelemetry/api';
+import { context, type Span, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 
 const TRACER_NAME = 'nextdog/outbound-http';
 

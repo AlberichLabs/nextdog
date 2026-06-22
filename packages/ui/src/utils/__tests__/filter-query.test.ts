@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  parseFilterTokens,
-  groupFilterTokens,
   composeOrExpression,
-  normalizeExpression,
   type FilterToken,
+  groupFilterTokens,
+  normalizeExpression,
+  parseFilterTokens,
 } from '../filter-query.js';
 
 /** Compact a group into a readable signature for assertions. */

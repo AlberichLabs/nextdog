@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { matchesQuery } from '../matcher.js';
+import { describe, expect, it } from 'vitest';
 import { groupFilterTokens } from '../filter-query.js';
+import { matchesQuery } from '../matcher.js';
 import { ALL_EVENTS } from './fixtures.js';
 
 /**

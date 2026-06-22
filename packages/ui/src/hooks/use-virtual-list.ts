@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useLayoutEffect } from 'preact/hooks';
+import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { computeRange, scrollOffsetForIndex, type VirtualRange } from '../utils/virtual-window.js';
 
 /** Rows rendered above and below the visible window to cover fast scrolling. */

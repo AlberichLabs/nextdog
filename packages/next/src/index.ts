@@ -18,7 +18,7 @@ function detectNextVersion(): number {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pkg = require('next/package.json');
     const major = parseInt(String(pkg.version).split('.')[0], 10);
-    return isNaN(major) ? 0 : major;
+    return Number.isNaN(major) ? 0 : major;
   } catch {
     return 0;
   }

@@ -300,7 +300,7 @@ export interface ErrorSpanSummary {
 
 function stackTrace(span: SpanEvent): string | undefined {
   const a = span.data.attributes;
-  const s = a['exception.stacktrace'] ?? a['exception.stack'] ?? a['error.stack'] ?? a['stack'];
+  const s = a['exception.stacktrace'] ?? a['exception.stack'] ?? a['error.stack'] ?? a.stack;
   return s === undefined ? undefined : String(s);
 }
 

@@ -1,8 +1,8 @@
 import type { ComponentChildren } from 'preact';
-import { useState, useRef, useMemo } from 'preact/hooks';
+import { useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import type { SSEEvent } from '../hooks/use-sse.js';
-import { parseFilterTokens, normalizeExpression } from '../utils/filter-query.js';
+import { normalizeExpression, parseFilterTokens } from '../utils/filter-query.js';
 
 // ---------------------------------------------------------------------------
 // Style constants (defined outside the component)
@@ -14,12 +14,6 @@ const containerStyle = css({
   px: '4',
   borderBottom: '1px solid token(colors.border.subtle)',
   transition: 'all 0.15s ease',
-});
-
-const rowStyle = css({
-  display: 'flex',
-  gap: '6px',
-  alignItems: 'stretch',
 });
 
 const inputWrapperBase = css({
@@ -55,21 +49,6 @@ const searchInputStyle = css({
     color: 'fg.dim',
     opacity: 0.6,
   },
-});
-
-const helpBtnStyle = css({
-  fontSize: 'md',
-  py: '1',
-  px: '2',
-  flexShrink: 0,
-  position: 'relative',
-  borderRadius: '12px',
-  fontWeight: 500,
-  border: '1px solid token(colors.border.subtle)',
-  cursor: 'pointer',
-  background: 'transparent',
-  color: 'fg.dim',
-  _hover: { background: 'surface.hover' },
 });
 
 const helpPanelStyle = css({

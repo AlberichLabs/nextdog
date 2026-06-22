@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 
 interface ColumnDef {

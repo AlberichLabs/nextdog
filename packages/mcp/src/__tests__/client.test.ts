@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { SidecarClient, SidecarUnavailableError } from '../client.js';
 import { makeFetch } from './fixtures.js';
 
@@ -50,13 +50,11 @@ describe('SidecarClient', () => {
   });
 
   it('throws SidecarUnavailableError on a non-2xx response', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue({
-        ok: false,
-        status: 503,
-        json: () => Promise.resolve({}),
-      }) as unknown as typeof fetch;
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: () => Promise.resolve({}),
+    }) as unknown as typeof fetch;
     const client = new SidecarClient({ fetchImpl });
     await expect(client.events()).rejects.toBeInstanceOf(SidecarUnavailableError);
   });

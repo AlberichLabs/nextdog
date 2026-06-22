@@ -1,10 +1,10 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { createServer } from '../server.js';
-import { NEXTDOG_HEALTH_MARKER } from '../health.js';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { request as httpRequest, type Server } from 'node:http';
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { NEXTDOG_HEALTH_MARKER } from '../health.js';
+import { createServer } from '../server.js';
 
 describe('Server', () => {
   let server: Server;
@@ -165,7 +165,7 @@ describe('Server rehydration from FileStore on boot', () => {
     // Use an hourly filename the FileStore would recognize.
     const now = new Date();
     const fn = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}.ndjson`;
-    await writeFile(join(dataDir, fn), lines.join('\n') + '\n');
+    await writeFile(join(dataDir, fn), `${lines.join('\n')}\n`);
   });
 
   afterEach(async () => {

@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import {
-  SavedSearchStore,
-  type SavedSearch,
   type RecentSearch,
+  type SavedSearch,
+  SavedSearchStore,
   type SearchValue,
 } from './saved-searches-store.js';
 
@@ -268,7 +268,7 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
 
   const handleRename = (entry: SavedSearch) => {
     const next = window.prompt('Rename saved search', entry.name);
-    if (next && next.trim()) rename(entry.id, next.trim());
+    if (next?.trim()) rename(entry.id, next.trim());
   };
 
   return (

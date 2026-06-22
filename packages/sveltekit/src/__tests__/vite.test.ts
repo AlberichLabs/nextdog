@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { nextdog } from '../vite.js';
 
 describe('nextdog vite plugin', () => {

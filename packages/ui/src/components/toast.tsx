@@ -1,9 +1,9 @@
-import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import type { FunctionComponent } from 'preact';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import { ToastStore } from './toast-store.js';
 import type { Toast, ToastInput } from './toast-store.js';
+import { ToastStore } from './toast-store.js';
 
 // ---------------------------------------------------------------------------
 // Types

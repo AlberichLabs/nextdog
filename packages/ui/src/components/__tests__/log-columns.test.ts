@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { buildLogRowCells, LOG_BASE_TRACK_IDS } from '../log-columns.js';
+import { describe, expect, it } from 'vitest';
 import type { SSEEvent } from '../../hooks/use-sse.js';
+import { buildLogRowCells, LOG_BASE_TRACK_IDS } from '../log-columns.js';
 
 function makeLog(attributes: Record<string, unknown> = {}): SSEEvent {
   return {

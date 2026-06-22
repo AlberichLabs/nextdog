@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { accentColors, lightBadgeTintAlpha, type AccentColorName } from './theme-colors.js';
+import { describe, expect, it } from 'vitest';
+import { type AccentColorName, accentColors, lightBadgeTintAlpha } from './theme-colors.js';
 
 /* ── WCAG contrast helpers ────────────────────────────────────────────── */
 
@@ -13,7 +13,7 @@ function hexToRgb(hex: string): RGB {
 function relLuminance([r, g, b]: RGB): number {
   const f = (c: number) => {
     const x = c / 255;
-    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
   };
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }

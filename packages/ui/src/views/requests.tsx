@@ -1,26 +1,18 @@
-import { useMemo, useState, useEffect, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { ServicePills } from '../components/service-pills.js';
-import { SearchBar } from '../components/search-bar.js';
 import { ColumnPicker } from '../components/column-picker.js';
+import { attrContextActions, showContextMenu } from '../components/context-menu.js';
 import { SavedSearches, useSavedSearches } from '../components/saved-searches.js';
+import { SearchBar } from '../components/search-bar.js';
+import { ServicePills } from '../components/service-pills.js';
 import { SortIndicator } from '../components/sort-indicator.js';
-import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useColumnResize } from '../hooks/use-column-resize.js';
-import { useVirtualList } from '../hooks/use-virtual-list.js';
-import { showContextMenu, attrContextActions } from '../components/context-menu.js';
-import { formatTime, formatDurationMs, spanDurationMs, extractHttpMeta } from '../utils/format.js';
-import {
-  pillStyle,
-  pillActiveStyle,
-  emptyStyle,
-  colHeaderStyle,
-  colResizeStyle,
-  toolbarStyle,
-  mlAutoStyle,
-} from '../styles/shared.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
 import type { UseEventsResult } from '../hooks/use-events.js';
+import { useKeyboard } from '../hooks/use-keyboard.js';
+import type { SSEEvent } from '../hooks/use-sse.js';
+import { useVirtualList } from '../hooks/use-virtual-list.js';
+import { colHeaderStyle, colResizeStyle, emptyStyle } from '../styles/shared.js';
+import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format.js';
 
 interface RequestGroup {
   traceId: string;
@@ -359,6 +351,11 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [customColumns, setCustomColumns] = useState<ColumnDef[]>(loadCustomColumns);
 
+  // TODO(parked 2026-06-22): `allColumns` (and its input `CORE_COLUMNS`) are an
+  // unwired column-customization feature — computed but never rendered. Biome flags
+  // it as dead; suppressed rather than ripple-deleted here to avoid a feature-removal
+  // refactor inside a lint-adoption PR. See memos/parked-questions.md.
+  // biome-ignore lint/correctness/noUnusedVariables: unwired feature, see TODO above
   const allColumns = useMemo(() => [...CORE_COLUMNS, ...customColumns], [customColumns]);
 
   // Built-in fields already shown as core columns
@@ -431,7 +428,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
           const bv = b.extraAttrs[sortBy] ?? '';
           const an = Number(av),
             bn = Number(bv);
-          if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
+          if (!Number.isNaN(an) && !Number.isNaN(bn)) return (an - bn) * dir;
           return av.localeCompare(bv) * dir;
         }
       }

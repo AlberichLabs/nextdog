@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { eventKey, mergeEvents, oldestTimestamp } from '../events-history.js';
 import type { SSEEvent } from '../use-sse.js';
 

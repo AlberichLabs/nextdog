@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll } from 'vitest';
 import * as http from 'node:http';
 import * as zlib from 'node:zlib';
-import { startRequestCapture, getRequestMetadata } from '../request-capture.js';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { getRequestMetadata, startRequestCapture } from '../request-capture.js';
 
 // Install the capture monkey-patch once for the whole suite.
 beforeAll(() => {

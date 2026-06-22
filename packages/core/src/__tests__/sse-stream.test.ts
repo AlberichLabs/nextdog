@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SSEStream } from '../sse-stream.js';
-import { RingBuffer } from '../ring-buffer.js';
-import type { NextDogEvent } from '../types.js';
-import { PassThrough } from 'node:stream';
 import type { ServerResponse } from 'node:http';
+import { PassThrough } from 'node:stream';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RingBuffer } from '../ring-buffer.js';
+import { SSEStream } from '../sse-stream.js';
+import type { NextDogEvent } from '../types.js';
 
 const makeEvent = (id: number): NextDogEvent => ({
   type: 'span',

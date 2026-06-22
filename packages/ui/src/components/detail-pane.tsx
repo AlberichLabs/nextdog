@@ -1,18 +1,18 @@
-import { useMemo, useState, useRef, useCallback, useEffect } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { route } from 'preact-router';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import { Waterfall } from './waterfall.js';
-import { LogRow } from './log-row.js';
+import type { SSEEvent } from '../hooks/use-sse.js';
+import { jsonViewStyle } from '../styles/shared.js';
+import { stripResponseAttributes } from '../utils/body-format.js';
+import { formatSpanDuration } from '../utils/format.js';
 import { AttributeTable } from './attribute-table.js';
 import { CopyCurl } from './copy-curl.js';
+import { LogRow } from './log-row.js';
 import { ReplayButton } from './replay-button.js';
 import { ResponseSection } from './response-section.js';
-import { formatSpanDuration } from '../utils/format.js';
-import { stripResponseAttributes } from '../utils/body-format.js';
-import { pillStyle, jsonViewStyle } from '../styles/shared.js';
 import { ExportButton } from './trace-io.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
+import { Waterfall } from './waterfall.js';
 
 const STORAGE_KEY = 'nextdog:pane-width';
 const DEFAULT_WIDTH = 520;
@@ -207,27 +207,6 @@ const segmentBtnActiveStyle = css({
   fontWeight: 600,
 });
 
-// Keep for backward compat but unused now
-const toggleBtnStyle = css({
-  fontSize: 'sm',
-  fontFamily: 'mono',
-  py: '1',
-  px: '2',
-  borderRadius: 'sm',
-  border: '1px solid token(colors.border.strong)',
-  background: 'surface.hover',
-  color: 'fg',
-  cursor: 'pointer',
-  textTransform: 'none',
-  letterSpacing: '0',
-  fontWeight: 500,
-  transition: 'all 0.15s ease',
-  _hover: {
-    background: 'surface.raised',
-    color: 'fg.bright',
-  },
-});
-
 const METHOD_COLORS: Record<string, string> = {
   get: token('colors.green'),
   post: token('colors.blue'),
@@ -388,7 +367,7 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                 <span>{logs.length} logs</span>
               </>
             )}
-            {rootSpan && rootSpan.data.attributes['http.method'] && (
+            {rootSpan?.data.attributes['http.method'] && (
               <>
                 <span class={metaSepStyle}>|</span>
                 <ReplayButton event={rootSpan} />

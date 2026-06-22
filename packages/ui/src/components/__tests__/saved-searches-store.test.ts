@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  SavedSearchStore,
+  RECENT_KEY,
   RECENT_LIMIT,
   SAVED_KEY,
-  RECENT_KEY,
+  SavedSearchStore,
   type StorageLike,
 } from '../saved-searches-store.js';
 

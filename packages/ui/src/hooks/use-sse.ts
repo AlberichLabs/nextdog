@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { mergeEvents, oldestTimestamp } from './events-history.js';
 
 export interface SSEEvent {

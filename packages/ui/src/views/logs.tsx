@@ -1,28 +1,27 @@
-import { useRef, useEffect, useState, useMemo, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { LogRow } from '../components/log-row.js';
-import { ServicePills } from '../components/service-pills.js';
-import { SearchBar } from '../components/search-bar.js';
 import { AttributeTable } from '../components/attribute-table.js';
 import { ColumnPicker } from '../components/column-picker.js';
+import { attrContextActions, showContextMenu } from '../components/context-menu.js';
+import { LogRow } from '../components/log-row.js';
 import { SavedSearches, useSavedSearches } from '../components/saved-searches.js';
+import { SearchBar } from '../components/search-bar.js';
+import { ServicePills } from '../components/service-pills.js';
 import { SortIndicator } from '../components/sort-indicator.js';
-import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useColumnResize } from '../hooks/use-column-resize.js';
+import type { UseEventsResult } from '../hooks/use-events.js';
+import { useKeyboard } from '../hooks/use-keyboard.js';
+import type { SSEEvent } from '../hooks/use-sse.js';
 import { useVirtualList } from '../hooks/use-virtual-list.js';
-import { showContextMenu, attrContextActions } from '../components/context-menu.js';
 import {
-  pillStyle,
-  pillActiveStyle,
-  emptyStyle,
   colHeaderStyle,
   colResizeStyle,
-  toolbarStyle,
-  mlAutoStyle,
+  emptyStyle,
   jsonViewStyle,
+  pillActiveStyle,
+  pillStyle,
+  toolbarStyle,
 } from '../styles/shared.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import type { UseEventsResult } from '../hooks/use-events.js';
 
 const SIDEBAR_STORAGE_KEY = 'nextdog:log-detail-width';
 const LOG_COLUMNS_STORAGE_KEY = 'nextdog:log-columns';
@@ -332,7 +331,7 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
           const bv = String(b.data.attributes[sortBy.replace('custom-', '')] ?? '');
           const an = Number(av),
             bn = Number(bv);
-          if (!isNaN(an) && !isNaN(bn)) return (an - bn) * dir;
+          if (!Number.isNaN(an) && !Number.isNaN(bn)) return (an - bn) * dir;
           return av.localeCompare(bv) * dir;
         }
       }

@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NEXTDOG_HEALTH_MARKER } from '@nextdog/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  _resetForeignOccupantWarnings,
   ensureSidecar,
   isHealthy,
   probeHealth,
-  _resetForeignOccupantWarnings,
 } from '../sidecar.js';
 
 const mockFetch = vi.fn();

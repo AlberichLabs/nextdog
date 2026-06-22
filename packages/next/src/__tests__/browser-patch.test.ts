@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { getBrowserPatchScript } from '../browser-patch.js';
 
 /**
@@ -58,7 +58,8 @@ function runPatch(opts: {
     __nextdog_patched: false,
     location: { pathname: '/test' },
     addEventListener: (type: string, cb: (e: unknown) => void) => {
-      (listeners[type] ??= []).push(cb);
+      listeners[type] ??= [];
+      listeners[type].push(cb);
     },
     // setInterval is a no-op here; we flush manually.
     setInterval: () => 0,
@@ -109,7 +110,7 @@ function runPatch(opts: {
   opts.drive(sandboxConsole);
 
   // Trigger the registered beforeunload flush.
-  for (const cb of listeners['beforeunload'] ?? []) cb({});
+  for (const cb of listeners.beforeunload ?? []) cb({});
 
   return { logs: flushed };
 }

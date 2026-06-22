@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 const STORAGE_KEY_PREFIX = 'nextdog:col-widths:';
 const MIN_WIDTH = 40;

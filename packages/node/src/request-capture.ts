@@ -7,7 +7,7 @@
  * in the exporter (since the OTel active span is not available at request time).
  */
 import * as http from 'node:http';
-import { requestContextStorage, createRequestContext } from './request-context.js';
+import { createRequestContext, requestContextStorage } from './request-context.js';
 
 export interface RequestMetadata {
   method: string;
@@ -106,25 +106,23 @@ function captureBody(req: http.IncomingMessage, metadata: RequestMetadata): void
     listener: (...args: any[]) => void,
   ) {
     if (event === 'data') {
-      const self = this;
       const wrappedListener = (chunk: Buffer) => {
         if (size < MAX_BODY_SIZE) {
           chunks.push(chunk);
           size += chunk.length;
         }
-        return listener.call(self, chunk);
+        return listener.call(this, chunk);
       };
       return originalOn.call(this, event, wrappedListener);
     }
     if (event === 'end') {
-      const self = this;
       const wrappedListener = (...args: any[]) => {
         if (chunks.length > 0) {
           const body = Buffer.concat(chunks).toString('utf-8');
           metadata.body = body.length > MAX_BODY_SIZE ? body.slice(0, MAX_BODY_SIZE) : body;
           chunks.length = 0;
         }
-        return listener.call(self, ...args);
+        return listener.call(this, ...args);
       };
       return originalOn.call(this, event, wrappedListener);
     }
@@ -202,7 +200,7 @@ function captureResponse(res: http.ServerResponse, metadata: RequestMetadata): v
       metadata.responseBody = `[binary ${contentType} response, ${size} bytes — not captured]`;
     } else {
       const body = Buffer.concat(chunks).toString('utf-8');
-      metadata.responseBody = overflowed ? body + '\n... (truncated)' : body;
+      metadata.responseBody = overflowed ? `${body}\n... (truncated)` : body;
     }
   };
 
@@ -299,7 +297,7 @@ export function startRequestCapture() {
         method: req.method ?? 'GET',
         url: req.url ?? '/',
         headers,
-        cookies: headers['cookie'] ?? '',
+        cookies: headers.cookie ?? '',
         capturedAt: Date.now(),
       };
 

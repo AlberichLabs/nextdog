@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach, beforeAll } from 'vitest';
-import { trace, context, TraceFlags, type Context, type ContextManager } from '@opentelemetry/api';
+import { type Context, type ContextManager, context, TraceFlags, trace } from '@opentelemetry/api';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 /**
  * Minimal synchronous context manager so trace.setSpan/getActiveSpan work in a

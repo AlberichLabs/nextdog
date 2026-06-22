@@ -16,10 +16,10 @@
     // is the source of the bogus bare-tsc "cannot find module styled-system" noise.
     "includes": [
       "**",
-      "!**/styled-system/**",
-      "!**/dist/**",
-      "!**/node_modules/**",
-      "!**/.turbo/**",
+      "!**/styled-system",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/.turbo",
       "!**/*.tsbuildinfo",
       "!**/pnpm-lock.yaml",
       "!**/CHANGELOG.md"
@@ -91,15 +91,28 @@
       // (2026-06-22): confirm whether a11y should be enforced on the overlay later.
       "a11y": {
         "recommended": false
+      },
+
+      "style": {
+        // noNonNullAssertion is a `recommended` warning that fires ~60x on the
+        // pre-existing `map.get(x)!` / `arr[0]!` idiom throughout the codebase.
+        // It is pure style (no correctness signal) and "fixing" it would mean
+        // mechanical `?.`/guards across dozens of call sites — large churn out of
+        // scope for a lint-adoption PR. Turned OFF deliberately; parked with a11y.
+        "noNonNullAssertion": "off"
       }
 
-      // DELIBERATELY LEFT OFF:
-      // - "style" group beyond recommended (useNamingConvention, useImportType
-      //   firehose, noNonNullAssertion, useConst-everywhere): cosmetic, would
-      //   force large manual churn across 125 source files for no correctness
-      //   gain. Out of scope for "make lint real"; revisit in a focused PR.
-      //   noNonNullAssertion alone fires 63x — pure style, parked with a11y.
+      // DELIBERATELY LEFT OFF (beyond the explicit toggles above):
+      // - rest of "style" group (useNamingConvention, useImportType firehose,
+      //   useConst-everywhere): cosmetic, would force large manual churn across
+      //   125 source files for no correctness gain. Revisit in a focused PR.
       // - "nursery" group: unstable rules, not pinnable behaviour. Off.
+      //
+      // KEPT ON as advisory WARNINGS (real signal, surfaced not gated):
+      // - correctness/useExhaustiveDependencies (12), correctness/
+      //   noUnusedFunctionParameters (4): Preact hook + dead-param hygiene.
+      // - suspicious/noExplicitAny (~20, mostly test mocks): narrow when easy.
+      // These do NOT fail `pnpm lint` (Biome gates on errors, not warnings).
     }
   },
   "assist": {

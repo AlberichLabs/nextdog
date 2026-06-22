@@ -6,7 +6,7 @@
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { SidecarClient, SidecarUnavailableError, type SidecarClientOptions } from './client.js';
+import { SidecarClient, type SidecarClientOptions, SidecarUnavailableError } from './client.js';
 import { getErrors, getTrace, listRecentTraces, searchLogs } from './tools.js';
 
 /** Wrap a handler so a sidecar-down (or any) failure becomes a clean MCP tool error. */

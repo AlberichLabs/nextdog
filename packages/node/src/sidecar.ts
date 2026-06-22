@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process';
-import { readFile, writeFile, mkdir, open } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, dirname, parse as parsePath } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { mkdir, open, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
+import { dirname, join, parse as parsePath } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NEXTDOG_HEALTH_MARKER } from '@nextdog/core';
 
 const NEXTDOG_DIR = join(homedir(), '.nextdog');

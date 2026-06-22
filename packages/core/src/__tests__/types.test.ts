@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import type { Span, LogEntry, NextDogEvent } from '../types.js';
+import { describe, expect, it } from 'vitest';
+import type { LogEntry, NextDogEvent, Span } from '../types.js';
 
 describe('types', () => {
   it('Span type has required OTel fields', () => {

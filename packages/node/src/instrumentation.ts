@@ -8,8 +8,9 @@
  * Everything here uses only `@opentelemetry/api` plus optional, lazily-loaded
  * drivers, so nothing new ships in a consumer's production bundle.
  */
-import { instrumentOutboundHttp } from './instrument-fetch.js';
+
 import { registerDbInstrumentation } from './instrument-db.js';
+import { instrumentOutboundHttp } from './instrument-fetch.js';
 
 export interface InstrumentationHandle {
   /** Restore all patched globals/drivers (used in tests / teardown). */

@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { pathToFileURL } from 'node:url';
-import { join } from 'node:path';
-import { mkdtempSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolveCoreCliPath, isRealFileUrl } from '../sidecar.js';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { isRealFileUrl, resolveCoreCliPath } from '../sidecar.js';
 
 /**
  * Builds a throwaway fake project on disk that mirrors the real install layout a

@@ -1,10 +1,10 @@
 import type { ServerResponse } from 'node:http';
-import type { NextDogEvent } from './types.js';
 import type { RingBuffer } from './ring-buffer.js';
+import type { NextDogEvent } from './types.js';
 
 function serializeEvent(event: NextDogEvent): string {
   const json = JSON.stringify(event, (_key, value) =>
-    typeof value === 'bigint' ? value.toString() + 'n' : value,
+    typeof value === 'bigint' ? `${value.toString()}n` : value,
   );
   return `data: ${json}\n\n`;
 }

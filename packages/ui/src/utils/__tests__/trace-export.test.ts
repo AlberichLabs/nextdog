@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { SSEEvent } from '../../hooks/use-sse.js';
 import {
-  serializeExport,
-  parseImport,
   EXPORT_MARKER,
   EXPORT_VERSION,
   type ExportEnvelope,
+  parseImport,
+  serializeExport,
 } from '../trace-export.js';
-import type { SSEEvent } from '../../hooks/use-sse.js';
 
 function span(traceId: string, spanId: string, extra: Partial<SSEEvent['data']> = {}): SSEEvent {
   return {

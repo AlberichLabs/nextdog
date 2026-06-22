@@ -1,9 +1,9 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { createServer } from '../server.js';
-import { mkdtemp, rm, readdir } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Server } from 'node:http';
+import { afterEach, describe, expect, it } from 'vitest';
+import { createServer } from '../server.js';
 
 describe('Integration: full pipeline', () => {
   let server: Server;

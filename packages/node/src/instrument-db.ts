@@ -24,7 +24,7 @@
  * Parent linkage is automatic: the span is started inside the active OTel
  * context, so it nests under the in-flight request span in the waterfall.
  */
-import { trace, context, SpanKind, SpanStatusCode, type Span } from '@opentelemetry/api';
+import { context, type Span, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 
 const TRACER_NAME = 'nextdog/db';
 const WRAPPED = Symbol.for('nextdog.db.wrapped');

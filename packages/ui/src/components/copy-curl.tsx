@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'preact/hooks';
+import { useCallback, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { extractHttpMeta } from '../utils/format.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { extractHttpMeta } from '../utils/format.js';
 
 /** Sensitive headers to strip in safe mode */
 const SENSITIVE_HEADERS = new Set([
@@ -30,7 +30,7 @@ function buildCurl(event: SSEEvent, includeSensitive: boolean): string {
   }
 
   // Add cookies if present and in full mode
-  const cookies = attrs['http.request.cookies'] ?? attrs['cookie'];
+  const cookies = attrs['http.request.cookies'] ?? attrs.cookie;
   if (cookies && includeSensitive) {
     parts.push(`  -b '${String(cookies)}'`);
   } else if (cookies && !includeSensitive) {

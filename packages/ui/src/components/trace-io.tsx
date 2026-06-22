@@ -8,14 +8,13 @@
 // All file I/O goes through utils/trace-export-io (File API + Blob, no libs).
 // ---------------------------------------------------------------------------
 
-import { useRef, useState, useCallback } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
+import { useCallback, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { pillStyle } from '../styles/shared.js';
-import { downloadExport, readImportFile } from '../utils/trace-export-io.js';
-import type { ExportMeta } from '../utils/trace-export.js';
-import type { ParseResult } from '../utils/trace-export.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { pillStyle } from '../styles/shared.js';
+import type { ExportMeta, ParseResult } from '../utils/trace-export.js';
+import { downloadExport, readImportFile } from '../utils/trace-export-io.js';
 
 /* ── Export ───────────────────────────────────────────────────────────── */
 

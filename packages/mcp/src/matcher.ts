@@ -8,7 +8,7 @@
  * keys, same case-folding, same `includes` vs `===` semantics per facet — is what
  * makes that true. The parity test pins it.
  */
-import { groupFilterTokens, type FilterToken } from './filter-query.js';
+import { type FilterToken, groupFilterTokens } from './filter-query.js';
 import type { SidecarEvent } from './types.js';
 
 function matchesField(event: SidecarEvent, key: string, value: string): boolean {

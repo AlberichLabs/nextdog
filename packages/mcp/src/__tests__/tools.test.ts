@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { SidecarClient } from '../client.js';
 import { getErrors, getTrace, listRecentTraces, searchLogs } from '../tools.js';
 import { makeFetch, TRACE_ERR, TRACE_OK } from './fixtures.js';

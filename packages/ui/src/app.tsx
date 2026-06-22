@@ -1,29 +1,29 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import Router from 'preact-router';
-import { useState, useCallback, useMemo, useEffect, useRef } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { useSSE } from './hooks/use-sse.js';
-import { useEvents } from './hooks/use-events.js';
-import { useTheme } from './hooks/use-theme.js';
-import { pillStyle } from './styles/shared.js';
-import { Requests } from './views/requests.js';
-import { Logs } from './views/logs.js';
-import { Trace } from './views/trace.js';
-import { DetailPane } from './components/detail-pane.js';
-import { Logo } from './components/logo.js';
-import { ThemeToggle } from './components/theme-toggle.js';
-import { Sparkline } from './components/sparkline.js';
-import { EmptyState } from './components/empty-state.js';
-import { ToastContainer, useToasts } from './components/toast.js';
-import { ShortcutHelp } from './components/shortcut-help.js';
 import { ContextMenuContainer } from './components/context-menu.js';
+import { DetailPane } from './components/detail-pane.js';
+import { EmptyState } from './components/empty-state.js';
+import { Logo } from './components/logo.js';
+import { ShortcutHelp } from './components/shortcut-help.js';
+import { Sparkline } from './components/sparkline.js';
+import { ThemeToggle } from './components/theme-toggle.js';
+import { ToastContainer, useToasts } from './components/toast.js';
 import {
   ExportButton,
-  OpenTraceButton,
   ImportDropZone,
   ImportedBadge,
+  OpenTraceButton,
 } from './components/trace-io.js';
+import { useEvents } from './hooks/use-events.js';
+import { useSSE } from './hooks/use-sse.js';
+import { useTheme } from './hooks/use-theme.js';
+import { pillStyle } from './styles/shared.js';
 import { enterImported, exitImported, type ImportedSession } from './utils/imported-session.js';
 import type { ParseResult } from './utils/trace-export.js';
+import { Logs } from './views/logs.js';
+import { Requests } from './views/requests.js';
+import { Trace } from './views/trace.js';
 
 const SIDECAR_URL =
   window.location.port === '5173' ? 'http://localhost:6789' : window.location.origin;

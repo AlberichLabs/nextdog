@@ -1,15 +1,15 @@
-import { useMemo, useState, useRef, useEffect, useCallback } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import { Waterfall } from '../components/waterfall.js';
-import { LogRow } from '../components/log-row.js';
 import { AttributeTable } from '../components/attribute-table.js';
 import { CopyCurl } from '../components/copy-curl.js';
+import { LogRow } from '../components/log-row.js';
 import { ReplayButton } from '../components/replay-button.js';
 import { ExportButton } from '../components/trace-io.js';
-import { formatSpanDuration } from '../utils/format.js';
-import { emptyStyle, jsonViewStyle } from '../styles/shared.js';
+import { Waterfall } from '../components/waterfall.js';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { emptyStyle, jsonViewStyle } from '../styles/shared.js';
+import { formatSpanDuration } from '../utils/format.js';
 
 /* ── Styles ───────────────────────────────────────────────────────────── */
 
@@ -448,7 +448,7 @@ export function Trace({ traceId, events }: TraceProps) {
             label="Export trace"
             title="Download this trace (all spans + logs) as a portable file"
           />
-          {rootSpan && rootSpan.data.attributes['http.method'] && (
+          {rootSpan?.data.attributes['http.method'] && (
             <>
               <ReplayButton event={rootSpan} />
               <CopyCurl event={rootSpan} />

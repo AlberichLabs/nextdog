@@ -1,6 +1,6 @@
-import { useMemo, useState, useCallback, useEffect } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { type FilterToken, groupFilterTokens } from '../utils/filter-query.js';
 import type { SSEEvent } from './use-sse.js';
-import { groupFilterTokens, type FilterToken } from '../utils/filter-query.js';
 
 export interface UseEventsResult {
   filtered: SSEEvent[];

@@ -1,4 +1,4 @@
-import { trace, context } from '@opentelemetry/api';
+import { context, trace } from '@opentelemetry/api';
 import { getRequestContext } from './request-context.js';
 
 const LEVELS = ['debug', 'log', 'info', 'warn', 'error'] as const;

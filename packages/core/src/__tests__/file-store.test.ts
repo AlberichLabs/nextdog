@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { FileStore } from '../file-store.js';
-import { mkdtemp, rm, readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { FileStore } from '../file-store.js';
 import type { NextDogEvent } from '../types.js';
 
 const makeEvent = (id: number, serviceName = 'test'): NextDogEvent => ({
@@ -36,7 +36,7 @@ const makeLog = (id: number, serviceName = 'test'): NextDogEvent => ({
 // Serialize the way FileStore does (BigInt -> "<n>n" strings) so test fixtures
 // written directly to disk round-trip through the store's deserializer.
 const line = (event: NextDogEvent): string =>
-  JSON.stringify(event, (_k, v) => (typeof v === 'bigint' ? v.toString() + 'n' : v));
+  JSON.stringify(event, (_k, v) => (typeof v === 'bigint' ? `${v.toString()}n` : v));
 
 describe('FileStore', () => {
   let dir: string;
@@ -141,7 +141,7 @@ describe('FileStore', () => {
     await mkdir(dir, { recursive: true });
     await writeFile(
       join(dir, '2026-01-01-00.ndjson'),
-      [
+      `${[
         line(makeEvent(1, 'app-a')),
         'not valid json at all', // unparseable
         '42', // parses, but not an object
@@ -150,7 +150,7 @@ describe('FileStore', () => {
         '{"type":"mystery","timestamp":9,"data":{"serviceName":"x"}}', // unknown type
         line(makeLog(2, 'app-b')),
         '', // blank line
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
       'utf-8',
     );
 
@@ -180,7 +180,7 @@ describe('FileStore', () => {
         serviceName: 'legacy',
       },
     };
-    await writeFile(join(dir, '2026-01-01-00.ndjson'), JSON.stringify(oldSpan) + '\n', 'utf-8');
+    await writeFile(join(dir, '2026-01-01-00.ndjson'), `${JSON.stringify(oldSpan)}\n`, 'utf-8');
 
     const store = new FileStore(dir);
     const all = await store.query({});
@@ -192,13 +192,13 @@ describe('FileStore', () => {
     await mkdir(dir, { recursive: true });
     await writeFile(
       join(dir, '2026-01-01-00.ndjson'),
-      [
+      `${[
         line(makeEvent(1, 'app-a')),
         'garbage',
         'null',
         '{"type":"span","timestamp":2}', // no data → no serviceName
         line(makeLog(2, 'worker')),
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
       'utf-8',
     );
 
