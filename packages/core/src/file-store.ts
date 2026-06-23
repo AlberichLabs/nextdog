@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { serializeWithBigInt } from './serialize.js';
 import type { NextDogEvent } from './types.js';
 
 function hourlyFilename(date = new Date()): string {
@@ -11,9 +12,7 @@ function hourlyFilename(date = new Date()): string {
 }
 
 function serialize(event: NextDogEvent): string {
-  return JSON.stringify(event, (_key, value) =>
-    typeof value === 'bigint' ? `${value.toString()}n` : value,
-  );
+  return serializeWithBigInt(event);
 }
 
 /**
