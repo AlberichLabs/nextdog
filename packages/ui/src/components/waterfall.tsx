@@ -1,6 +1,7 @@
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
 import type { SSEEvent } from '../hooks/use-sse.js';
+import { parseNano } from '../utils/format.js';
 
 const COLORS = [
   token('colors.accent'),
@@ -84,12 +85,22 @@ interface SpanTiming {
   source: SSEEvent;
 }
 
-function buildTimings(spans: SSEEvent[]): {
+/**
+ * Build the ordered span-timing tree. Exported for unit testing (pure, DOM-free).
+ *
+ * Defensive (issue #44): only spans whose start/end timing parse to a valid
+ * positive nano value are kept. A crafted/malformed span (e.g. a non-numeric
+ * startTimeUnixNano from an attacker-controlled imported file) is dropped rather
+ * than reaching an unguarded BigInt() that would throw and blank the dashboard.
+ */
+export function buildTimings(spans: SSEEvent[]): {
   timings: SpanTiming[];
   minNano: bigint;
   maxNano: bigint;
 } {
-  const timed = spans.filter((s) => s.data.startTimeUnixNano && s.data.endTimeUnixNano);
+  const timed = spans.filter(
+    (s) => parseNano(s.data.startTimeUnixNano) > 0n && parseNano(s.data.endTimeUnixNano) > 0n,
+  );
   if (timed.length === 0) return { timings: [], minNano: 0n, maxNano: 0n };
 
   const childMap = new Map<string, SSEEvent[]>();
@@ -133,8 +144,8 @@ function buildTimings(spans: SSEEvent[]): {
   let maxNano = 0n;
 
   const timings: SpanTiming[] = ordered.map((s, i) => {
-    const startNano = BigInt(String(s.data.startTimeUnixNano).replace('n', ''));
-    const endNano = BigInt(String(s.data.endTimeUnixNano).replace('n', ''));
+    const startNano = parseNano(s.data.startTimeUnixNano);
+    const endNano = parseNano(s.data.endTimeUnixNano);
     if (startNano < minNano) minNano = startNano;
     if (endNano > maxNano) maxNano = endNano;
     return {

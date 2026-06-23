@@ -4,6 +4,7 @@ import { css } from 'styled-system/css';
 import { ContextMenuContainer } from './components/context-menu.js';
 import { DetailPane } from './components/detail-pane.js';
 import { EmptyState } from './components/empty-state.js';
+import { ErrorBoundary } from './components/error-boundary.js';
 import { Logo } from './components/logo.js';
 import { ShortcutHelp } from './components/shortcut-help.js';
 import { Sparkline } from './components/sparkline.js';
@@ -19,6 +20,7 @@ import { useEvents } from './hooks/use-events.js';
 import { useSSE } from './hooks/use-sse.js';
 import { useTheme } from './hooks/use-theme.js';
 import { pillStyle } from './styles/shared.js';
+import { parseNano } from './utils/format.js';
 import { enterImported, exitImported, type ImportedSession } from './utils/imported-session.js';
 import type { ParseResult } from './utils/trace-export.js';
 import { Logs } from './views/logs.js';
@@ -219,9 +221,9 @@ export function App() {
       if (!event.data.traceId) continue;
       if (event.data.kind !== 'SERVER') continue;
 
-      if (event.data.startTimeUnixNano && event.data.endTimeUnixNano) {
-        const start = BigInt(String(event.data.startTimeUnixNano).replace('n', ''));
-        const end = BigInt(String(event.data.endTimeUnixNano).replace('n', ''));
+      const start = parseNano(event.data.startTimeUnixNano);
+      const end = parseNano(event.data.endTimeUnixNano);
+      if (start > 0n && end > 0n) {
         const ms = Number(end - start) / 1_000_000;
         if (ms >= SLOW_REQUEST_MS) {
           const route = String(
@@ -372,27 +374,31 @@ export function App() {
               />
             )
           ) : (
-            <Router onChange={handleRoute}>
-              <Requests path="/" eventsResult={eventsResult} onOpenTrace={openTrace} />
-              <Logs
-                path="/logs"
-                eventsResult={eventsResult}
-                allEvents={events}
-                onOpenTrace={openTrace}
-                onFilter={handleFilter}
-              />
-              <Trace path="/trace/:traceId" events={events} />
-            </Router>
+            <ErrorBoundary>
+              <Router onChange={handleRoute}>
+                <Requests path="/" eventsResult={eventsResult} onOpenTrace={openTrace} />
+                <Logs
+                  path="/logs"
+                  eventsResult={eventsResult}
+                  allEvents={events}
+                  onOpenTrace={openTrace}
+                  onFilter={handleFilter}
+                />
+                <Trace path="/trace/:traceId" events={events} />
+              </Router>
+            </ErrorBoundary>
           )}
         </div>
 
         {selectedTraceId && (
-          <DetailPane
-            traceId={selectedTraceId}
-            events={events}
-            onClose={closePane}
-            onFilter={handleFilter}
-          />
+          <ErrorBoundary>
+            <DetailPane
+              traceId={selectedTraceId}
+              events={events}
+              onClose={closePane}
+              onFilter={handleFilter}
+            />
+          </ErrorBoundary>
         )}
 
         <ToastContainer

@@ -131,6 +131,98 @@ describe('parseImport — validation', () => {
   });
 });
 
+describe('parseImport — timing field validation (issue #44)', () => {
+  // A span whose timing fields are not valid non-negative integers must be
+  // rejected at the boundary: otherwise they reach an unguarded BigInt() on the
+  // render path (parseNano / waterfall buildTimings) and crash the dashboard.
+  function envelopeWith(dataExtra: Record<string, unknown>): string {
+    return JSON.stringify({
+      nextdog: EXPORT_MARKER,
+      version: EXPORT_VERSION,
+      kind: 'trace',
+      traceId: 'abc',
+      eventCount: 1,
+      events: [
+        {
+          type: 'span',
+          timestamp: 1,
+          data: {
+            name: 'evil',
+            serviceName: 'svc',
+            traceId: 'abc',
+            spanId: 's1',
+            attributes: {},
+            ...dataExtra,
+          },
+        },
+      ],
+    });
+  }
+
+  it('rejects a non-numeric startTimeUnixNano (the #44 repro)', () => {
+    const result = parseImport(
+      envelopeWith({ startTimeUnixNano: 'not-a-number', endTimeUnixNano: '999' }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/timing/i);
+  });
+
+  it('rejects a non-numeric endTimeUnixNano', () => {
+    const result = parseImport(
+      envelopeWith({ startTimeUnixNano: '1', endTimeUnixNano: 'whoops' }),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a negative timing value', () => {
+    const result = parseImport(
+      envelopeWith({ startTimeUnixNano: '-5', endTimeUnixNano: '999' }),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a non-integer (decimal) timing value', () => {
+    const result = parseImport(
+      envelopeWith({ startTimeUnixNano: '1.5', endTimeUnixNano: '999' }),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects an object timing value', () => {
+    const result = parseImport(
+      envelopeWith({ startTimeUnixNano: { evil: true }, endTimeUnixNano: '999' }),
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts a span with no timing fields (logs and untimed spans are valid)', () => {
+    const result = parseImport(envelopeWith({}));
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts a valid string-integer timing value', () => {
+    const result = parseImport(
+      envelopeWith({ startTimeUnixNano: '1000000000', endTimeUnixNano: '1500000000' }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts the server's 'n'-suffixed BigInt serialization", () => {
+    const result = parseImport(
+      envelopeWith({ startTimeUnixNano: '1000000000n', endTimeUnixNano: '1500000000n' }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts a numeric (non-string) timing value', () => {
+    const result = parseImport(
+      envelopeWith({ startTimeUnixNano: 1000000000, endTimeUnixNano: 1500000000 }),
+    );
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe('exportFilename', () => {
   it('builds a trace filename from the traceId', async () => {
     const { exportFilename } = await import('../trace-export.js');

@@ -62,6 +62,27 @@ export function serializeExport(events: SSEEvent[], meta: ExportMeta): string {
   return JSON.stringify(envelope, null, 2);
 }
 
+/**
+ * Timing fields that flow into BigInt() on the render path (format.ts parseNano,
+ * waterfall.tsx buildTimings). Imported files are attacker-controlled (issue
+ * #44), so any present timing value must be a string/number that parses as a
+ * non-negative integer — otherwise the unguarded BigInt() would throw and, with
+ * no error boundary above it, blank the whole dashboard. Absent fields are fine
+ * (logs and untimed spans are valid).
+ */
+const NANO_TIMING_FIELDS = ['startTimeUnixNano', 'endTimeUnixNano'] as const;
+
+/** True if `value` is absent, or a string/number that is a non-negative integer nano value. */
+function isValidNano(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== 'string' && typeof value !== 'number') return false;
+  // The server may serialize a BigInt with a trailing 'n' (e.g. "1500000000n").
+  const s = typeof value === 'string' && value.endsWith('n') ? value.slice(0, -1) : String(value);
+  if (s === '') return false;
+  // Non-negative integer only: no decimals, signs, exponents, or garbage.
+  return /^\d+$/.test(s);
+}
+
 /** Minimal structural check that a parsed entry looks like an SSEEvent. */
 function isEventShaped(value: unknown): value is SSEEvent {
   if (typeof value !== 'object' || value === null) return false;
@@ -73,6 +94,10 @@ function isEventShaped(value: unknown): value is SSEEvent {
   // relied on throughout the rendering path (filter, waterfall, detail).
   if (typeof d.attributes !== 'object' || d.attributes === null) return false;
   if (typeof d.serviceName !== 'string') return false;
+  // Timing fields, if present, must be parseable as non-negative integers (#44).
+  for (const field of NANO_TIMING_FIELDS) {
+    if (!isValidNano(d[field])) return false;
+  }
   return true;
 }
 
@@ -121,7 +146,24 @@ export function parseImport(text: string): ParseResult {
   }
 
   if (!env.events.every(isEventShaped)) {
-    return { ok: false, error: 'This export contains entries that are not valid NextDog events.' };
+    // Distinguish a bad-timing rejection (#44) from a generic shape failure so
+    // the user gets an actionable message, matching the other rejections.
+    const hasBadTiming = env.events.some(
+      (e) =>
+        typeof e === 'object' &&
+        e !== null &&
+        typeof (e as { data?: unknown }).data === 'object' &&
+        (e as { data: Record<string, unknown> }).data !== null &&
+        NANO_TIMING_FIELDS.some(
+          (f) => !isValidNano((e as { data: Record<string, unknown> }).data[f]),
+        ),
+    );
+    return {
+      ok: false,
+      error: hasBadTiming
+        ? 'This export contains a span with an invalid timing value (startTimeUnixNano/endTimeUnixNano must be a non-negative integer).'
+        : 'This export contains entries that are not valid NextDog events.',
+    };
   }
 
   const events = env.events as SSEEvent[];

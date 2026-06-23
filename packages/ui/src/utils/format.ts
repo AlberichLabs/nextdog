@@ -1,10 +1,24 @@
 import type { SSEEvent } from '../hooks/use-sse.js';
 
-/** Parse BigInt nano timestamps (handles the 'n' suffix from server serialization) */
+/**
+ * Parse BigInt nano timestamps (handles the 'n' suffix from server serialization).
+ *
+ * Defensive: an invalid/garbage value degrades to 0n rather than throwing. Live
+ * SSE data and imported files (issue #44) can both carry a malformed timing
+ * field, and an unguarded BigInt('abc') throws a SyntaxError that — with no
+ * error boundary above it — blanks the whole dashboard. Mirrors the MCP server's
+ * durationMs() try/catch (packages/mcp/src/tools.ts).
+ */
 export function parseNano(value: string | bigint | undefined): bigint {
   if (!value) return 0n;
-  const s = String(value);
-  return BigInt(s.endsWith('n') ? s.slice(0, -1) : s);
+  if (typeof value === 'bigint') return value >= 0n ? value : 0n;
+  const s = value.endsWith('n') ? value.slice(0, -1) : value;
+  try {
+    const n = BigInt(s);
+    return n >= 0n ? n : 0n;
+  } catch {
+    return 0n;
+  }
 }
 
 /** Format milliseconds as a human-readable duration */
