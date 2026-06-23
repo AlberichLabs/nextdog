@@ -8,10 +8,20 @@ export interface ColumnConfig {
   defaultWidth: number;
 }
 
+/** Keep only numeric width entries; drops anything an old/corrupt blob carries. */
+function sanitizeWidths(value: unknown): Record<string, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const out: Record<string, number> = {};
+  for (const [key, v] of Object.entries(value)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[key] = v;
+  }
+  return out;
+}
+
 function loadWidths(viewId: string): Record<string, number> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PREFIX + viewId);
-    return raw ? JSON.parse(raw) : {};
+    return raw ? sanitizeWidths(JSON.parse(raw)) : {};
   } catch {
     return {};
   }

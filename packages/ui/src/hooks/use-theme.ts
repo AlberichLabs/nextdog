@@ -2,6 +2,11 @@ import { useEffect, useState } from 'preact/hooks';
 
 type Theme = 'dark' | 'light' | 'system';
 
+/** Narrow an arbitrary localStorage string to a known Theme, defaulting to 'system'. */
+function parseTheme(value: string | null): Theme {
+  return value === 'dark' || value === 'light' || value === 'system' ? value : 'system';
+}
+
 function getSystemTheme(): 'dark' | 'light' {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
@@ -12,7 +17,7 @@ function getEffective(theme: Theme): 'dark' | 'light' {
 
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() => {
-    return (localStorage.getItem('nextdog-theme') as Theme) ?? 'system';
+    return parseTheme(localStorage.getItem('nextdog-theme'));
   });
 
   const effective = getEffective(theme);
