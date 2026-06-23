@@ -59,6 +59,90 @@ describe('Server', () => {
     expect(res.status).toBe(202);
   });
 
+  it('POST /v1/spans with malformed JSON returns 400, not a 500/crash', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/v1/spans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{ not valid json',
+    });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(typeof data.error).toBe('string');
+  });
+
+  it('POST /v1/spans with a non-object body (JSON array) returns 400', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/v1/spans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([1, 2, 3]),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /v1/spans with an empty body returns 400', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/v1/spans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /v1/logs with malformed JSON returns 400, not a 500/crash', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/v1/logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'definitely-not-json',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /v1/logs with a valid body still returns 202 (unchanged happy path)', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/v1/logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        logs: [
+          {
+            type: 'log',
+            timestamp: 1,
+            data: { timestamp: 1, level: 'info', message: 'hi', attributes: {}, serviceName: 'a' },
+          },
+        ],
+      }),
+    });
+    expect(res.status).toBe(202);
+    const data = await res.json();
+    expect(data.accepted).toBe(1);
+  });
+
+  it('POST /api/replay with malformed JSON returns 400, not a 500/crash', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{ "spanId": ',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/replay with a valid body but missing spanId returns 400 (unchanged)', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain('spanId');
+  });
+
   it('GET /api/services returns list of known services', async () => {
     server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
 

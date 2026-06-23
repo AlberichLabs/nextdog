@@ -10,6 +10,7 @@ import { EventBus } from './event-bus.js';
 import { FileStore } from './file-store.js';
 import { NEXTDOG_HEALTH_MARKER } from './health.js';
 import { RingBuffer } from './ring-buffer.js';
+import { bigintReplacer } from './serialize.js';
 import { SSEStream } from './sse-stream.js';
 import type { NextDogEvent, Span } from './types.js';
 
@@ -39,10 +40,38 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/**
+ * Read and JSON-parse a request body into an object. Unlike a bare
+ * `JSON.parse(await readBody(req))`, this never throws on a malformed,
+ * non-JSON, or non-object body: the ingest endpoints face whatever a misbehaving
+ * exporter or a `curl` happens to send, and an uncaught parse error would surface
+ * as an unhandled rejection / 500 (or crash the sidecar) rather than a clean 400.
+ * Returns `{ ok: true, body }` for a valid JSON object, or `{ ok: false }` so the
+ * caller can reply with `json(res, 400, …)`. Sibling of the import-side guard in #44.
+ */
+async function readJsonObject(
+  req: IncomingMessage,
+): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false }> {
+  let raw: string;
+  try {
+    raw = await readBody(req);
+  } catch {
+    return { ok: false };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false };
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { ok: false };
+  }
+  return { ok: true, body: parsed as Record<string, unknown> };
+}
+
 function json(res: ServerResponse, status: number, data: unknown): void {
-  const body = JSON.stringify(data, (_key, value) =>
-    typeof value === 'bigint' ? `${value.toString()}n` : value,
-  );
+  const body = JSON.stringify(data, bigintReplacer);
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -121,12 +150,24 @@ export function createServer(opts: ServerOptions): Promise<Server> {
 
     // Ingest spans
     if (req.method === 'POST' && pathname === '/v1/spans') {
-      const body = JSON.parse(await readBody(req));
-      const spans: Span[] = (body.spans ?? []).map((s: Record<string, unknown>) => ({
-        ...s,
-        startTimeUnixNano: BigInt(s.startTimeUnixNano as string),
-        endTimeUnixNano: BigInt(s.endTimeUnixNano as string),
-      }));
+      const parsed = await readJsonObject(req);
+      if (!parsed.ok) {
+        return json(res, 400, { error: 'invalid request body: expected a JSON object' });
+      }
+      let spans: Span[];
+      try {
+        const rawSpans: unknown[] = Array.isArray(parsed.body.spans) ? parsed.body.spans : [];
+        spans = rawSpans.map((raw) => {
+          const s = raw as Record<string, unknown>;
+          return {
+            ...s,
+            startTimeUnixNano: BigInt(s.startTimeUnixNano as string),
+            endTimeUnixNano: BigInt(s.endTimeUnixNano as string),
+          } as Span;
+        });
+      } catch {
+        return json(res, 400, { error: 'invalid spans payload' });
+      }
 
       for (const span of spans) {
         services.add(span.serviceName);
@@ -142,8 +183,11 @@ export function createServer(opts: ServerOptions): Promise<Server> {
 
     // Ingest logs
     if (req.method === 'POST' && pathname === '/v1/logs') {
-      const body = JSON.parse(await readBody(req));
-      const logs = body.logs ?? [];
+      const parsed = await readJsonObject(req);
+      if (!parsed.ok) {
+        return json(res, 400, { error: 'invalid request body: expected a JSON object' });
+      }
+      const logs = Array.isArray(parsed.body.logs) ? parsed.body.logs : [];
 
       for (const log of logs) {
         const event: NextDogEvent =
@@ -197,10 +241,13 @@ export function createServer(opts: ServerOptions): Promise<Server> {
 
     // Replay a request by spanId — reconstructs and re-sends the original HTTP request
     if (req.method === 'POST' && pathname === '/api/replay') {
-      const body = JSON.parse(await readBody(req));
-      const { spanId } = body;
+      const parsed = await readJsonObject(req);
+      if (!parsed.ok) {
+        return json(res, 400, { error: 'invalid request body: expected a JSON object' });
+      }
+      const { spanId } = parsed.body;
 
-      if (!spanId) {
+      if (!spanId || typeof spanId !== 'string') {
         return json(res, 400, { error: 'spanId is required' });
       }
 
