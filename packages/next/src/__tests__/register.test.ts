@@ -14,7 +14,7 @@ describe('register', () => {
       NodeTracerProvider: vi.fn(),
       BatchSpanProcessor: vi.fn(),
     }));
-    await import('../register.js');
+    await import('../register');
     const { NodeTracerProvider } = await import('@opentelemetry/sdk-trace-node');
     expect(NodeTracerProvider).not.toHaveBeenCalled();
   });

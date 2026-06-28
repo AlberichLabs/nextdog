@@ -3,8 +3,8 @@ import { request as httpRequest, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { NEXTDOG_HEALTH_MARKER } from '../health.js';
-import { createServer } from '../server.js';
+import { NEXTDOG_HEALTH_MARKER } from '../health';
+import { createServer } from '../server';
 
 describe('Server', () => {
   let server: Server;

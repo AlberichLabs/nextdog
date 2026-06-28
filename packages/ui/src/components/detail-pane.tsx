@@ -2,17 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { route } from 'preact-router';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { jsonViewStyle } from '../styles/shared.js';
-import { stripResponseAttributes } from '../utils/body-format.js';
-import { formatSpanDuration } from '../utils/format.js';
-import { AttributeTable } from './attribute-table.js';
-import { CopyCurl } from './copy-curl.js';
-import { LogRow } from './log-row.js';
-import { ReplayButton } from './replay-button.js';
-import { ResponseSection } from './response-section.js';
-import { ExportButton } from './trace-io.js';
-import { Waterfall } from './waterfall.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import { jsonViewStyle } from '../styles/shared';
+import { stripResponseAttributes } from '../utils/body-format';
+import { formatSpanDuration } from '../utils/format';
+import { AttributeTable } from './attribute-table';
+import { CopyCurl } from './copy-curl';
+import { LogRow } from './log-row';
+import { ReplayButton } from './replay-button';
+import { ResponseSection } from './response-section';
+import { ExportButton } from './trace-io';
+import { Waterfall } from './waterfall';
 
 const STORAGE_KEY = 'nextdog:pane-width';
 const DEFAULT_WIDTH = 520;

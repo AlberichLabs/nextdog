@@ -9,8 +9,8 @@
  * drivers, so nothing new ships in a consumer's production bundle.
  */
 
-import { registerDbInstrumentation } from './instrument-db.js';
-import { instrumentOutboundHttp } from './instrument-fetch.js';
+import { registerDbInstrumentation } from './instrument-db';
+import { instrumentOutboundHttp } from './instrument-fetch';
 
 export interface InstrumentationHandle {
   /** Restore all patched globals/drivers (used in tests / teardown). */

@@ -1,7 +1,7 @@
 import { useMemo } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { pillActiveStyle, pillStyle } from '../styles/shared.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import { pillActiveStyle, pillStyle } from '../styles/shared';
 
 const servicePillsStyle = css({
   display: 'flex',

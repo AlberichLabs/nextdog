@@ -5,7 +5,7 @@ import {
   type SavedSearch,
   SavedSearchStore,
   type SearchValue,
-} from './saved-searches-store.js';
+} from './saved-searches-store';
 
 // One store shared across views (Spans, Logs) so saved/recent state stays in
 // sync and persists through the single localStorage backing.

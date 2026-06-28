@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { ColumnPicker } from '../components/column-picker.js';
-import type { ColumnDef, CustomColumn } from '../components/column-types.js';
-import { attrContextActions, showContextMenu } from '../components/context-menu.js';
-import { SavedSearches, useSavedSearches } from '../components/saved-searches.js';
-import { SearchBar } from '../components/search-bar.js';
-import { ServicePills } from '../components/service-pills.js';
-import { SortIndicator } from '../components/sort-indicator.js';
-import { useColumnResize } from '../hooks/use-column-resize.js';
-import type { UseEventsResult } from '../hooks/use-events.js';
-import { useKeyboard } from '../hooks/use-keyboard.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { useVirtualList } from '../hooks/use-virtual-list.js';
-import { colHeaderStyle, colResizeStyle, emptyStyle } from '../styles/shared.js';
-import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format.js';
+import { ColumnPicker } from '../components/column-picker';
+import type { ColumnDef, CustomColumn } from '../components/column-types';
+import { attrContextActions, showContextMenu } from '../components/context-menu';
+import { SavedSearches, useSavedSearches } from '../components/saved-searches';
+import { SearchBar } from '../components/search-bar';
+import { ServicePills } from '../components/service-pills';
+import { SortIndicator } from '../components/sort-indicator';
+import { useColumnResize } from '../hooks/use-column-resize';
+import type { UseEventsResult } from '../hooks/use-events';
+import { useKeyboard } from '../hooks/use-keyboard';
+import type { SSEEvent } from '../hooks/use-sse';
+import { useVirtualList } from '../hooks/use-virtual-list';
+import { colHeaderStyle, colResizeStyle, emptyStyle } from '../styles/shared';
+import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format';
 
 interface RequestGroup {
   traceId: string;

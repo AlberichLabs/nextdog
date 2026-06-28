@@ -1,5 +1,5 @@
 import { css } from 'styled-system/css';
-import { selectEmptyState } from './empty-state-logic.js';
+import { selectEmptyState } from './empty-state-logic';
 
 interface EmptyStateProps {
   /** SSE connection established. */

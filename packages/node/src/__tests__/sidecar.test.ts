@@ -8,12 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => ({ pid: undefined, unref: vi.fn() })),
 }));
-import {
-  _resetForeignOccupantWarnings,
-  ensureSidecar,
-  isHealthy,
-  probeHealth,
-} from '../sidecar.js';
+
+import { _resetForeignOccupantWarnings, ensureSidecar, isHealthy, probeHealth } from '../sidecar';
 
 const mockFetch = vi.fn();
 

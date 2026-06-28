@@ -1,9 +1,9 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { describe, expect, it, vi } from 'vitest';
-import { SidecarClient } from '../client.js';
-import { createMcpServer } from '../server.js';
-import { makeFetch } from './fixtures.js';
+import { SidecarClient } from '../client';
+import { createMcpServer } from '../server';
+import { makeFetch } from './fixtures';
 
 async function connect(sidecar: SidecarClient) {
   const server = createMcpServer({ client: sidecar });

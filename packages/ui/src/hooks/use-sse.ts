@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { mergeEvents, oldestTimestamp } from './events-history.js';
+import { mergeEvents, oldestTimestamp } from './events-history';
 
 export interface SSEEvent {
   type: 'span' | 'log';

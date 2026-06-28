@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { formatBody } from '../utils/body-format.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import { formatBody } from '../utils/body-format';
 
 interface ReplayResponse {
   status: number;

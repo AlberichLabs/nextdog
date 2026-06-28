@@ -7,7 +7,7 @@
  * in the exporter (since the OTel active span is not available at request time).
  */
 import * as http from 'node:http';
-import { createRequestContext, requestContextStorage } from './request-context.js';
+import { createRequestContext, requestContextStorage } from './request-context';
 
 export interface RequestMetadata {
   method: string;

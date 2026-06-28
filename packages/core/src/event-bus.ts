@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import type { NextDogEvent } from './types.js';
+import type { NextDogEvent } from './types';
 
 type EventType = NextDogEvent['type'] | '*';
 type EventHandler = (event: NextDogEvent) => void;

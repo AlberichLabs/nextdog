@@ -5,14 +5,14 @@
 // and unit-testable.
 // ---------------------------------------------------------------------------
 
-import type { SSEEvent } from '../hooks/use-sse.js';
+import type { SSEEvent } from '../hooks/use-sse';
 import {
   type ExportMeta,
   exportFilename,
   type ParseResult,
   parseImport,
   serializeExport,
-} from './trace-export.js';
+} from './trace-export';
 
 /** Serialize events and trigger a browser download of the self-contained file. */
 export function downloadExport(events: SSEEvent[], meta: ExportMeta): void {

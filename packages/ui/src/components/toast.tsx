@@ -2,14 +2,14 @@ import type { FunctionComponent } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import type { Toast, ToastInput } from './toast-store.js';
-import { ToastStore } from './toast-store.js';
+import type { Toast, ToastInput } from './toast-store';
+import { ToastStore } from './toast-store';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type { Toast } from './toast-store.js';
+export type { Toast } from './toast-store';
 
 export interface ToastContainerProps {
   toasts: Toast[];

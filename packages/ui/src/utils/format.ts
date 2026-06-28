@@ -1,4 +1,4 @@
-import type { SSEEvent } from '../hooks/use-sse.js';
+import type { SSEEvent } from '../hooks/use-sse';
 
 /**
  * Parse BigInt nano timestamps (handles the 'n' suffix from server serialization).

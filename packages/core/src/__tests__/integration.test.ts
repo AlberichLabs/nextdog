@@ -3,7 +3,7 @@ import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createServer } from '../server.js';
+import { createServer } from '../server';
 
 describe('Integration: full pipeline', () => {
   let server: Server;

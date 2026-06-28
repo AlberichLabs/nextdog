@@ -6,10 +6,10 @@ if (
   const { NodeTracerProvider, BatchSpanProcessor } = await import('@opentelemetry/sdk-trace-node');
   const { Resource } = await import('@opentelemetry/resources');
   const { ATTR_SERVICE_NAME } = await import('@opentelemetry/semantic-conventions');
-  const { NextDogExporter } = await import('./exporter.js');
-  const { ensureSidecar } = await import('./sidecar.js');
-  const { patchConsole } = await import('./console-patch.js');
-  const { startRequestCapture } = await import('./request-capture.js');
+  const { NextDogExporter } = await import('./exporter');
+  const { ensureSidecar } = await import('./sidecar');
+  const { patchConsole } = await import('./console-patch');
+  const { startRequestCapture } = await import('./request-capture');
   const { registerInstrumentations } = await import('@nextdog/node/instrumentation');
 
   const url = process.env.NEXTDOG_URL ?? 'http://localhost:6789';

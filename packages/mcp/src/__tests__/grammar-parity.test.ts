@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { groupFilterTokens } from '../filter-query.js';
-import { matchesQuery } from '../matcher.js';
-import { ALL_EVENTS } from './fixtures.js';
+import { groupFilterTokens } from '../filter-query';
+import { matchesQuery } from '../matcher';
+import { ALL_EVENTS } from './fixtures';
 
 /**
  * These assertions pin the ported grammar to the canonical UI semantics

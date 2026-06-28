@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { withNextDog } from '../index.js';
+import { withNextDog } from '../index';
 
 // Mock require to control Next.js version detection
 vi.mock('next/package.json', () => ({ default: { version: '16.2.1' } }));

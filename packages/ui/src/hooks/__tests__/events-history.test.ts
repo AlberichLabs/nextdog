@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { eventKey, mergeEvents, oldestTimestamp } from '../events-history.js';
-import type { SSEEvent } from '../use-sse.js';
+import { eventKey, mergeEvents, oldestTimestamp } from '../events-history';
+import type { SSEEvent } from '../use-sse';
 
 const span = (id: string, ts: number, serviceName = 'web'): SSEEvent => ({
   type: 'span',

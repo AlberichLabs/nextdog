@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { SSEEvent } from '../../hooks/use-sse.js';
-import { buildTimings } from '../waterfall.js';
+import type { SSEEvent } from '../../hooks/use-sse';
+import { buildTimings } from '../waterfall';
 
 function span(data: Partial<SSEEvent['data']>): SSEEvent {
   return {

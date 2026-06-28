@@ -6,13 +6,13 @@ import {
   type ServerResponse,
 } from 'node:http';
 import { extname, join } from 'node:path';
-import { EventBus } from './event-bus.js';
-import { FileStore } from './file-store.js';
-import { NEXTDOG_HEALTH_MARKER } from './health.js';
-import { RingBuffer } from './ring-buffer.js';
-import { bigintReplacer } from './serialize.js';
-import { SSEStream } from './sse-stream.js';
-import type { NextDogEvent, Span } from './types.js';
+import { EventBus } from './event-bus';
+import { FileStore } from './file-store';
+import { NEXTDOG_HEALTH_MARKER } from './health';
+import { RingBuffer } from './ring-buffer';
+import { bigintReplacer } from './serialize';
+import { SSEStream } from './sse-stream';
+import type { NextDogEvent, Span } from './types';
 
 export interface ServerOptions {
   port: number;

@@ -5,7 +5,7 @@ import {
   SAVED_KEY,
   SavedSearchStore,
   type StorageLike,
-} from '../saved-searches-store.js';
+} from '../saved-searches-store';
 
 /** Minimal in-memory Storage stand-in (tests run in node, no DOM localStorage). */
 function memoryStorage(): StorageLike & { dump: () => Record<string, string> } {

@@ -1,12 +1,12 @@
 import { Component, type ComponentChildren } from 'preact';
 import { css } from 'styled-system/css';
-import { pillStyle } from '../styles/shared.js';
+import { pillStyle } from '../styles/shared';
 import {
   deriveErrorState,
   type ErrorBoundaryState,
   errorMessage,
   resetState,
-} from './error-boundary-logic.js';
+} from './error-boundary-logic';
 
 interface ErrorBoundaryProps {
   children: ComponentChildren;

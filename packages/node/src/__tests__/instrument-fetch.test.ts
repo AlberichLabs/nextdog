@@ -5,7 +5,7 @@ import {
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { instrumentOutboundHttp } from '../instrument-fetch.js';
+import { instrumentOutboundHttp } from '../instrument-fetch';
 
 const memoryExporter = new InMemorySpanExporter();
 let provider: NodeTracerProvider;

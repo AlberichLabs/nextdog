@@ -67,7 +67,7 @@ describe('withNextDog — cold-start init race', () => {
     vi.doMock('@nextdog/node/request-capture', () => ({ startRequestCapture: vi.fn() }));
     vi.doMock('@nextdog/node/instrumentation', () => ({ registerInstrumentations }));
 
-    const { withNextDog: createHandle } = await import('../index.js');
+    const { withNextDog: createHandle } = await import('../index');
     const handle = createHandle({ url: 'http://localhost:6789', serviceName: 'test-app' });
 
     const mkEvent = (p: string) => ({

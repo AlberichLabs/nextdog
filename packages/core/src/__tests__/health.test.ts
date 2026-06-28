@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { NEXTDOG_HEALTH_MARKER, NEXTDOG_HEALTH_SERVICE_FIELD } from '../health.js';
-import * as core from '../index.js';
+import { NEXTDOG_HEALTH_MARKER, NEXTDOG_HEALTH_SERVICE_FIELD } from '../health';
+import * as core from '../index';
 
 describe('health marker', () => {
   it('is the stable "nextdog" service signature', () => {

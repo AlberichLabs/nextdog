@@ -1,4 +1,4 @@
-import type { SidecarEvent } from '../types.js';
+import type { SidecarEvent } from '../types';
 
 /**
  * A small multi-service fixture: one healthy GET trace on `web`, one failing

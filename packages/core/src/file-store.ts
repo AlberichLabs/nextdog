@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { serializeWithBigInt } from './serialize.js';
-import type { NextDogEvent } from './types.js';
+import { serializeWithBigInt } from './serialize';
+import type { NextDogEvent } from './types';
 
 function hourlyFilename(date = new Date()): string {
   const y = date.getFullYear();

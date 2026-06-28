@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type AccentColorName, accentColors, lightBadgeTintAlpha } from './theme-colors.js';
+import { type AccentColorName, accentColors, lightBadgeTintAlpha } from './theme-colors';
 
 /* ── WCAG contrast helpers ────────────────────────────────────────────── */
 

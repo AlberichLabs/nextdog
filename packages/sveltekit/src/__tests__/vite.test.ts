@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { nextdog } from '../vite.js';
+import { nextdog } from '../vite';
 
 describe('nextdog vite plugin', () => {
   const originalUrl = process.env.NEXTDOG_URL;

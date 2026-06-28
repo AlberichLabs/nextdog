@@ -1,7 +1,7 @@
 import * as http from 'node:http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NextDogExporter } from '../exporter.js';
-import { startRequestCapture } from '../request-capture.js';
+import { NextDogExporter } from '../exporter';
+import { startRequestCapture } from '../request-capture';
 
 const mockFetch = vi.fn();
 

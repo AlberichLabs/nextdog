@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type EmptyStateInput, selectEmptyState } from '../empty-state-logic.js';
+import { type EmptyStateInput, selectEmptyState } from '../empty-state-logic';
 
 const base: EmptyStateInput = {
   connected: false,

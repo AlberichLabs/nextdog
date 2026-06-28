@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import type { CustomColumn } from './column-types.js';
+import type { CustomColumn } from './column-types';
 
 interface ColumnPickerProps {
   customColumns: CustomColumn[];

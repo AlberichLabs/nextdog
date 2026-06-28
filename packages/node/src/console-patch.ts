@@ -1,5 +1,5 @@
 import { context, trace } from '@opentelemetry/api';
-import { getRequestContext } from './request-context.js';
+import { getRequestContext } from './request-context';
 
 /**
  * Warn at most once if shipping captured console logs to the sidecar fails.

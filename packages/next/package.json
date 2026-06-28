@@ -19,7 +19,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias --resolve-full-paths",
     "test": "vitest run --passWithNoTests",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit"

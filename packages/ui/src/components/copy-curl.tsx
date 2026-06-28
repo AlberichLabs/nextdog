@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { extractHttpMeta } from '../utils/format.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import { extractHttpMeta } from '../utils/format';
 
 /** Sensitive headers to strip in safe mode */
 const SENSITIVE_HEADERS = new Set([

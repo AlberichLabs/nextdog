@@ -1,5 +1,5 @@
 import { css } from 'styled-system/css';
-import { buildResponseSection, formatBody } from '../utils/body-format.js';
+import { buildResponseSection, formatBody } from '../utils/body-format';
 
 const statusGreen = css({ color: 'green', fontWeight: 600 });
 const statusYellow = css({ color: 'yellow', fontWeight: 600 });

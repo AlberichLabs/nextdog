@@ -3,7 +3,7 @@
 // Then add <NextDogScript /> to your root layout
 
 import { trace } from '@opentelemetry/api';
-import { getBrowserPatchScript } from './browser-patch.js';
+import { getBrowserPatchScript } from './browser-patch';
 
 const TRACE_META_NAME = 'nextdog-trace-id';
 const SPAN_META_NAME = 'nextdog-span-id';

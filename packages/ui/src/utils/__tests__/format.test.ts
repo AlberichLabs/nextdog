@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { SSEEvent } from '../../hooks/use-sse.js';
-import { formatSpanDuration, parseNano, spanDurationMs } from '../format.js';
+import type { SSEEvent } from '../../hooks/use-sse';
+import { formatSpanDuration, parseNano, spanDurationMs } from '../format';
 
 function span(data: Partial<SSEEvent['data']>): SSEEvent {
   return {
@@ -49,9 +49,9 @@ describe('parseNano', () => {
 
 describe('spanDurationMs', () => {
   it('computes duration from valid nanos', () => {
-    expect(spanDurationMs(span({ startTimeUnixNano: '1000000000', endTimeUnixNano: '1500000000' }))).toBe(
-      500,
-    );
+    expect(
+      spanDurationMs(span({ startTimeUnixNano: '1000000000', endTimeUnixNano: '1500000000' })),
+    ).toBe(500);
   });
 
   it('returns 0 when a timing field is missing', () => {
@@ -68,9 +68,9 @@ describe('spanDurationMs', () => {
 
 describe('formatSpanDuration', () => {
   it('formats a valid duration', () => {
-    expect(formatSpanDuration(span({ startTimeUnixNano: '1000000000', endTimeUnixNano: '1500000000' }))).toBe(
-      '500.0ms',
-    );
+    expect(
+      formatSpanDuration(span({ startTimeUnixNano: '1000000000', endTimeUnixNano: '1500000000' })),
+    ).toBe('500.0ms');
   });
 
   // Issue #44 render-path regression: must not throw on crafted/invalid input.

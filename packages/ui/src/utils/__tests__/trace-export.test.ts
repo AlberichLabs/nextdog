@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { SSEEvent } from '../../hooks/use-sse.js';
+import type { SSEEvent } from '../../hooks/use-sse';
 import {
   EXPORT_MARKER,
   EXPORT_VERSION,
   type ExportEnvelope,
   parseImport,
   serializeExport,
-} from '../trace-export.js';
+} from '../trace-export';
 
 function span(traceId: string, spanId: string, extra: Partial<SSEEvent['data']> = {}): SSEEvent {
   return {
@@ -169,23 +169,17 @@ describe('parseImport — timing field validation (issue #44)', () => {
   });
 
   it('rejects a non-numeric endTimeUnixNano', () => {
-    const result = parseImport(
-      envelopeWith({ startTimeUnixNano: '1', endTimeUnixNano: 'whoops' }),
-    );
+    const result = parseImport(envelopeWith({ startTimeUnixNano: '1', endTimeUnixNano: 'whoops' }));
     expect(result.ok).toBe(false);
   });
 
   it('rejects a negative timing value', () => {
-    const result = parseImport(
-      envelopeWith({ startTimeUnixNano: '-5', endTimeUnixNano: '999' }),
-    );
+    const result = parseImport(envelopeWith({ startTimeUnixNano: '-5', endTimeUnixNano: '999' }));
     expect(result.ok).toBe(false);
   });
 
   it('rejects a non-integer (decimal) timing value', () => {
-    const result = parseImport(
-      envelopeWith({ startTimeUnixNano: '1.5', endTimeUnixNano: '999' }),
-    );
+    const result = parseImport(envelopeWith({ startTimeUnixNano: '1.5', endTimeUnixNano: '999' }));
     expect(result.ok).toBe(false);
   });
 
@@ -225,14 +219,14 @@ describe('parseImport — timing field validation (issue #44)', () => {
 
 describe('exportFilename', () => {
   it('builds a trace filename from the traceId', async () => {
-    const { exportFilename } = await import('../trace-export.js');
+    const { exportFilename } = await import('../trace-export');
     expect(exportFilename({ kind: 'trace', traceId: 'abc123' })).toMatch(
       /^nextdog-trace-abc123.*\.json$/,
     );
   });
 
   it('builds a view filename', async () => {
-    const { exportFilename } = await import('../trace-export.js');
+    const { exportFilename } = await import('../trace-export');
     expect(exportFilename({ kind: 'view' })).toMatch(/^nextdog-view.*\.json$/);
   });
 });

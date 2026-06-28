@@ -9,8 +9,8 @@
 // transitions are unit-testable.
 // ---------------------------------------------------------------------------
 
-import type { SSEEvent } from '../hooks/use-sse.js';
-import type { ExportKind, ParseResult } from './trace-export.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import type { ExportKind, ParseResult } from './trace-export';
 
 export interface ImportedSessionData {
   events: SSEEvent[];

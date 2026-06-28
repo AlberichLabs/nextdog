@@ -49,7 +49,7 @@ beforeAll(() => {
 
 async function loadClient() {
   // import fresh each call; functions read NODE_ENV dynamically at call time
-  return import('../client.js');
+  return import('../client');
 }
 
 /** Build a real active span context using only @opentelemetry/api (no SDK). */

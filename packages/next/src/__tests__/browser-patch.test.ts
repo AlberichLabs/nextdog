@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBrowserPatchScript } from '../browser-patch.js';
+import { getBrowserPatchScript } from '../browser-patch';
 
 /**
  * These tests execute the generated browser-patch script inside a jsdom-like
