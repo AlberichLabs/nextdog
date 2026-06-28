@@ -1,5 +1,13 @@
 import { NEXTDOG_HEALTH_MARKER } from '@nextdog/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Mock child_process so the spawn-path test never launches a real, detached
+// sidecar that would squat on :6789 after the suite. The mock returns an inert
+// child (no real OS process). Every other test stubs fetch and never reaches
+// spawn, so this is inert for them.
+vi.mock('node:child_process', () => ({
+  spawn: vi.fn(() => ({ pid: undefined, unref: vi.fn() })),
+}));
 import {
   _resetForeignOccupantWarnings,
   ensureSidecar,
@@ -113,6 +121,11 @@ describe('ensureSidecar', () => {
 
   it('does not throw if health check fails', async () => {
     mockFetch.mockRejectedValue(new Error('connection refused'));
+    // With every health probe failing and no live sidecar, ensureSidecar falls
+    // through to spawning one. child_process.spawn is mocked (see top of file) so
+    // the test never leaves a real, detached sidecar squatting on :6789 after the
+    // suite — it previously could, since the spawned child is `unref`'d and never
+    // reaped. We assert the public contract (resolves, doesn't throw) only.
     await expect(ensureSidecar('http://localhost:6789')).resolves.toBeTruthy();
   });
 

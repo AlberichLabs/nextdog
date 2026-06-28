@@ -86,7 +86,7 @@ export class SavedSearchStore {
   /** Save a new named search. Returns the created entry (with its id). */
   save(input: SearchValue & { name: string }): SavedSearch {
     const entry: SavedSearch = {
-      id: `ss-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: `ss-${crypto.randomUUID()}`,
       name: input.name,
       query: input.query,
       services: [...input.services],

@@ -51,7 +51,7 @@ export class ToastStore {
   }
 
   add(input: ToastInput): string {
-    const id = input.id ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const id = input.id ?? `toast-${crypto.randomUUID()}`;
     const toast: Toast = { ...input, id };
 
     // Append, then cap to the newest MAX_VISIBLE — evicting (and clearing the

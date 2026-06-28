@@ -33,14 +33,7 @@ type ProbeResult = 'nextdog' | 'foreign' | 'absent';
  */
 export async function probeHealth(url: string): Promise<ProbeResult> {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-    let res: Response;
-    try {
-      res = await fetch(`${url}/health`, { signal: controller.signal });
-    } finally {
-      clearTimeout(timeout);
-    }
+    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
     if (!res.ok) return 'absent';
     let body: unknown;
     try {

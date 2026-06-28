@@ -9,11 +9,7 @@
  */
 
 import type { SSEEvent } from '../hooks/use-sse.js';
-
-export interface CustomColumn {
-  id: string;
-  attrKey: string;
-}
+import type { CustomColumn } from './column-types.js';
 
 /** Fixed base columns, in render order, that are always part of the grid template. */
 export const LOG_BASE_TRACK_IDS = ['time', 'level', 'service', 'runtime', 'message'] as const;
@@ -33,7 +29,13 @@ export function runtimeTag(event: SSEEvent): string | null {
 
 interface BuildCellsOptions {
   showService: boolean;
-  customColumns: CustomColumn[];
+  /**
+   * Custom columns to append, in order. `buildLogRowCells` only needs each
+   * column's `id` (grid track) and `attrKey` (value source), so it accepts the
+   * minimal shape — callers pass the canonical {@link CustomColumn}, which is a
+   * superset.
+   */
+  customColumns: Pick<CustomColumn, 'id' | 'attrKey'>[];
 }
 
 /**

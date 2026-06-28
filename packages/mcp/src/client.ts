@@ -68,15 +68,11 @@ export class SidecarClient {
 
   private async getJson<T>(path: string): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     let res: Response;
     try {
-      res = await this.fetchImpl(url, { signal: controller.signal });
+      res = await this.fetchImpl(url, { signal: AbortSignal.timeout(this.timeoutMs) });
     } catch (err) {
       throw new SidecarUnavailableError(this.baseUrl, err);
-    } finally {
-      clearTimeout(timer);
     }
 
     if (!res.ok) {

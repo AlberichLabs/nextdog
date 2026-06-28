@@ -1,8 +1,23 @@
-import type { ExportResult } from '@opentelemetry/core';
+import { type ExportResult, ExportResultCode } from '@opentelemetry/core';
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-node';
 import { getRequestMetadata } from './request-capture.js';
 
-const ExportResultCode = { SUCCESS: 0, FAILED: 1 } as const;
+/**
+ * Warn at most once if telemetry export to the sidecar starts failing. Without
+ * this, a wrong URL or a down sidecar shows up only as "no data in the
+ * dashboard" with no clue why; per-export warnings would spam the dev server's
+ * console, so we surface it exactly once.
+ */
+let warnedExportFailure = false;
+function warnExportFailureOnce(): void {
+  if (warnedExportFailure) return;
+  warnedExportFailure = true;
+  console.warn(
+    '[nextdog] failed to send a trace to the sidecar — is it running? ' +
+      'No spans will appear in the dashboard until export succeeds. ' +
+      '(This warning is shown once.)',
+  );
+}
 
 /**
  * Headers to never capture. Request cookies ARE kept (under http.request.cookies)
@@ -149,7 +164,10 @@ export class NextDogExporter implements SpanExporter {
       body: JSON.stringify({ spans: converted }),
     })
       .then(() => resultCallback({ code: ExportResultCode.SUCCESS }))
-      .catch(() => resultCallback({ code: ExportResultCode.FAILED }));
+      .catch(() => {
+        warnExportFailureOnce();
+        resultCallback({ code: ExportResultCode.FAILED });
+      });
   }
 
   async shutdown(): Promise<void> {}

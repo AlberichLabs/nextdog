@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FileStore } from '../file-store.js';
+import { serializeWithBigInt } from '../serialize.js';
 import type { NextDogEvent } from '../types.js';
 
 const makeEvent = (id: number, serviceName = 'test'): NextDogEvent => ({
@@ -34,9 +35,9 @@ const makeLog = (id: number, serviceName = 'test'): NextDogEvent => ({
 });
 
 // Serialize the way FileStore does (BigInt -> "<n>n" strings) so test fixtures
-// written directly to disk round-trip through the store's deserializer.
-const line = (event: NextDogEvent): string =>
-  JSON.stringify(event, (_k, v) => (typeof v === 'bigint' ? `${v.toString()}n` : v));
+// written directly to disk round-trip through the store's deserializer. Uses the
+// same shared helper the store uses, so the test can't drift from production.
+const line = (event: NextDogEvent): string => serializeWithBigInt(event);
 
 describe('FileStore', () => {
   let dir: string;

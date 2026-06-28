@@ -65,4 +65,27 @@ describe('SidecarClient', () => {
     await expect(client.events()).rejects.toThrow(/localhost:6789/);
     await expect(client.events()).rejects.toThrow(/dev server is running/);
   });
+
+  it('passes an abortable timeout signal to fetch', async () => {
+    const { fetchImpl } = makeFetch();
+    const spy = vi.fn(fetchImpl);
+    const client = new SidecarClient({ timeoutMs: 1234, fetchImpl: spy as unknown as typeof fetch });
+    await client.services();
+    const opts = spy.mock.calls[0][1] as { signal?: AbortSignal };
+    expect(opts.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('maps a timeout abort to SidecarUnavailableError', async () => {
+    // AbortSignal.timeout rejects fetch with an AbortError; the client must
+    // translate that into its actionable error rather than leaking the raw abort.
+    const fetchImpl = vi.fn((_url: string, opts?: { signal?: AbortSignal }) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = opts?.signal;
+        if (signal?.aborted) return reject(signal.reason);
+        signal?.addEventListener('abort', () => reject(signal.reason));
+      });
+    }) as unknown as typeof fetch;
+    const client = new SidecarClient({ timeoutMs: 1, fetchImpl });
+    await expect(client.events()).rejects.toBeInstanceOf(SidecarUnavailableError);
+  });
 });

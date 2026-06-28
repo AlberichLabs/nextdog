@@ -1,6 +1,24 @@
 import { context, trace } from '@opentelemetry/api';
 import { getRequestContext } from './request-context.js';
 
+/**
+ * Warn at most once if shipping captured console logs to the sidecar fails.
+ * Same rationale as the exporter: a silent `.catch(() => {})` turns "logs not
+ * showing" into an undiagnosable mystery, but a per-flush warning would spam the
+ * console. We must use the ORIGINAL console.warn captured before patching, or
+ * the warning would recurse back through the patched console.
+ */
+let warnedLogShipFailure = false;
+function warnLogShipFailureOnce(originalWarn: (...args: unknown[]) => void): void {
+  if (warnedLogShipFailure) return;
+  warnedLogShipFailure = true;
+  originalWarn(
+    '[nextdog] failed to send console logs to the sidecar — is it running? ' +
+      'Logs will not appear in the dashboard until this succeeds. ' +
+      '(This warning is shown once.)',
+  );
+}
+
 const LEVELS = ['debug', 'log', 'info', 'warn', 'error'] as const;
 type Level = (typeof LEVELS)[number];
 
@@ -28,12 +46,41 @@ function tryParseJson(str: string): unknown | null {
   return null;
 }
 
-function flattenObject(obj: Record<string, unknown>, prefix = ''): Record<string, unknown> {
+/**
+ * Deepest object nesting we will descend into. Beyond this — or on a cycle — we
+ * stop and emit a sentinel instead of recursing. A logged self-referential or
+ * pathologically-deep object (`a.b = a`, huge config trees) would otherwise blow
+ * the stack INSIDE the console patch, taking down whatever the user was logging.
+ */
+const FLATTEN_MAX_DEPTH = 8;
+
+/** @internal exported for testing — flattens nested objects to dot-notation keys
+ * with a depth/cycle guard. */
+export function flattenObject(
+  obj: Record<string, unknown>,
+  prefix = '',
+  depth = 0,
+  seen: WeakSet<object> = new WeakSet(),
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+  // Mark this object as visited so a back-reference deeper in the tree is caught.
+  seen.add(obj);
   for (const [key, value] of Object.entries(obj)) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
-    if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
-      Object.assign(result, flattenObject(value as Record<string, unknown>, fullKey));
+    const isPlainObject =
+      value !== null &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      !(value instanceof Date);
+    if (isPlainObject && seen.has(value as object)) {
+      result[fullKey] = '[Circular]';
+    } else if (isPlainObject && depth >= FLATTEN_MAX_DEPTH) {
+      result[fullKey] = '[Object]';
+    } else if (isPlainObject) {
+      Object.assign(
+        result,
+        flattenObject(value as Record<string, unknown>, fullKey, depth + 1, seen),
+      );
     } else {
       result[fullKey] = value;
     }
@@ -69,6 +116,10 @@ function extractAttributes(args: unknown[]): Record<string, unknown> {
 }
 
 export function patchConsole(url: string, serviceName: string) {
+  // Capture the un-patched console.warn so our own failure notice never recurses
+  // back through the patched console (which would re-buffer it as a log).
+  const originalWarn = console.warn.bind(console);
+
   const buffer: Array<{
     timestamp: number;
     level: string;
@@ -95,7 +146,7 @@ export function patchConsole(url: string, serviceName: string) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
-    }).catch(() => {});
+    }).catch(() => warnLogShipFailureOnce(originalWarn));
   }
 
   flushTimer = setInterval(flush, 500);
