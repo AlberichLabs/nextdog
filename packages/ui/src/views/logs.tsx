@@ -12,6 +12,7 @@ import { SortIndicator } from '../components/sort-indicator';
 import { useColumnResize } from '../hooks/use-column-resize';
 import type { UseEventsResult } from '../hooks/use-events';
 import { useKeyboard } from '../hooks/use-keyboard';
+import { useIsNarrow } from '../hooks/use-narrow';
 import type { SSEEvent } from '../hooks/use-sse';
 import { useVirtualList } from '../hooks/use-virtual-list';
 import {
@@ -27,6 +28,9 @@ import { interactiveProps } from '../utils/a11y';
 
 const SIDEBAR_STORAGE_KEY = 'nextdog:log-detail-width';
 const LOG_COLUMNS_STORAGE_KEY = 'nextdog:log-columns';
+
+/** Columns collapsed on narrow viewports so Message keeps its width (issue #50). */
+const LOGS_NARROW_COLLAPSE: ReadonlySet<string> = new Set(['service', 'runtime']);
 const DEFAULT_WIDTH = 380;
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 900;
@@ -433,7 +437,12 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
     [customColumns],
   );
 
-  const { gridTemplate, startResize } = useColumnResize('logs', columnConfigs);
+  // On narrow viewports collapse the lower-value service + runtime columns so
+  // the Message (flex) column stays legible instead of clipping to ~0 (issue #50).
+  const narrow = useIsNarrow();
+  const collapsedIds = useMemo(() => (narrow ? LOGS_NARROW_COLLAPSE : undefined), [narrow]);
+
+  const { gridTemplate, startResize } = useColumnResize('logs', columnConfigs, collapsedIds);
 
   useKeyboard({
     onNext: () => setSelectedIndex((i) => Math.min(i + 1, displayLogs.length - 1)),
@@ -587,6 +596,7 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
                     rootRef={j === 0 ? rowRef : undefined}
                     event={log}
                     showService
+                    showRuntime={!narrow}
                     selected={i === selectedIndex}
                     onClick={() => handleLogClick(log, i)}
                     onCellContext={handleCellContext}

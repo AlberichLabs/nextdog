@@ -10,11 +10,15 @@ import { SortIndicator } from '../components/sort-indicator';
 import { useColumnResize } from '../hooks/use-column-resize';
 import type { UseEventsResult } from '../hooks/use-events';
 import { useKeyboard } from '../hooks/use-keyboard';
+import { useIsNarrow } from '../hooks/use-narrow';
 import type { SSEEvent } from '../hooks/use-sse';
 import { useVirtualList } from '../hooks/use-virtual-list';
 import { colHeaderStyle, colResizeStyle, emptyStyle } from '../styles/shared';
 import { interactiveProps } from '../utils/a11y';
 import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format';
+
+/** Columns collapsed on narrow viewports so Route keeps its width (issue #50). */
+const REQUESTS_NARROW_COLLAPSE: ReadonlySet<string> = new Set(['duration', 'service']);
 
 interface RequestGroup {
   traceId: string;
@@ -505,7 +509,12 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     [customColumns],
   );
 
-  const { gridTemplate, startResize } = useColumnResize('requests', columnConfigs);
+  // On narrow viewports collapse the lower-value duration + service columns so
+  // the Route (flex) column stays legible instead of clipping to ~0 (issue #50).
+  const narrow = useIsNarrow();
+  const collapsedIds = useMemo(() => (narrow ? REQUESTS_NARROW_COLLAPSE : undefined), [narrow]);
+
+  const { gridTemplate, startResize } = useColumnResize('requests', columnConfigs, collapsedIds);
 
   return (
     <>

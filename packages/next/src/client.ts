@@ -1,6 +1,12 @@
-// Client-side NextDog component — injects browser console capture
-// Usage: import { NextDogScript } from '@nextdog/next/client'
-// Then add <NextDogScript /> to your root layout
+// Client-side NextDog helpers — emit the browser console-capture script as an
+// HTML string (NextDog ships string helpers, not a React component).
+// Usage: import { getNextDogScript } from '@nextdog/next/client'
+// Then, in your root layout:
+//   const script = getNextDogScript();
+//   {script && <script dangerouslySetInnerHTML={script} />}
+// (getNextDogScript returns null outside development.) To also correlate browser
+// logs to the server trace, render getNextDogTraceMetaHtml()/getNextDogTraceMeta()
+// in <head>. See getNextDogScriptHtml() for a single string covering both.
 
 import { trace } from '@opentelemetry/api';
 import { getBrowserPatchScript } from './browser-patch';

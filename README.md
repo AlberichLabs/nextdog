@@ -5,7 +5,7 @@
 <h1 align="center">NextDog</h1>
 
 <p align="center">
-  Zero-config dev observability for Next.js. Woof Woof.
+  Zero-config dev observability for Next.js, Nuxt & SvelteKit. Woof Woof.
 </p>
 
 <p align="center">

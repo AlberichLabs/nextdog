@@ -8,6 +8,31 @@ export interface ColumnConfig {
   defaultWidth: number;
 }
 
+/**
+ * Build a CSS `grid-template-columns` string for the given columns.
+ *
+ * A `defaultWidth` of 0 means a flex (1fr) column; any other value is a fixed
+ * px track (subject to a user resize override). Columns whose id is in
+ * `collapsedIds` render as a 0-width track: the cell stays in place (so cell
+ * count still equals track count — the issue #18 invariant) but takes no width,
+ * letting the flex column reclaim it. Used to hide low-priority columns on
+ * narrow viewports so the primary identifier stays legible (issue #50).
+ */
+export function buildGridTemplate(
+  columns: ColumnConfig[],
+  overrides: Record<string, number>,
+  collapsedIds?: ReadonlySet<string>,
+): string {
+  return columns
+    .map((col) => {
+      if (collapsedIds?.has(col.id)) return '0';
+      const w = overrides[col.id] ?? col.defaultWidth;
+      if (col.defaultWidth === 0) return '1fr';
+      return `${w}px`;
+    })
+    .join(' ');
+}
+
 /** Keep only numeric width entries; drops anything an old/corrupt blob carries. */
 function sanitizeWidths(value: unknown): Record<string, number> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
@@ -41,7 +66,11 @@ interface DragState {
   rightStartWidth: number;
 }
 
-export function useColumnResize(viewId: string, columns: ColumnConfig[]) {
+export function useColumnResize(
+  viewId: string,
+  columns: ColumnConfig[],
+  collapsedIds?: ReadonlySet<string>,
+) {
   const [overrides, setOverrides] = useState<Record<string, number>>(() => loadWidths(viewId));
   const dragging = useRef<DragState | null>(null);
   const pendingUpdate = useRef<Record<string, number> | null>(null);
@@ -128,15 +157,10 @@ export function useColumnResize(viewId: string, columns: ColumnConfig[]) {
     [overrides, columns],
   );
 
-  const gridTemplate = useMemo(() => {
-    return columns
-      .map((col) => {
-        const w = overrides[col.id] ?? col.defaultWidth;
-        if (col.defaultWidth === 0) return '1fr';
-        return `${w}px`;
-      })
-      .join(' ');
-  }, [columns, overrides]);
+  const gridTemplate = useMemo(
+    () => buildGridTemplate(columns, overrides, collapsedIds),
+    [columns, overrides, collapsedIds],
+  );
 
   const resetWidths = useCallback(() => {
     setOverrides({});

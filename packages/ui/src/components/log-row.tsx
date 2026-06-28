@@ -134,6 +134,14 @@ interface LogRowProps {
   event: SSEEvent;
   selected?: boolean;
   showService?: boolean;
+  /**
+   * When false, the runtime cell renders as an inert (borderless) placeholder
+   * instead of the runtime badge. Used on narrow viewports where the runtime
+   * track is collapsed to 0 width — a 0-width *bordered* badge would otherwise
+   * leave a 1px sliver before the message (issue #50). The cell is still emitted
+   * so cell count keeps matching the grid track count (issue #18).
+   */
+  showRuntime?: boolean;
   onClick?: () => void;
   onCellContext?: (e: MouseEvent, key: string, value: string) => void;
   extraColumns?: { id: string; value: string; attrKey?: string }[];
@@ -148,6 +156,7 @@ export function LogRow({
   event,
   selected,
   showService,
+  showRuntime = true,
   onClick,
   onCellContext,
   extraColumns,
@@ -193,8 +202,9 @@ export function LogRow({
       )}
       {/* Always render a runtime cell so cell count matches the grid template's
           runtime track — an empty placeholder when the log has no runtime
-          attribute keeps the message in its own track (issue #18). */}
-      {runtime ? (
+          attribute (or when the track is collapsed on narrow viewports) keeps
+          the message in its own track (issues #18, #50). */}
+      {showRuntime && runtime ? (
         <span className={runtimeTagClass(runtime)}>{runtime}</span>
       ) : (
         <span aria-hidden="true" />

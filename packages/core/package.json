@@ -1,7 +1,7 @@
 {
   "name": "@nextdog/core",
   "version": "0.1.0",
-  "description": "Zero-config dev observability sidecar for Next.js",
+  "description": "Zero-config dev observability sidecar for Next.js, Nuxt & SvelteKit",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

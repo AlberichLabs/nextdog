@@ -9,6 +9,7 @@ import { Logo } from './components/logo';
 import { ShortcutHelp } from './components/shortcut-help';
 import { Sparkline } from './components/sparkline';
 import { ThemeToggle } from './components/theme-toggle';
+import { detectSlowRequestToast } from './components/slow-request-toast';
 import { ToastContainer, useToasts } from './components/toast';
 import {
   ExportButton,
@@ -20,7 +21,6 @@ import { useEvents } from './hooks/use-events';
 import { useSSE } from './hooks/use-sse';
 import { useTheme } from './hooks/use-theme';
 import { pillStyle } from './styles/shared';
-import { parseNano } from './utils/format';
 import { enterImported, exitImported, type ImportedSession } from './utils/imported-session';
 import type { ParseResult } from './utils/trace-export';
 import { Logs } from './views/logs';
@@ -29,15 +29,6 @@ import { Trace } from './views/trace';
 
 const SIDECAR_URL =
   window.location.port === '5173' ? 'http://localhost:6789' : window.location.origin;
-
-/** Threshold for slow request toasts (ms) */
-const SLOW_REQUEST_MS = 1000;
-
-function formatDurationMs(ms: number): string {
-  if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
-  if (ms < 1000) return `${ms.toFixed(0)}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
 
 const appStyle = css({
   display: 'flex',
@@ -207,6 +198,10 @@ export function App() {
 
   // Track last-processed index to avoid re-scanning all events
   const lastProcessedIdx = useRef(0);
+  // The moment this dashboard started watching. Slow-request toasts are gated to
+  // requests that completed at/after this time, so the FileStore history replayed
+  // on every load/refresh doesn't re-fire stale toasts (issue #51).
+  const watchStartMs = useRef(Date.now());
 
   // Slow request detection — only processes NEW events since last check.
   // Skipped in imported mode: a static snapshot shouldn't raise live alerts.
@@ -216,30 +211,8 @@ export function App() {
       return;
     }
     for (let i = lastProcessedIdx.current; i < events.length; i++) {
-      const event = events[i];
-      if (event.type !== 'span') continue;
-      if (!event.data.traceId) continue;
-      if (event.data.kind !== 'SERVER') continue;
-
-      const start = parseNano(event.data.startTimeUnixNano);
-      const end = parseNano(event.data.endTimeUnixNano);
-      if (start > 0n && end > 0n) {
-        const ms = Number(end - start) / 1_000_000;
-        if (ms >= SLOW_REQUEST_MS) {
-          const route = String(
-            event.data.attributes['http.route'] ??
-              event.data.attributes['http.target'] ??
-              event.data.name,
-          );
-          const method = String(event.data.attributes['http.method'] ?? 'GET');
-          addToast({
-            message: `${method} ${route}`,
-            type: ms >= 3000 ? 'error' : 'warning',
-            traceId: event.data.traceId,
-            duration: formatDurationMs(ms),
-          });
-        }
-      }
+      const toast = detectSlowRequestToast(events[i], watchStartMs.current);
+      if (toast) addToast(toast);
     }
     lastProcessedIdx.current = events.length;
   }, [events, addToast, isImported]);

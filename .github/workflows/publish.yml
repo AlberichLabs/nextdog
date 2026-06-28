@@ -53,8 +53,8 @@ jobs:
       # EXCLUDE is the set of intentionally-unpublished packages.
       - name: Assert publish list covers all publishable packages
         run: |
-          PUBLISH_LIST="@nextdog/ui @nextdog/core @nextdog/node @nextdog/next @nextdog/nuxt @nextdog/sveltekit"
-          EXCLUDE="@nextdog/mcp"
+          PUBLISH_LIST="@nextdog/ui @nextdog/core @nextdog/node @nextdog/next @nextdog/nuxt @nextdog/sveltekit @nextdog/mcp"
+          EXCLUDE=""
           node - "$PUBLISH_LIST" "$EXCLUDE" <<'EOF'
           const fs = require('fs');
           const path = require('path');
@@ -82,11 +82,11 @@ jobs:
           EOF
 
       # Bump all published package versions to match the release tag.
-      # NOTE: @nextdog/mcp (added in #40) is intentionally excluded — not
-      # published yet — so it is deliberately absent from this loop.
+      # Lockstep: every published package (including @nextdog/mcp) is bumped to
+      # the release tag's version.
       - name: Bump package versions
         run: |
-          for pkg in packages/ui packages/core packages/node packages/next packages/nuxt packages/sveltekit; do
+          for pkg in packages/ui packages/core packages/node packages/next packages/nuxt packages/sveltekit packages/mcp; do
             cd "$pkg"
             npm version "$VERSION" --no-git-tag-version --allow-same-version
             cd "$GITHUB_WORKSPACE"
@@ -96,10 +96,11 @@ jobs:
       - run: pnpm test
 
       # Publish in dependency order (deps before dependents):
-      #   ui -> core -> node -> next -> nuxt -> sveltekit
+      #   ui -> core -> node -> next -> nuxt -> sveltekit -> mcp
       # core depends on ui; node depends on core; the adapters
-      # (next/nuxt/sveltekit) depend on core/node.
-      # NOTE: @nextdog/mcp is intentionally NOT published yet (added in #40).
+      # (next/nuxt/sveltekit) depend on core/node. @nextdog/mcp has no @nextdog
+      # workspace deps (it duplicates shared types/grammar to stay dependency-
+      # light), so its position is independent — published last.
       - name: Publish @nextdog/ui
         run: pnpm --filter @nextdog/ui publish --no-git-checks --access public
         env:
@@ -127,5 +128,10 @@ jobs:
 
       - name: Publish @nextdog/sveltekit
         run: pnpm --filter @nextdog/sveltekit publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @nextdog/mcp
+        run: pnpm --filter @nextdog/mcp publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
