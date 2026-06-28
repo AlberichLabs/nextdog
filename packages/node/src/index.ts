@@ -1,19 +1,19 @@
-export { patchConsole } from './console-patch.js';
-export { NextDogExporter } from './exporter.js';
+export { patchConsole } from './console-patch';
+export { NextDogExporter } from './exporter';
 export {
   instrumentMysql2Module,
   instrumentPgModule,
   registerDbInstrumentation,
-} from './instrument-db.js';
-export { instrumentOutboundHttp } from './instrument-fetch.js';
-export type { InstrumentationHandle } from './instrumentation.js';
-export { registerInstrumentations } from './instrumentation.js';
-export type { RequestMetadata } from './request-capture.js';
-export { getRequestMetadata, startRequestCapture } from './request-capture.js';
-export type { RequestContext } from './request-context.js';
+} from './instrument-db';
+export { instrumentOutboundHttp } from './instrument-fetch';
+export type { InstrumentationHandle } from './instrumentation';
+export { registerInstrumentations } from './instrumentation';
+export type { RequestMetadata } from './request-capture';
+export { getRequestMetadata, startRequestCapture } from './request-capture';
+export type { RequestContext } from './request-context';
 export {
   createRequestContext,
   getRequestContext,
   requestContextStorage,
-} from './request-context.js';
-export { ensureSidecar } from './sidecar.js';
+} from './request-context';
+export { ensureSidecar } from './sidecar';

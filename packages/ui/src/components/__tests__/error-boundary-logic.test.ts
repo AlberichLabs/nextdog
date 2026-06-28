@@ -4,7 +4,7 @@ import {
   type ErrorBoundaryState,
   errorMessage,
   resetState,
-} from '../error-boundary-logic.js';
+} from '../error-boundary-logic';
 
 describe('error-boundary-logic (issue #44)', () => {
   it('starts with no error', () => {

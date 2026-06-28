@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeRange, scrollOffsetForIndex } from '../virtual-window.js';
+import { computeRange, scrollOffsetForIndex } from '../virtual-window';
 
 describe('computeRange', () => {
   it('renders only the visible window plus overscan, not every row', () => {

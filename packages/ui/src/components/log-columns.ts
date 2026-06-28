@@ -8,8 +8,8 @@
  * log has no runtime attribute). See issue #18.
  */
 
-import type { SSEEvent } from '../hooks/use-sse.js';
-import type { CustomColumn } from './column-types.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import type { CustomColumn } from './column-types';
 
 /** Fixed base columns, in render order, that are always part of the grid template. */
 export const LOG_BASE_TRACK_IDS = ['time', 'level', 'service', 'runtime', 'message'] as const;

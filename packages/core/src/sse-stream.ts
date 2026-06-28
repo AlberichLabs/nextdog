@@ -1,7 +1,7 @@
 import type { ServerResponse } from 'node:http';
-import type { RingBuffer } from './ring-buffer.js';
-import { serializeWithBigInt } from './serialize.js';
-import type { NextDogEvent } from './types.js';
+import type { RingBuffer } from './ring-buffer';
+import { serializeWithBigInt } from './serialize';
+import type { NextDogEvent } from './types';
 
 function serializeEvent(event: NextDogEvent): string {
   return `data: ${serializeWithBigInt(event)}\n\n`;

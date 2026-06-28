@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EventBus } from '../event-bus.js';
-import type { NextDogEvent, Span } from '../types.js';
+import { EventBus } from '../event-bus';
+import type { NextDogEvent, Span } from '../types';
 
 const makeSpan = (overrides?: Partial<Span>): Span => ({
   traceId: 'trace-1',

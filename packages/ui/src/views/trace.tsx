@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import { AttributeTable } from '../components/attribute-table.js';
-import { CopyCurl } from '../components/copy-curl.js';
-import { LogRow } from '../components/log-row.js';
-import { ReplayButton } from '../components/replay-button.js';
-import { ExportButton } from '../components/trace-io.js';
-import { Waterfall } from '../components/waterfall.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { emptyStyle, jsonViewStyle } from '../styles/shared.js';
-import { formatSpanDuration } from '../utils/format.js';
+import { AttributeTable } from '../components/attribute-table';
+import { CopyCurl } from '../components/copy-curl';
+import { LogRow } from '../components/log-row';
+import { ReplayButton } from '../components/replay-button';
+import { ExportButton } from '../components/trace-io';
+import { Waterfall } from '../components/waterfall';
+import type { SSEEvent } from '../hooks/use-sse';
+import { emptyStyle, jsonViewStyle } from '../styles/shared';
+import { formatSpanDuration } from '../utils/format';
 
 /* ── Styles ───────────────────────────────────────────────────────────── */
 

@@ -15,9 +15,9 @@
  * Redaction follows the project's (pending) telemetry-privacy policy; this layer
  * does not add or remove redaction. See README.
  */
-import type { SidecarClient } from './client.js';
-import { matchesQuery } from './matcher.js';
-import { isLog, isSpan, type SidecarEvent, type SpanEvent } from './types.js';
+import type { SidecarClient } from './client';
+import { matchesQuery } from './matcher';
+import { isLog, isSpan, type SidecarEvent, type SpanEvent } from './types';
 
 const DEFAULT_LIMIT = 50;
 

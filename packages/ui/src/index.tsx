@@ -1,6 +1,6 @@
 import { render } from 'preact';
-import { App } from './app.js';
-import { logoSvgString } from './components/logo.js';
+import { App } from './app';
+import { logoSvgString } from './components/logo';
 
 // Set favicon to the dog logo
 const favicon = document.createElement('link');

@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import { AttributeTable } from '../components/attribute-table.js';
-import { ColumnPicker } from '../components/column-picker.js';
-import type { CustomColumn } from '../components/column-types.js';
-import { attrContextActions, showContextMenu } from '../components/context-menu.js';
-import { LogRow } from '../components/log-row.js';
-import { SavedSearches, useSavedSearches } from '../components/saved-searches.js';
-import { SearchBar } from '../components/search-bar.js';
-import { ServicePills } from '../components/service-pills.js';
-import { SortIndicator } from '../components/sort-indicator.js';
-import { useColumnResize } from '../hooks/use-column-resize.js';
-import type { UseEventsResult } from '../hooks/use-events.js';
-import { useKeyboard } from '../hooks/use-keyboard.js';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { useVirtualList } from '../hooks/use-virtual-list.js';
+import { AttributeTable } from '../components/attribute-table';
+import { ColumnPicker } from '../components/column-picker';
+import type { CustomColumn } from '../components/column-types';
+import { attrContextActions, showContextMenu } from '../components/context-menu';
+import { LogRow } from '../components/log-row';
+import { SavedSearches, useSavedSearches } from '../components/saved-searches';
+import { SearchBar } from '../components/search-bar';
+import { ServicePills } from '../components/service-pills';
+import { SortIndicator } from '../components/sort-indicator';
+import { useColumnResize } from '../hooks/use-column-resize';
+import type { UseEventsResult } from '../hooks/use-events';
+import { useKeyboard } from '../hooks/use-keyboard';
+import type { SSEEvent } from '../hooks/use-sse';
+import { useVirtualList } from '../hooks/use-virtual-list';
 import {
   colHeaderStyle,
   colResizeStyle,
@@ -22,7 +22,7 @@ import {
   pillActiveStyle,
   pillStyle,
   toolbarStyle,
-} from '../styles/shared.js';
+} from '../styles/shared';
 
 const SIDEBAR_STORAGE_KEY = 'nextdog:log-detail-width';
 const LOG_COLUMNS_STORAGE_KEY = 'nextdog:log-columns';

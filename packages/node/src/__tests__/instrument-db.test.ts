@@ -5,7 +5,7 @@ import {
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { instrumentMysql2Module, instrumentPgModule } from '../instrument-db.js';
+import { instrumentMysql2Module, instrumentPgModule } from '../instrument-db';
 
 const memoryExporter = new InMemorySpanExporter();
 let provider: NodeTracerProvider;

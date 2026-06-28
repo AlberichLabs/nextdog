@@ -14,7 +14,7 @@
 // dependencies — this ships inside users' dev servers.
 // ---------------------------------------------------------------------------
 
-import type { SSEEvent } from '../hooks/use-sse.js';
+import type { SSEEvent } from '../hooks/use-sse';
 
 /** Marker that identifies a file as a NextDog export. */
 export const EXPORT_MARKER = 'nextdog-trace-export';

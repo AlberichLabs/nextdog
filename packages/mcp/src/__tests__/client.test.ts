@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SidecarClient, SidecarUnavailableError } from '../client.js';
-import { makeFetch } from './fixtures.js';
+import { SidecarClient, SidecarUnavailableError } from '../client';
+import { makeFetch } from './fixtures';
 
 describe('SidecarClient', () => {
   it('queries /api/events with the correct query params and base url', async () => {
@@ -69,7 +69,10 @@ describe('SidecarClient', () => {
   it('passes an abortable timeout signal to fetch', async () => {
     const { fetchImpl } = makeFetch();
     const spy = vi.fn(fetchImpl);
-    const client = new SidecarClient({ timeoutMs: 1234, fetchImpl: spy as unknown as typeof fetch });
+    const client = new SidecarClient({
+      timeoutMs: 1234,
+      fetchImpl: spy as unknown as typeof fetch,
+    });
     await client.services();
     const opts = spy.mock.calls[0][1] as { signal?: AbortSignal };
     expect(opts.signal).toBeInstanceOf(AbortSignal);

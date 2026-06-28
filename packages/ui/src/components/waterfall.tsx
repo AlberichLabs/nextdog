@@ -1,7 +1,7 @@
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { parseNano } from '../utils/format.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import { parseNano } from '../utils/format';
 
 const COLORS = [
   token('colors.accent'),

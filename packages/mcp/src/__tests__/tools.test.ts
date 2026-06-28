@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SidecarClient } from '../client.js';
-import { getErrors, getTrace, listRecentTraces, searchLogs } from '../tools.js';
-import { makeFetch, TRACE_ERR, TRACE_OK } from './fixtures.js';
+import { SidecarClient } from '../client';
+import { getErrors, getTrace, listRecentTraces, searchLogs } from '../tools';
+import { makeFetch, TRACE_ERR, TRACE_OK } from './fixtures';
 
 function client() {
   return new SidecarClient({ fetchImpl: makeFetch().fetchImpl });

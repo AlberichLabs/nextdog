@@ -1,4 +1,4 @@
-import { sortIndicatorStyle } from '../styles/shared.js';
+import { sortIndicatorStyle } from '../styles/shared';
 
 interface SortIndicatorProps {
   field: string;

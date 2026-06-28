@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import type { Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createServer } from './server.js';
+import { createServer } from './server';
 
 const DEFAULT_PORT = 6789;
 const DEFAULT_DATA_DIR = join(homedir(), '.nextdog', 'data');

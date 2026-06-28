@@ -1,31 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import Router from 'preact-router';
 import { css } from 'styled-system/css';
-import { ContextMenuContainer } from './components/context-menu.js';
-import { DetailPane } from './components/detail-pane.js';
-import { EmptyState } from './components/empty-state.js';
-import { ErrorBoundary } from './components/error-boundary.js';
-import { Logo } from './components/logo.js';
-import { ShortcutHelp } from './components/shortcut-help.js';
-import { Sparkline } from './components/sparkline.js';
-import { ThemeToggle } from './components/theme-toggle.js';
-import { ToastContainer, useToasts } from './components/toast.js';
+import { ContextMenuContainer } from './components/context-menu';
+import { DetailPane } from './components/detail-pane';
+import { EmptyState } from './components/empty-state';
+import { ErrorBoundary } from './components/error-boundary';
+import { Logo } from './components/logo';
+import { ShortcutHelp } from './components/shortcut-help';
+import { Sparkline } from './components/sparkline';
+import { ThemeToggle } from './components/theme-toggle';
+import { ToastContainer, useToasts } from './components/toast';
 import {
   ExportButton,
   ImportDropZone,
   ImportedBadge,
   OpenTraceButton,
-} from './components/trace-io.js';
-import { useEvents } from './hooks/use-events.js';
-import { useSSE } from './hooks/use-sse.js';
-import { useTheme } from './hooks/use-theme.js';
-import { pillStyle } from './styles/shared.js';
-import { parseNano } from './utils/format.js';
-import { enterImported, exitImported, type ImportedSession } from './utils/imported-session.js';
-import type { ParseResult } from './utils/trace-export.js';
-import { Logs } from './views/logs.js';
-import { Requests } from './views/requests.js';
-import { Trace } from './views/trace.js';
+} from './components/trace-io';
+import { useEvents } from './hooks/use-events';
+import { useSSE } from './hooks/use-sse';
+import { useTheme } from './hooks/use-theme';
+import { pillStyle } from './styles/shared';
+import { parseNano } from './utils/format';
+import { enterImported, exitImported, type ImportedSession } from './utils/imported-session';
+import type { ParseResult } from './utils/trace-export';
+import { Logs } from './views/logs';
+import { Requests } from './views/requests';
+import { Trace } from './views/trace';
 
 const SIDECAR_URL =
   window.location.port === '5173' ? 'http://localhost:6789' : window.location.origin;

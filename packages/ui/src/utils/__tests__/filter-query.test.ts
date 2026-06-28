@@ -5,7 +5,7 @@ import {
   groupFilterTokens,
   normalizeExpression,
   parseFilterTokens,
-} from '../filter-query.js';
+} from '../filter-query';
 
 /** Compact a group into a readable signature for assertions. */
 function sig(groups: FilterToken[][]): string[] {

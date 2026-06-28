@@ -8,8 +8,8 @@
  * corrupts the stdio JSON-RPC stream on stdout.
  */
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { DEFAULT_SIDECAR_URL } from './client.js';
-import { createMcpServer } from './server.js';
+import { DEFAULT_SIDECAR_URL } from './client';
+import { createMcpServer } from './server';
 
 async function main(): Promise<void> {
   const baseUrl = process.env.NEXTDOG_URL ?? DEFAULT_SIDECAR_URL;

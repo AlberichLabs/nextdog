@@ -1,4 +1,4 @@
-import type { NextDogEvent } from './types.js';
+import type { NextDogEvent } from './types';
 
 export class RingBuffer {
   private buffer: (NextDogEvent | undefined)[];

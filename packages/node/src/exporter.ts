@@ -1,6 +1,6 @@
 import { type ExportResult, ExportResultCode } from '@opentelemetry/core';
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-node';
-import { getRequestMetadata } from './request-capture.js';
+import { getRequestMetadata } from './request-capture';
 
 /**
  * Warn at most once if telemetry export to the sidecar starts failing. Without

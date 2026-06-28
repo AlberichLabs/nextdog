@@ -1,9 +1,9 @@
-export { EventBus } from './event-bus.js';
-export type { QueryOptions } from './file-store.js';
-export { FileStore, isNextDogEvent } from './file-store.js';
-export { NEXTDOG_HEALTH_MARKER, NEXTDOG_HEALTH_SERVICE_FIELD } from './health.js';
-export { RingBuffer } from './ring-buffer.js';
-export type { ServerOptions } from './server.js';
-export { createServer } from './server.js';
-export { SSEStream } from './sse-stream.js';
-export type { LogEntry, NextDogEvent, Span } from './types.js';
+export { EventBus } from './event-bus';
+export type { QueryOptions } from './file-store';
+export { FileStore, isNextDogEvent } from './file-store';
+export { NEXTDOG_HEALTH_MARKER, NEXTDOG_HEALTH_SERVICE_FIELD } from './health';
+export { RingBuffer } from './ring-buffer';
+export type { ServerOptions } from './server';
+export { createServer } from './server';
+export { SSEStream } from './sse-stream';
+export type { LogEntry, NextDogEvent, Span } from './types';

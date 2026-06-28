@@ -1,4 +1,4 @@
-import type { SSEEvent } from './use-sse.js';
+import type { SSEEvent } from './use-sse';
 
 // These helpers run over events read back from on-disk history (`/api/events`),
 // which may have been persisted under an older schema than the running build.

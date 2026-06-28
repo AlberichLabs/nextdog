@@ -11,10 +11,10 @@
 import type { ComponentChildren } from 'preact';
 import { useCallback, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { pillStyle } from '../styles/shared.js';
-import type { ExportMeta, ParseResult } from '../utils/trace-export.js';
-import { downloadExport, readImportFile } from '../utils/trace-export-io.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import { pillStyle } from '../styles/shared';
+import type { ExportMeta, ParseResult } from '../utils/trace-export';
+import { downloadExport, readImportFile } from '../utils/trace-export-io';
 
 /* ── Export ───────────────────────────────────────────────────────────── */
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { withNextDog } from '../index.js';
+import { withNextDog } from '../index';
 
 function makeEvent(method = 'GET', pathname = '/api/test', routeId: string | null = '/api/test') {
   return {
@@ -107,7 +107,7 @@ describe('withNextDog — instrumented requests', () => {
     }));
 
     // Re-import to pick up mocks
-    const { withNextDog: createHandle } = await import('../index.js');
+    const { withNextDog: createHandle } = await import('../index');
     const handle = createHandle({ url: 'http://localhost:6789', serviceName: 'test-app' });
 
     const event = makeEvent('POST', '/api/data', '/api/data');
@@ -179,7 +179,7 @@ describe('withNextDog — instrumented requests', () => {
       startRequestCapture: vi.fn(),
     }));
 
-    const { withNextDog: createHandle } = await import('../index.js');
+    const { withNextDog: createHandle } = await import('../index');
     const handle = createHandle();
 
     const event = makeEvent('GET', '/api/missing');
@@ -246,7 +246,7 @@ describe('withNextDog — instrumented requests', () => {
       startRequestCapture: vi.fn(),
     }));
 
-    const { withNextDog: createHandle } = await import('../index.js');
+    const { withNextDog: createHandle } = await import('../index');
     const handle = createHandle();
 
     const event = makeEvent();

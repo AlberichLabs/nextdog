@@ -10,7 +10,7 @@ vi.mock('@nuxt/kit', () => ({
   createResolver: () => ({ resolve: mockResolve }),
 }));
 
-import moduleDefinition from '../module.js';
+import moduleDefinition from '../module';
 
 function createNuxtMock(overrides: Record<string, any> = {}) {
   return {

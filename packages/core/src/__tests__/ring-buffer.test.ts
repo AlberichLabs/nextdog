@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RingBuffer } from '../ring-buffer.js';
-import type { NextDogEvent } from '../types.js';
+import { RingBuffer } from '../ring-buffer';
+import type { NextDogEvent } from '../types';
 
 const makeEvent = (id: number): NextDogEvent => ({
   type: 'span',

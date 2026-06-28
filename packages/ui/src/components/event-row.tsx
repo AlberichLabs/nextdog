@@ -1,4 +1,4 @@
-import type { SSEEvent } from '../hooks/use-sse.js';
+import type { SSEEvent } from '../hooks/use-sse';
 
 function formatTime(timestamp: number): string {
   const ago = Date.now() - timestamp;

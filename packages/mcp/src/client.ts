@@ -15,7 +15,7 @@
  *   - `/api/services` → `{ services: string[] }`
  *   - `/health`       → liveness probe
  */
-import type { SidecarEvent } from './types.js';
+import type { SidecarEvent } from './types';
 
 export const DEFAULT_SIDECAR_URL = 'http://localhost:6789';
 

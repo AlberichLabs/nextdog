@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { computeRange, scrollOffsetForIndex, type VirtualRange } from '../utils/virtual-window.js';
+import { computeRange, scrollOffsetForIndex, type VirtualRange } from '../utils/virtual-window';
 
 /** Rows rendered above and below the visible window to cover fast scrolling. */
 const DEFAULT_OVERSCAN = 8;

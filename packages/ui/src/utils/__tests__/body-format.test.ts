@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildResponseSection, formatBody, stripResponseAttributes } from '../body-format.js';
+import { buildResponseSection, formatBody, stripResponseAttributes } from '../body-format';
 
 describe('stripResponseAttributes', () => {
   it('removes http.response.* keys so they do not render twice alongside ResponseSection', () => {

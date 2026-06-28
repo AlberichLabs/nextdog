@@ -1,8 +1,8 @@
 import type { ComponentChildren } from 'preact';
 import { useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
-import type { SSEEvent } from '../hooks/use-sse.js';
-import { normalizeExpression, parseFilterTokens } from '../utils/filter-query.js';
+import type { SSEEvent } from '../hooks/use-sse';
+import { normalizeExpression, parseFilterTokens } from '../utils/filter-query';
 
 // ---------------------------------------------------------------------------
 // Style constants (defined outside the component)

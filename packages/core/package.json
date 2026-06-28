@@ -12,7 +12,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias --resolve-full-paths",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "pnpm build",

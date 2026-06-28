@@ -1,6 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { token } from 'styled-system/tokens';
-import type { SSEEvent } from '../hooks/use-sse.js';
+import type { SSEEvent } from '../hooks/use-sse';
 
 const WIDTH = 80;
 const HEIGHT = 24;

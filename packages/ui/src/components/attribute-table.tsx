@@ -1,5 +1,5 @@
 import { css } from 'styled-system/css';
-import { attrContextActions, showContextMenu } from './context-menu.js';
+import { attrContextActions, showContextMenu } from './context-menu';
 
 const attrTableStyle = css({
   fontSize: 'md',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flattenObject } from '../console-patch.js';
+import { flattenObject } from '../console-patch';
 
 describe('flattenObject', () => {
   it('flattens nested objects into dot-notation keys', () => {

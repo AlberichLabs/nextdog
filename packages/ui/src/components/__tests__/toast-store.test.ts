@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTO_DISMISS_MS, MAX_VISIBLE, ToastStore } from '../toast-store.js';
+import { AUTO_DISMISS_MS, MAX_VISIBLE, ToastStore } from '../toast-store';
 
 describe('ToastStore', () => {
   beforeEach(() => {
