@@ -278,6 +278,8 @@ function collectFacets(events: SSEEvent[]): string[] {
     'level',
     'service',
     'status',
+    'statusCode',
+    'method',
     'route',
     'name',
     'message',
@@ -529,7 +531,11 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
               <span class={helpKeywordStyle}>text</span> — search name, message, route
             </div>
             <div class={helpFooterStyle}>
-              Keys: level, service, route, status, name, kind, runtime, traceId
+              Keys: level, service, route, status, statusCode, method, name, kind, runtime, traceId
+            </div>
+            <div class={helpFooterStyle}>
+              HTTP: <span class={helpKeywordStyle}>statusCode:404</span>,{' '}
+              <span class={helpKeywordStyle}>method:GET</span> (status:404 also works)
             </div>
           </div>
         </div>

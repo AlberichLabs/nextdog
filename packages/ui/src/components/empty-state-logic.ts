@@ -32,6 +32,22 @@ export interface EmptyStateInput {
   hasVisibleEvents: boolean;
 }
 
+/**
+ * Human label for the sidecar address shown in the disconnected checklist
+ * (issue #55): the host:port the dashboard is actually configured to reach,
+ * not a hardcoded `:6789`. Returns the URL's authority (host incl. port) so a
+ * custom `NEXTDOG_URL`/port is reflected accurately. Empty string when no URL is
+ * known, letting the caller fall back to generic copy.
+ */
+export function sidecarLabel(sidecarUrl?: string): string {
+  if (!sidecarUrl) return '';
+  try {
+    return new URL(sidecarUrl).host;
+  } catch {
+    return sidecarUrl;
+  }
+}
+
 export function selectEmptyState(input: EmptyStateInput): EmptyStateKind {
   const { connected, everReceived, filterActive, hasVisibleEvents } = input;
 

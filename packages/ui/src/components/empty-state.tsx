@@ -1,5 +1,8 @@
 import { css } from 'styled-system/css';
-import { selectEmptyState } from './empty-state-logic';
+import { selectEmptyState, sidecarLabel } from './empty-state-logic';
+
+/** Canonical setup docs (repo README Quick Start). */
+const SETUP_GUIDE_URL = 'https://github.com/cscherban/NextDog#readme';
 
 interface EmptyStateProps {
   /** SSE connection established. */
@@ -85,6 +88,18 @@ export function EmptyState({ connected, everReceived = false, sidecarUrl }: Empt
         </div>
 
         <div className={footnoteStyle}>Waiting for your first event…</div>
+
+        <div className={footnoteStyle}>
+          Not seeing data?{' '}
+          <a
+            href={SETUP_GUIDE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className={healthLinkStyle}
+          >
+            Setup guide
+          </a>
+        </div>
       </div>
     );
   }
@@ -97,11 +112,13 @@ export function EmptyState({ connected, everReceived = false, sidecarUrl }: Empt
       <div className={headlineStyle}>Connecting to sidecar…</div>
 
       <div className={checklistStyle}>
-        <div>✓ Add withNextDog() to next.config.js</div>
-        <div>✓ Add register() to instrumentation.ts</div>
-        <div>✓ Run npm run dev</div>
+        {/* Neutral ○ markers: these are to-do steps we can't verify from here,
+            so a green ✓ would be a false "done" signal (issue #55). */}
+        <div>○ Add withNextDog() to next.config.js</div>
+        <div>○ Add register() to instrumentation.ts</div>
+        <div>○ Run npm run dev</div>
         <div>
-          ○ Waiting for sidecar on :6789
+          ○ Waiting for sidecar{sidecarLabel(sidecarUrl) && ` on ${sidecarLabel(sidecarUrl)}`}
           {sidecarUrl && (
             <>
               {' — '}

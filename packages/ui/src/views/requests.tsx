@@ -13,7 +13,14 @@ import { useKeyboard } from '../hooks/use-keyboard';
 import { useIsNarrow } from '../hooks/use-narrow';
 import type { SSEEvent } from '../hooks/use-sse';
 import { useVirtualList } from '../hooks/use-virtual-list';
-import { colHeaderStyle, colResizeStyle, emptyStyle } from '../styles/shared';
+import {
+  colHeaderStyle,
+  colResizeStyle,
+  emptyStyle,
+  pillActiveStyle,
+  pillStyle,
+  toolbarStyle,
+} from '../styles/shared';
 import { interactiveProps } from '../utils/a11y';
 import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format';
 
@@ -351,6 +358,21 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>(loadCustomColumns);
 
+  // Live-tail / pause — mirrors the Logs view control (issue #53). The Spans
+  // view streams silently otherwise; pausing freezes the current event snapshot
+  // so new spans stop being prepended, and resuming catches back up to live.
+  const [liveTail, setLiveTail] = useState(true);
+  const [frozenEvents, setFrozenEvents] = useState<SSEEvent[]>([]);
+  const displayEvents = liveTail ? filtered : frozenEvents;
+  const toggleLiveTail = () => {
+    if (liveTail) {
+      setFrozenEvents([...filtered]);
+      setLiveTail(false);
+    } else {
+      setLiveTail(true);
+    }
+  };
+
   // TODO(parked 2026-06-22): `allColumns` (and its input `CORE_COLUMNS`) are an
   // unwired column-customization feature — computed but never rendered. Biome flags
   // it as dead; suppressed rather than ripple-deleted here to avoid a feature-removal
@@ -382,7 +404,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
   // Discover available attribute keys from the events for the column picker
   const availableAttrs = useMemo(() => {
     const keys = new Set<string>();
-    for (const e of filtered) {
+    for (const e of displayEvents) {
       if (e.data.attributes) {
         for (const k of Object.keys(e.data.attributes)) {
           if (!BUILTIN_FIELDS.has(k)) keys.add(k);
@@ -394,7 +416,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
       if (col.attrKey) keys.delete(col.attrKey);
     }
     return [...keys].sort();
-  }, [filtered, customColumns]);
+  }, [displayEvents, customColumns]);
 
   const toggleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -406,7 +428,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
   };
 
   const groups = useMemo(() => {
-    const g = groupByTrace(filtered, customColumns);
+    const g = groupByTrace(displayEvents, customColumns);
     const dir = sortDir === 'asc' ? 1 : -1;
     g.sort((a, b) => {
       switch (sortBy) {
@@ -434,7 +456,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
       }
     });
     return g;
-  }, [filtered, sortBy, sortDir, customColumns]);
+  }, [displayEvents, sortBy, sortDir, customColumns]);
 
   const percentiles = useMemo(() => computePercentiles(groups), [groups]);
 
@@ -544,6 +566,23 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
           </>
         }
       />
+
+      {/* Live-tail / pause — mirrors the Logs view control (issue #53). */}
+      <div className={toolbarStyle}>
+        <button
+          type="button"
+          className={`${pillStyle} ${liveTail ? pillActiveStyle : ''}`}
+          onClick={toggleLiveTail}
+        >
+          {liveTail ? '● Live' : '○ Paused'}
+        </button>
+        <span className={css({ fontSize: 'sm', color: 'fg.dim' })}>{groups.length} requests</span>
+        {!liveTail && (
+          <button type="button" className={pillStyle} onClick={toggleLiveTail}>
+            Resume
+          </button>
+        )}
+      </div>
 
       {/* Column headers — click to sort, drag edge to resize */}
       <div

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { groupFilterTokens } from '../filter-query';
 import { matchesQuery } from '../matcher';
-import { ALL_EVENTS } from './fixtures';
+import type { SidecarEvent } from '../types';
+import { ALL_EVENTS, spanWebOk } from './fixtures';
 
 /**
  * These assertions pin the ported grammar to the canonical UI semantics
@@ -80,5 +81,70 @@ describe('matcher parity', () => {
     expect(r.map((e) => e.data.spanId).sort()).toEqual(
       ['payments-charge', 'web-checkout-root'].sort(),
     );
+  });
+});
+
+describe('HTTP-intuitive facets (#52)', () => {
+  it('method:GET matches the GET span (was a silent dead-end)', () => {
+    const r = run('method:GET');
+    expect(r.map((e) => e.data.spanId)).toEqual(['web-ok-root']);
+  });
+
+  it('method:POST matches the POST span, case-insensitively', () => {
+    expect(run('method:post').map((e) => e.data.spanId)).toEqual(['web-checkout-root']);
+  });
+
+  it('statusCode:NNN matches by HTTP status code', () => {
+    expect(run('statusCode:200').map((e) => e.data.spanId)).toEqual(['web-ok-root']);
+    expect(run('statusCode:500').map((e) => e.data.spanId)).toEqual(['web-checkout-root']);
+  });
+
+  it('numeric status:NNN aliases to the HTTP status code (was a silent dead-end)', () => {
+    // `status:404`/`status:200` clearly mean the HTTP code — not the span OK/ERROR
+    // status — so they must resolve rather than return nothing.
+    expect(run('status:200').map((e) => e.data.spanId)).toEqual(['web-ok-root']);
+    expect(run('status:500').map((e) => e.data.spanId)).toEqual(['web-checkout-root']);
+  });
+
+  it('non-numeric status: keeps the original span OK/ERROR semantics', () => {
+    expect(run('status:OK').map((e) => e.data.spanId)).toEqual(['web-ok-root']);
+    expect(run('status:ERROR').map((e) => e.data.spanId).sort()).toEqual(
+      ['payments-charge', 'web-checkout-root'].sort(),
+    );
+  });
+
+  it('status:404 / statusCode:404 resolve against a 404 event and reject a 200 one', () => {
+    const span404: SidecarEvent = {
+      type: 'span',
+      timestamp: 3000,
+      data: {
+        traceId: 'trace-404',
+        spanId: 'web-missing-root',
+        name: 'GET /api/missing',
+        kind: 'SERVER',
+        serviceName: 'web',
+        statusCode: 404,
+        attributes: { 'http.route': '/api/missing', 'http.method': 'GET', 'http.status_code': 404 },
+      },
+    };
+    expect(matchesQuery(span404, 'status:404')).toBe(true);
+    expect(matchesQuery(span404, 'statusCode:404')).toBe(true);
+    expect(matchesQuery(spanWebOk, 'status:404')).toBe(false);
+    expect(matchesQuery(spanWebOk, 'statusCode:404')).toBe(false);
+  });
+
+  it('reads statusCode from http.response.status_code when present', () => {
+    const span: SidecarEvent = {
+      type: 'span',
+      timestamp: 3100,
+      data: {
+        spanId: 'resp-code',
+        name: 'GET /x',
+        serviceName: 'web',
+        attributes: { 'http.response.status_code': 418 },
+      },
+    };
+    expect(matchesQuery(span, 'statusCode:418')).toBe(true);
+    expect(matchesQuery(span, 'status:418')).toBe(true);
   });
 });

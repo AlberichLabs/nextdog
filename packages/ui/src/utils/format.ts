@@ -53,6 +53,21 @@ export function formatTime(ts: number): string {
   return d.toLocaleTimeString('en-US', { hour12: false });
 }
 
+/**
+ * The HTTP status code for a span event, if present. Reads the same fields the
+ * matcher's `statusCode:` facet does (issue #52), so a click-to-filter on a
+ * status fact produces a `statusCode:NNN` query that actually matches (issue #54).
+ */
+export function httpCodeOf(event: SSEEvent): number | undefined {
+  const raw =
+    event.data.statusCode ??
+    event.data.attributes['http.status_code'] ??
+    event.data.attributes['http.response.status_code'];
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 /** Extract common HTTP metadata from span attributes */
 export function extractHttpMeta(attrs: Record<string, unknown>, name: string) {
   const method = String(attrs['http.method'] ?? attrs['http.request.method'] ?? 'GET');

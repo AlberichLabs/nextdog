@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SSEEvent } from '../../hooks/use-sse';
-import { formatSpanDuration, parseNano, spanDurationMs } from '../format';
+import { formatSpanDuration, httpCodeOf, parseNano, spanDurationMs } from '../format';
 
 function span(data: Partial<SSEEvent['data']>): SSEEvent {
   return {
@@ -63,6 +63,26 @@ describe('spanDurationMs', () => {
     const evil = span({ startTimeUnixNano: 'not-a-number', endTimeUnixNano: '999' });
     expect(() => spanDurationMs(evil)).not.toThrow();
     expect(spanDurationMs(evil)).toBe(0);
+  });
+});
+
+describe('httpCodeOf (#54 — composes with #52)', () => {
+  it('reads the explicit statusCode field', () => {
+    expect(httpCodeOf(span({ statusCode: 200 }))).toBe(200);
+  });
+
+  it('falls back to http.status_code, then http.response.status_code', () => {
+    expect(httpCodeOf(span({ attributes: { 'http.status_code': 404 } }))).toBe(404);
+    expect(httpCodeOf(span({ attributes: { 'http.response.status_code': '418' } }))).toBe(418);
+  });
+
+  it('returns undefined when no HTTP code is present (non-HTTP span)', () => {
+    expect(httpCodeOf(span({ attributes: { 'db.system': 'stripe' } }))).toBeUndefined();
+    expect(httpCodeOf(span({ statusCode: undefined }))).toBeUndefined();
+  });
+
+  it('returns undefined for a non-numeric value rather than NaN', () => {
+    expect(httpCodeOf(span({ attributes: { 'http.status_code': 'oops' } }))).toBeUndefined();
   });
 });
 

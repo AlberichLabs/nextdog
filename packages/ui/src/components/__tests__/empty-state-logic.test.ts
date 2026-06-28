@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { type EmptyStateInput, selectEmptyState } from '../empty-state-logic';
+import { type EmptyStateInput, selectEmptyState, sidecarLabel } from '../empty-state-logic';
+
+describe('sidecarLabel — actual configured address (#55)', () => {
+  it('returns host:port for the default sidecar URL', () => {
+    expect(sidecarLabel('http://localhost:6789')).toBe('localhost:6789');
+  });
+
+  it('reflects a custom NEXTDOG_URL/port rather than a hardcoded :6789', () => {
+    expect(sidecarLabel('http://127.0.0.1:9999')).toBe('127.0.0.1:9999');
+    expect(sidecarLabel('http://localhost:3000')).toBe('localhost:3000');
+  });
+
+  it('returns empty string when no URL is known (caller falls back)', () => {
+    expect(sidecarLabel(undefined)).toBe('');
+  });
+
+  it('returns the raw value when it is not a parseable URL', () => {
+    expect(sidecarLabel('not a url')).toBe('not a url');
+  });
+});
 
 const base: EmptyStateInput = {
   connected: false,

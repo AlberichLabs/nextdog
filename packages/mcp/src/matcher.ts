@@ -11,6 +11,23 @@
 import { type FilterToken, groupFilterTokens } from './filter-query';
 import type { SidecarEvent } from './types';
 
+/** The HTTP status code for an event, as a string (`''` when absent). */
+function statusCodeValue(data: SidecarEvent['data']): string {
+  return String(
+    data.statusCode ??
+      data.attributes['http.status_code'] ??
+      data.attributes['http.response.status_code'] ??
+      '',
+  );
+}
+
+/** The HTTP method for an event, lower-cased (`''` when absent). */
+function methodValue(data: SidecarEvent['data']): string {
+  return String(
+    data.attributes['http.method'] ?? data.attributes['http.request.method'] ?? '',
+  ).toLowerCase();
+}
+
 function matchesField(event: SidecarEvent, key: string, value: string): boolean {
   const valueLower = value.toLowerCase();
   const { data } = event;
@@ -26,8 +43,17 @@ function matchesField(event: SidecarEvent, key: string, value: string): boolean 
       ).toLowerCase();
       return route.includes(valueLower);
     }
+    case 'method':
+      // HTTP method facet, exact case-insensitive (issue #52). Maps to the real
+      // `http.method` / `http.request.method` attribute so `method:GET` resolves.
+      return methodValue(data) === valueLower;
     case 'status':
-      return (data.status?.code ?? '').toLowerCase() === valueLower;
+      // A numeric value to `status:` means the HTTP status code (issue #52) —
+      // `status:404` is the intuitive query and must not be a silent dead-end.
+      // A non-numeric value keeps the original span OK/ERROR status semantics.
+      return /^\d+$/.test(value)
+        ? statusCodeValue(data) === value
+        : (data.status?.code ?? '').toLowerCase() === valueLower;
     case 'trace':
     case 'traceId':
       return data.traceId === value;
@@ -46,7 +72,7 @@ function matchesField(event: SidecarEvent, key: string, value: string): boolean 
       return String(data.attributes.runtime ?? '').toLowerCase() === valueLower;
     case 'statusCode':
     case 'status_code':
-      return String(data.statusCode ?? data.attributes['http.status_code'] ?? '') === value;
+      return statusCodeValue(data) === value;
   }
 
   const attrVal = data.attributes[key];

@@ -4,8 +4,9 @@ import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
 import type { SSEEvent } from '../hooks/use-sse';
 import { jsonViewStyle } from '../styles/shared';
+import { interactiveProps } from '../utils/a11y';
 import { stripResponseAttributes } from '../utils/body-format';
-import { formatSpanDuration } from '../utils/format';
+import { formatSpanDuration, httpCodeOf } from '../utils/format';
 import { AttributeTable } from './attribute-table';
 import { CopyCurl } from './copy-curl';
 import { LogRow } from './log-row';
@@ -222,6 +223,19 @@ function methodStyle(method: string) {
 const statusErrorStyle = css({ color: 'red' });
 const statusOkStyle = css({ color: 'green' });
 
+// Click-to-filter affordance for the always-visible request facts (issue #54),
+// mirroring the dashed-underline hover used by the span ATTRIBUTES table so the
+// feature reads the same everywhere it appears.
+const factFilterableStyle = css({
+  cursor: 'pointer',
+  borderBottom: '1px dashed token(colors.border.strong)',
+  transition: 'all 0.15s ease',
+  _hover: {
+    color: 'accent',
+    borderColor: 'accent',
+  },
+});
+
 // --- Component ---
 
 interface DetailPaneProps {
@@ -300,6 +314,31 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
     : traceId;
   const status = rootSpan?.data.status?.code ?? '';
   const duration = rootSpan ? formatSpanDuration(rootSpan) || '—' : '—';
+  // HTTP status code for the request — clicking the status fact filters by this
+  // (statusCode:NNN) so the produced query actually matches (issues #54 + #52).
+  const httpCode = rootSpan ? httpCodeOf(rootSpan) : undefined;
+
+  // Render a request fact as a click-to-filter control when onFilter is wired,
+  // otherwise as plain text. Reuses the attribute-table interaction (#54).
+  const renderFact = (
+    className: string,
+    text: string,
+    filterKey: string,
+    filterValue: string,
+  ) =>
+    onFilter ? (
+      <span
+        role="button"
+        tabIndex={0}
+        class={`${className} ${factFilterableStyle}`}
+        {...interactiveProps(() => onFilter(filterKey, filterValue))}
+        title={`Filter ${filterKey}:${filterValue}`}
+      >
+        {text}
+      </span>
+    ) : (
+      <span class={className}>{text}</span>
+    );
 
   const handleExpand = () => {
     route(`/trace/${traceId}`);
@@ -317,8 +356,10 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
         <div class={headerStyle}>
           <div class={headerTopStyle}>
             <div class={titleStyle}>
-              {method && <span class={methodStyle(method)}>{method}</span>}
-              <span class={routeStyle}>{routePath}</span>
+              {method && renderFact(methodStyle(method), method, 'method', method)}
+              {rootSpan
+                ? renderFact(routeStyle, routePath, 'route', routePath)
+                : <span class={routeStyle}>{routePath}</span>}
             </div>
             <div class={actionsStyle}>
               <ExportButton
@@ -365,7 +406,21 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
             </div>
           </div>
           <div class={metaStyle}>
-            <span class={status === 'ERROR' ? statusErrorStyle : statusOkStyle}>{status}</span>
+            {httpCode !== undefined
+              ? renderFact(
+                  status === 'ERROR' ? statusErrorStyle : statusOkStyle,
+                  status || String(httpCode),
+                  'statusCode',
+                  String(httpCode),
+                )
+              : status
+                ? renderFact(
+                    status === 'ERROR' ? statusErrorStyle : statusOkStyle,
+                    status,
+                    'status',
+                    status,
+                  )
+                : <span class={statusOkStyle}>{status}</span>}
             <span class={metaSepStyle}>|</span>
             <span>{duration}</span>
             <span class={metaSepStyle}>|</span>

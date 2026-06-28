@@ -13,6 +13,23 @@ export interface UseEventsResult {
   setSearchQuery: (q: string | ((prev: string) => string)) => void;
 }
 
+/** The HTTP status code for an event, as a string (`''` when absent). */
+function statusCodeValue(data: SSEEvent['data']): string {
+  return String(
+    data.statusCode ??
+      data.attributes['http.status_code'] ??
+      data.attributes['http.response.status_code'] ??
+      '',
+  );
+}
+
+/** The HTTP method for an event, lower-cased (`''` when absent). */
+function methodValue(data: SSEEvent['data']): string {
+  return String(
+    data.attributes['http.method'] ?? data.attributes['http.request.method'] ?? '',
+  ).toLowerCase();
+}
+
 function matchesField(event: SSEEvent, key: string, value: string): boolean {
   const valueLower = value.toLowerCase();
 
@@ -30,8 +47,17 @@ function matchesField(event: SSEEvent, key: string, value: string): boolean {
       ).toLowerCase();
       return route.includes(valueLower);
     }
+    case 'method':
+      // HTTP method facet, exact case-insensitive (issue #52). Maps to the real
+      // `http.method` / `http.request.method` attribute so `method:GET` resolves.
+      return methodValue(event.data) === valueLower;
     case 'status':
-      return (event.data.status?.code ?? '').toLowerCase() === valueLower;
+      // A numeric value to `status:` means the HTTP status code (issue #52) —
+      // `status:404` is the intuitive query and must not be a silent dead-end.
+      // A non-numeric value keeps the original span OK/ERROR status semantics.
+      return /^\d+$/.test(value)
+        ? statusCodeValue(event.data) === value
+        : (event.data.status?.code ?? '').toLowerCase() === valueLower;
     case 'trace':
     case 'traceId':
       return event.data.traceId === value;
@@ -50,9 +76,7 @@ function matchesField(event: SSEEvent, key: string, value: string): boolean {
       return String(event.data.attributes.runtime ?? '').toLowerCase() === valueLower;
     case 'statusCode':
     case 'status_code':
-      return (
-        String(event.data.statusCode ?? event.data.attributes['http.status_code'] ?? '') === value
-      );
+      return statusCodeValue(event.data) === value;
   }
 
   const attrVal = event.data.attributes[key];
@@ -89,7 +113,9 @@ function matchesSingleToken(event: SSEEvent, token: FilterToken): boolean {
   return token.negated ? !matches : matches;
 }
 
-function matchesQuery(event: SSEEvent, query: string): boolean {
+// Exported for the matcher unit test; ported verbatim into the MCP matcher
+// (packages/mcp/src/matcher.ts), pinned by its grammar-parity test.
+export function matchesQuery(event: SSEEvent, query: string): boolean {
   // [[A], [B, C], [D]] — each group is OR'd internally, groups are AND'd.
   // Shared with the search-bar pill renderer so the UI can only ever express
   // what this matcher accepts (issue #21).
