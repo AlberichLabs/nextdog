@@ -36,6 +36,7 @@ export function ExportButton({ events, meta, label, title, className }: ExportBu
   const text = label ?? (meta.kind === 'trace' ? 'Export trace' : 'Export view');
   return (
     <button
+      type="button"
       class={className ?? pillStyle}
       onClick={onClick}
       disabled={events.length === 0}
@@ -76,6 +77,7 @@ export function OpenTraceButton({ onImport, label, className }: OpenTraceButtonP
   return (
     <>
       <button
+        type="button"
         class={className ?? pillStyle}
         onClick={() => inputRef.current?.click()}
         title="Open an exported NextDog trace file (read-only)"
@@ -167,6 +169,7 @@ export function ImportDropZone({ onImport, children }: ImportDropZoneProps) {
   );
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop import zone; keyboard users import via the Import button instead (parked 2026-06-28)
     <div
       class={css({ display: 'contents' })}
       onDragEnter={onDragEnter}
@@ -240,6 +243,7 @@ export function ImportedBadge({ fileName, eventCount, onExit }: ImportedBadgePro
       </span>
       <span class={css({ color: 'fg.dim' })}>({eventCount} events)</span>
       <button
+        type="button"
         class={`${pillStyle} ${css({ marginLeft: 'auto' })}`}
         onClick={onExit}
         title="Return to the live stream"

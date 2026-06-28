@@ -40,7 +40,8 @@ export function Sparkline({ events }: { events: SSEEvent[] }) {
   const greenColor = token('colors.green');
 
   return (
-    <svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`}>
+    <svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img">
+      <title>Event volume over the last 60 seconds</title>
       <polygon points={areaPoints} fill={greenColor} opacity={0.1} />
       <polyline points={polylinePoints} fill="none" stroke={greenColor} stroke-width="1.5" />
     </svg>

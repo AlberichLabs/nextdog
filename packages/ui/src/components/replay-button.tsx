@@ -173,6 +173,7 @@ export function ReplayButton({ event }: ReplayButtonProps) {
   return (
     <div>
       <button
+        type="button"
         className={pillButton}
         onClick={replay}
         disabled={state.phase === 'loading'}
@@ -183,6 +184,7 @@ export function ReplayButton({ event }: ReplayButtonProps) {
 
       {(state.phase === 'success' || state.phase === 'error') && (
         <button
+          type="button"
           onClick={() => setState({ phase: 'idle' })}
           className={css({
             display: 'flex',
@@ -203,6 +205,7 @@ export function ReplayButton({ event }: ReplayButtonProps) {
           title="Dismiss"
         >
           <svg
+            aria-hidden="true"
             width="10"
             height="10"
             viewBox="0 0 24 24"

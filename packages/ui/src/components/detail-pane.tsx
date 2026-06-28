@@ -309,6 +309,8 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: paneSlideInKeyframes }} />
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: presentational modal backdrop; click-to-dismiss is a pointer-only convenience (parked 2026-06-28) */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: presentational modal backdrop; keyboard users dismiss via the close control, not the backdrop (parked 2026-06-28) */}
       <div class={backdropStyle} onClick={onClose} />
       <div class={detailPaneStyle} ref={paneRef} style={`width:${width}px`}>
         <div class={dragHandleStyle} onPointerDown={onDragStart} />
@@ -325,8 +327,14 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                 label="Export"
                 title="Download this trace (all spans + logs) as a portable file"
               />
-              <button class={btnStyle} onClick={handleExpand} title="Expand to full page">
+              <button
+                type="button"
+                class={btnStyle}
+                onClick={handleExpand}
+                title="Expand to full page"
+              >
                 <svg
+                  aria-hidden="true"
                   width="14"
                   height="14"
                   viewBox="0 0 24 24"
@@ -340,8 +348,9 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                   <line x1="3" y1="21" x2="10" y2="14" />
                 </svg>
               </button>
-              <button class={btnStyle} onClick={onClose} title="Close">
+              <button type="button" class={btnStyle} onClick={onClose} title="Close">
                 <svg
+                  aria-hidden="true"
                   width="14"
                   height="14"
                   viewBox="0 0 24 24"
@@ -425,12 +434,14 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
                 <span>{selectedEvent.type === 'span' ? 'Span' : 'Log'} Detail</span>
                 <div class={segmentGroupStyle}>
                   <button
+                    type="button"
                     class={`${segmentBtnStyle} ${!showJson ? segmentBtnActiveStyle : ''}`}
                     onClick={() => setShowJson(false)}
                   >
                     Table
                   </button>
                   <button
+                    type="button"
                     class={`${segmentBtnStyle} ${showJson ? segmentBtnActiveStyle : ''}`}
                     onClick={() => setShowJson(true)}
                   >

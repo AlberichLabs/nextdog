@@ -23,7 +23,8 @@ export class RingBuffer {
     const start = this.count < this.capacity ? 0 : this.head;
     for (let i = 0; i < this.count; i++) {
       const idx = (start + i) % this.capacity;
-      result.push(this.buffer[idx]!);
+      const event = this.buffer[idx];
+      if (event !== undefined) result.push(event);
     }
     return result;
   }

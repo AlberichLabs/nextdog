@@ -43,8 +43,11 @@ export function ServicePills({ services, active, onToggle, events }: ServicePill
     if (!events) return map;
     for (const e of events) {
       const name = e.data.serviceName;
-      if (!map.has(name)) map.set(name, { total: 0, errors: 0 });
-      const s = map.get(name)!;
+      let s = map.get(name);
+      if (!s) {
+        s = { total: 0, errors: 0 };
+        map.set(name, s);
+      }
       s.total++;
       if (e.data.status?.code === 'ERROR' || (e.data.statusCode && e.data.statusCode >= 500)) {
         s.errors++;
@@ -59,15 +62,18 @@ export function ServicePills({ services, active, onToggle, events }: ServicePill
     <div className={servicePillsStyle}>
       {services.map((name) => {
         const s = stats.get(name);
-        const hasErrors = s && s.errors > 0;
+        const errorCount = s ? s.errors : 0;
         return (
           <button
+            type="button"
             key={name}
             className={`${pillStyle} ${active.has(name) ? pillActiveStyle : ''}`}
             onClick={() => onToggle(name)}
           >
             {name}
-            {hasErrors && <span className={pillErrorDotStyle} title={`${s!.errors} errors`} />}
+            {errorCount > 0 && (
+              <span className={pillErrorDotStyle} title={`${errorCount} errors`} />
+            )}
           </button>
         );
       })}

@@ -70,15 +70,15 @@ describe('instrumentOutboundHttp', () => {
     const spans = memoryExporter.getFinishedSpans();
     const client = spans.find((s) => s.kind === SpanKind.CLIENT);
     const server = spans.find((s) => s.kind === SpanKind.SERVER);
-    expect(client).toBeDefined();
-    expect(server).toBeDefined();
+    if (!client) throw new Error('expected a CLIENT span');
+    if (!server) throw new Error('expected a SERVER span');
     // The child fetch span must share the parent's trace and point at it as parent
-    expect(client!.spanContext().traceId).toBe(server!.spanContext().traceId);
+    expect(client.spanContext().traceId).toBe(server.spanContext().traceId);
     const parentSpanId =
       // OTel >=1.26 exposes parentSpanContext; older exposes parentSpanId
       (client as unknown as { parentSpanContext?: { spanId: string } }).parentSpanContext?.spanId ??
       (client as unknown as { parentSpanId?: string }).parentSpanId;
-    expect(parentSpanId).toBe(server!.spanContext().spanId);
+    expect(parentSpanId).toBe(server.spanContext().spanId);
   });
 
   it('marks the span as ERROR when the fetch rejects', async () => {

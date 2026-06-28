@@ -328,6 +328,7 @@ export function App() {
             <Sparkline events={events} />
             {!isImported && events.length > 0 && hasMoreHistory && (
               <button
+                type="button"
                 className={pillStyle}
                 onClick={loadOlder}
                 disabled={loadingOlder}
@@ -346,7 +347,12 @@ export function App() {
             )}
             <OpenTraceButton onImport={handleImport} />
             {!isImported && events.length > 0 && (
-              <button className={pillStyle} onClick={handleClear} title="Clear all events">
+              <button
+                type="button"
+                className={pillStyle}
+                onClick={handleClear}
+                title="Clear all events"
+              >
                 Clear
               </button>
             )}

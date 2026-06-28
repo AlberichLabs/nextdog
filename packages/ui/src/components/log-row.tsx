@@ -1,6 +1,7 @@
 import type { JSX } from 'preact';
 import { css } from 'styled-system/css';
 import type { SSEEvent } from '../hooks/use-sse';
+import { interactiveProps } from '../utils/a11y';
 import { formatTime } from '../utils/format';
 import { runtimeTag } from './log-columns';
 
@@ -161,11 +162,14 @@ export function LogRow({
   return (
     <div
       ref={rootRef}
+      role="button"
+      tabIndex={0}
       className={`${logRowStyle} ${showService ? logRowWideStyle : ''} ${selected ? logRowSelectedStyle : ''}`}
-      onClick={onClick}
+      {...interactiveProps(onClick)}
       style={style}
     >
       <span className={logTimeStyle}>{formatTime(ts)}</span>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
       <span
         className={levelClass(event.data.level)}
         onContextMenu={
@@ -175,6 +179,7 @@ export function LogRow({
         {level}
       </span>
       {showService && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
         <span
           className={serviceStyle}
           onContextMenu={
@@ -194,6 +199,7 @@ export function LogRow({
       ) : (
         <span aria-hidden="true" />
       )}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
       <span
         className={logMessageStyle}
         onContextMenu={
@@ -204,20 +210,24 @@ export function LogRow({
       >
         {message}
       </span>
-      {extraColumns?.map((col) => (
-        <span
-          key={col.id}
-          className={customColStyle}
-          title={col.value}
-          onContextMenu={
-            onCellContext && col.attrKey
-              ? (e: MouseEvent) => onCellContext(e, col.attrKey!, col.value)
-              : undefined
-          }
-        >
-          {col.value || '—'}
-        </span>
-      ))}
+      {extraColumns?.map((col) => {
+        const { attrKey } = col;
+        return (
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
+          <span
+            key={col.id}
+            className={customColStyle}
+            title={col.value}
+            onContextMenu={
+              onCellContext && attrKey
+                ? (e: MouseEvent) => onCellContext(e, attrKey, col.value)
+                : undefined
+            }
+          >
+            {col.value || '—'}
+          </span>
+        );
+      })}
     </div>
   );
 }

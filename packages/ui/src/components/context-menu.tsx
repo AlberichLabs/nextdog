@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
+import { interactiveProps } from '../utils/a11y';
 
 export interface ContextMenuAction {
   label: string;
@@ -45,17 +46,18 @@ export function attrContextActions(
     },
   ];
 
-  if (opts.isColumnActive && opts.onRemoveColumn) {
+  const { onAddColumn, onRemoveColumn } = opts;
+  if (opts.isColumnActive && onRemoveColumn) {
     actions.push({
       label: `Hide "${key}" column`,
       icon: '◻',
-      onClick: () => opts.onRemoveColumn!(key),
+      onClick: () => onRemoveColumn(key),
     });
-  } else if (!opts.isColumnActive && opts.onAddColumn) {
+  } else if (!opts.isColumnActive && onAddColumn) {
     actions.push({
       label: `Show "${key}" as column`,
       icon: '◼',
-      onClick: () => opts.onAddColumn!(key),
+      onClick: () => onAddColumn(key),
     });
   }
 
@@ -158,15 +160,17 @@ export function ContextMenuContainer() {
   const pos = adjustedPos(state.x, state.y);
 
   return (
-    <div ref={menuRef} className={menuStyle} style={`left:${pos.x}px;top:${pos.y}px`}>
+    <div ref={menuRef} role="menu" className={menuStyle} style={`left:${pos.x}px;top:${pos.y}px`}>
       {state.actions.map((action, i) => (
         <div
           key={i}
+          role="menuitem"
+          tabIndex={0}
           className={action.danger ? dangerItemStyle : itemStyle}
-          onClick={() => {
+          {...interactiveProps(() => {
             action.onClick();
             setState(null);
-          }}
+          })}
         >
           {action.icon && <span className={iconStyle}>{action.icon}</span>}
           <span>{action.label}</span>

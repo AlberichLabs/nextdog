@@ -23,6 +23,7 @@ import {
   pillStyle,
   toolbarStyle,
 } from '../styles/shared';
+import { interactiveProps } from '../utils/a11y';
 
 const SIDEBAR_STORAGE_KEY = 'nextdog:log-detail-width';
 const LOG_COLUMNS_STORAGE_KEY = 'nextdog:log-columns';
@@ -514,6 +515,7 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
         />
         <div className={toolbarStyle}>
           <button
+            type="button"
             className={`${pillStyle} ${liveTail ? pillActiveStyle : ''}`}
             onClick={toggleLiveTail}
           >
@@ -521,7 +523,7 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
           </button>
           <span className={logCountStyle}>{displayLogs.length} logs</span>
           {!liveTail && (
-            <button className={pillStyle} onClick={toggleLiveTail}>
+            <button type="button" className={pillStyle} onClick={toggleLiveTail}>
               Resume
             </button>
           )}
@@ -540,7 +542,9 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
             <span
               key={col.id}
               className={colHeaderStyle}
-              onClick={col.label ? () => toggleSort(col.id) : undefined}
+              {...(col.label
+                ? { role: 'button', tabIndex: 0, ...interactiveProps(() => toggleSort(col.id)) }
+                : {})}
             >
               {col.label}
               {col.label && <SortIndicator field={col.id} sortBy={sortBy} sortDir={sortDir} />}
@@ -613,13 +617,18 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
             <div className={detailButtonGroupStyle}>
               {selectedLog.data.traceId && (
                 <button
+                  type="button"
                   className={pillStyle}
-                  onClick={() => onOpenTrace?.(selectedLog.data.traceId!)}
+                  onClick={() => {
+                    const { traceId } = selectedLog.data;
+                    if (traceId) onOpenTrace?.(traceId);
+                  }}
                 >
                   View Trace
                 </button>
               )}
               <button
+                type="button"
                 className={css({
                   display: 'flex',
                   alignItems: 'center',
@@ -636,6 +645,7 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
                 onClick={() => setSelectedLog(null)}
               >
                 <svg
+                  aria-hidden="true"
                   width="14"
                   height="14"
                   viewBox="0 0 24 24"
@@ -655,12 +665,14 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
             </div>
             <div className={tabButtonGroupStyle}>
               <button
+                type="button"
                 className={`${tabBtnStyle} ${!showJson ? tabBtnActiveStyle : ''}`}
                 onClick={() => setShowJson(false)}
               >
                 Table
               </button>
               <button
+                type="button"
                 className={`${tabBtnStyle} ${showJson ? tabBtnActiveStyle : ''}`}
                 onClick={() => setShowJson(true)}
               >

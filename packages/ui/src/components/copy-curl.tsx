@@ -104,6 +104,7 @@ export function CopyCurl({ event }: CopyCurlProps) {
   return (
     <div className={styles.wrapper}>
       <button
+        type="button"
         className={styles.pill}
         onClick={() => copy('safe')}
         title="Copy curl without cookies/auth headers"
@@ -111,6 +112,7 @@ export function CopyCurl({ event }: CopyCurlProps) {
         {copied === 'safe' ? '✓ Copied' : 'Copy curl'}
       </button>
       <button
+        type="button"
         className={copied === 'full' ? styles.pillFullCopied : styles.pillFullDefault}
         onClick={() => copy('full')}
         title="Copy curl with all headers including cookies (may contain session tokens)"

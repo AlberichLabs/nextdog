@@ -2,6 +2,7 @@ import type { FunctionComponent } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
+import { onActivateKeyDown } from '../utils/a11y';
 import type { Toast, ToastInput } from './toast-store';
 import { ToastStore } from './toast-store';
 
@@ -132,12 +133,16 @@ const ToastCard: FunctionComponent<{
   onClose: () => void;
   onOpenTrace?: (traceId: string) => void;
 }> = ({ toast, onClose, onOpenTrace }) => {
-  const clickable = !!toast.traceId && !!onOpenTrace;
+  const { traceId } = toast;
+  const handleOpen = traceId && onOpenTrace ? () => onOpenTrace(traceId) : undefined;
+  const clickable = handleOpen !== undefined;
 
   return (
     <div
       role="alert"
-      onClick={clickable ? () => onOpenTrace!(toast.traceId!) : undefined}
+      onClick={handleOpen}
+      onKeyDown={handleOpen ? onActivateKeyDown(handleOpen) : undefined}
+      tabIndex={clickable ? 0 : undefined}
       className={cardBaseStyle}
       style={{
         borderLeft: `3px solid ${TYPE_COLORS[toast.type]}`,
@@ -187,6 +192,7 @@ export const ToastContainer: FunctionComponent<ToastContainerProps> = ({
   if (isHidden) return null;
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: pause-on-hover is a pointer-only enhancement; auto-dismiss timing has no keyboard equivalent (parked 2026-06-28)
     <div className={containerStyle} onMouseEnter={onPause} onMouseLeave={onResume}>
       {toasts.map((toast) => (
         <ToastCard

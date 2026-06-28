@@ -9,8 +9,10 @@ export function Logo({ size = 20 }: LogoProps) {
       height={size}
       viewBox="0 0 64 64"
       fill="none"
+      role="img"
       xmlns="http://www.w3.org/2000/svg"
     >
+      <title>nextdog</title>
       {/* Head — rounded square, wider than tall */}
       <rect
         x="10"

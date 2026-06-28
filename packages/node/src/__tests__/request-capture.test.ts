@@ -49,6 +49,16 @@ async function driveRequest(opts: {
   }
 }
 
+/** Read captured metadata, failing the test loudly if nothing was captured. */
+function expectMeta(
+  method: string,
+  path: string,
+): NonNullable<ReturnType<typeof getRequestMetadata>> {
+  const meta = getRequestMetadata(method, path);
+  if (!meta) throw new Error(`expected captured request metadata for ${method} ${path}`);
+  return meta;
+}
+
 describe('response capture', () => {
   it('captures response status, headers, and JSON body on the request metadata', async () => {
     const payload = JSON.stringify({ ok: true, items: [1, 2, 3] });
@@ -65,12 +75,11 @@ describe('response capture', () => {
     expect(result.clientStatus).toBe(201);
     expect(result.clientBody.toString('utf-8')).toBe(payload);
 
-    const meta = getRequestMetadata('GET', '/api/users');
-    expect(meta).toBeDefined();
-    expect(meta!.responseStatus).toBe(201);
-    expect(meta!.responseBody).toBe(payload);
-    expect(meta!.responseHeaders?.['content-type']).toContain('application/json');
-    expect(meta!.responseHeaders?.['x-custom']).toBe('hi');
+    const meta = expectMeta('GET', '/api/users');
+    expect(meta.responseStatus).toBe(201);
+    expect(meta.responseBody).toBe(payload);
+    expect(meta.responseHeaders?.['content-type']).toContain('application/json');
+    expect(meta.responseHeaders?.['x-custom']).toBe('hi');
   });
 
   it('delivers a byte-identical body to the client across multiple write() chunks', async () => {
@@ -87,9 +96,9 @@ describe('response capture', () => {
 
     expect(result.clientBody.toString('utf-8')).toBe('hello world!');
 
-    const meta = getRequestMetadata('GET', '/api/stream');
-    expect(meta!.responseBody).toBe('hello world!');
-    expect(meta!.responseStatus).toBe(200);
+    const meta = expectMeta('GET', '/api/stream');
+    expect(meta.responseBody).toBe('hello world!');
+    expect(meta.responseStatus).toBe(200);
   });
 
   it('caps the captured response body at the max size without truncating the client body', async () => {
@@ -107,10 +116,12 @@ describe('response capture', () => {
     // Client got the full 60KB.
     expect(result.clientBody.length).toBe(big.length);
 
-    const meta = getRequestMetadata('GET', '/api/big');
+    const meta = expectMeta('GET', '/api/big');
     // Captured copy is capped.
-    expect(meta!.responseBody!.length).toBeLessThan(big.length);
-    expect(meta!.responseBody).toContain('(truncated)');
+    const { responseBody } = meta;
+    if (responseBody === undefined) throw new Error('expected captured response body');
+    expect(responseBody.length).toBeLessThan(big.length);
+    expect(responseBody).toContain('(truncated)');
   });
 
   it('skips binary response bodies but still records status and headers', async () => {
@@ -127,12 +138,12 @@ describe('response capture', () => {
     // Client received the real binary bytes.
     expect(Buffer.compare(result.clientBody, png)).toBe(0);
 
-    const meta = getRequestMetadata('GET', '/api/image');
-    expect(meta!.responseStatus).toBe(200);
-    expect(meta!.responseHeaders?.['content-type']).toBe('image/png');
+    const meta = expectMeta('GET', '/api/image');
+    expect(meta.responseStatus).toBe(200);
+    expect(meta.responseHeaders?.['content-type']).toBe('image/png');
     // Body is summarized, not the raw bytes.
-    expect(meta!.responseBody).toMatch(/binary/i);
-    expect(meta!.responseBody).toContain('image/png');
+    expect(meta.responseBody).toMatch(/binary/i);
+    expect(meta.responseBody).toContain('image/png');
   });
 
   it('summarizes a gzip-compressed JSON response instead of capturing mojibake', async () => {
@@ -153,14 +164,14 @@ describe('response capture', () => {
     // Client received the real gzip bytes, untouched.
     expect(Buffer.compare(result.clientBody, gz)).toBe(0);
 
-    const meta = getRequestMetadata('GET', '/api/compressed');
-    expect(meta!.responseStatus).toBe(200);
+    const meta = expectMeta('GET', '/api/compressed');
+    expect(meta.responseStatus).toBe(200);
     // The captured body must NOT be the raw gzip bytes decoded as UTF-8 (mojibake).
-    expect(meta!.responseBody).not.toContain(gz.toString('utf-8'));
+    expect(meta.responseBody).not.toContain(gz.toString('utf-8'));
     // It should be summarized as a compressed response.
-    expect(meta!.responseBody).toMatch(/compressed/i);
-    expect(meta!.responseBody).toContain('gzip');
+    expect(meta.responseBody).toMatch(/compressed/i);
+    expect(meta.responseBody).toContain('gzip');
     // And it must not contain the decoded plaintext either (we don't decompress).
-    expect(meta!.responseBody).not.toContain('items');
+    expect(meta.responseBody).not.toContain('items');
   });
 });

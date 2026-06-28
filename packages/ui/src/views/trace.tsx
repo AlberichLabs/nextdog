@@ -9,6 +9,7 @@ import { ExportButton } from '../components/trace-io';
 import { Waterfall } from '../components/waterfall';
 import type { SSEEvent } from '../hooks/use-sse';
 import { emptyStyle, jsonViewStyle } from '../styles/shared';
+import { interactiveProps } from '../utils/a11y';
 import { formatSpanDuration } from '../utils/format';
 
 /* ── Styles ───────────────────────────────────────────────────────────── */
@@ -409,6 +410,7 @@ export function Trace({ traceId, events }: TraceProps) {
       <div className={s.header}>
         <a href="/" className={s.backLink}>
           <svg
+            aria-hidden="true"
             width="14"
             height="14"
             viewBox="0 0 24 24"
@@ -463,7 +465,13 @@ export function Trace({ traceId, events }: TraceProps) {
         <div className={s.leftPanel}>
           {/* Collapsible waterfall */}
           <div className={s.waterfallSection}>
-            <div className={s.sectionHeader} onClick={() => setWaterfallOpen(!waterfallOpen)}>
+            <div
+              role="button"
+              tabIndex={0}
+              className={s.sectionHeader}
+              aria-expanded={waterfallOpen}
+              {...interactiveProps(() => setWaterfallOpen(!waterfallOpen))}
+            >
               <span>Waterfall</span>
               <span
                 className={s.collapseIcon}
@@ -483,6 +491,7 @@ export function Trace({ traceId, events }: TraceProps) {
           {/* Tab bar — Spans / Logs */}
           <div className={s.tabBar}>
             <button
+              type="button"
               className={`${s.tab} ${activeTab === 'spans' ? s.tabActive : ''}`}
               onClick={() => setActiveTab('spans')}
             >
@@ -491,6 +500,7 @@ export function Trace({ traceId, events }: TraceProps) {
             </button>
             {logs.length > 0 && (
               <button
+                type="button"
                 className={`${s.tab} ${activeTab === 'logs' ? s.tabActive : ''}`}
                 onClick={() => setActiveTab('logs')}
               >
@@ -528,20 +538,23 @@ export function Trace({ traceId, events }: TraceProps) {
               <div className={css({ display: 'flex', gap: '2', alignItems: 'center' })}>
                 <div className={s.segmentGroup}>
                   <button
+                    type="button"
                     className={`${s.segmentBtn} ${!showJson ? s.segmentBtnActive : ''}`}
                     onClick={() => setShowJson(false)}
                   >
                     Table
                   </button>
                   <button
+                    type="button"
                     className={`${s.segmentBtn} ${showJson ? s.segmentBtnActive : ''}`}
                     onClick={() => setShowJson(true)}
                   >
                     JSON
                   </button>
                 </div>
-                <button className={s.closeBtn} onClick={() => setSelectedEvent(null)}>
+                <button type="button" className={s.closeBtn} onClick={() => setSelectedEvent(null)}>
                   <svg
+                    aria-hidden="true"
                     width="12"
                     height="12"
                     viewBox="0 0 24 24"

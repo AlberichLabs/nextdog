@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { buildResponseSection, formatBody, stripResponseAttributes } from '../body-format';
 
+/** Build a response section, failing the test loudly if none was produced. */
+function expectSection(
+  ...args: Parameters<typeof buildResponseSection>
+): NonNullable<ReturnType<typeof buildResponseSection>> {
+  const section = buildResponseSection(...args);
+  if (!section) throw new Error('expected a response section');
+  return section;
+}
+
 describe('stripResponseAttributes', () => {
   it('removes http.response.* keys so they do not render twice alongside ResponseSection', () => {
     const filtered = stripResponseAttributes({
@@ -49,7 +58,7 @@ describe('buildResponseSection', () => {
   });
 
   it('extracts status, headers, and body from span attributes', () => {
-    const section = buildResponseSection({
+    const section = expectSection({
       'http.method': 'POST',
       'http.response.status': 201,
       'http.response.header.content-type': 'application/json; charset=utf-8',
@@ -57,35 +66,36 @@ describe('buildResponseSection', () => {
       'http.response.body': '{"ok":true}',
     });
 
-    expect(section).not.toBeNull();
-    expect(section!.status).toBe(201);
-    expect(section!.body).toBe('{"ok":true}');
-    expect(section!.headers['content-type']).toContain('application/json');
-    expect(section!.headers['x-custom']).toBe('hi');
-    expect(section!.contentType).toContain('application/json');
+    expect(section.status).toBe(201);
+    expect(section.body).toBe('{"ok":true}');
+    expect(section.headers['content-type']).toContain('application/json');
+    expect(section.headers['x-custom']).toBe('hi');
+    expect(section.contentType).toContain('application/json');
   });
 
   it('coerces a string status to a number', () => {
-    const section = buildResponseSection({ 'http.response.status': '404' });
-    expect(section!.status).toBe(404);
+    const section = expectSection({ 'http.response.status': '404' });
+    expect(section.status).toBe(404);
   });
 
   it('handles a response with headers/status but no body (e.g. 204)', () => {
-    const section = buildResponseSection({
+    const section = expectSection({
       'http.response.status': 204,
       'http.response.header.content-length': '0',
     });
-    expect(section!.status).toBe(204);
-    expect(section!.body).toBeUndefined();
+    expect(section.status).toBe(204);
+    expect(section.body).toBeUndefined();
   });
 
   it('passes the binary summary placeholder through as the body', () => {
-    const section = buildResponseSection({
+    const section = expectSection({
       'http.response.status': 200,
       'http.response.header.content-type': 'image/png',
       'http.response.body': '[binary image/png response, 1024 bytes — not captured]',
     });
-    expect(section!.body).toContain('binary');
-    expect(formatBody(section!.body!, section!.contentType)).toContain('binary');
+    const { body } = section;
+    expect(body).toContain('binary');
+    if (body === undefined) throw new Error('expected a response body');
+    expect(formatBody(body, section.contentType)).toContain('binary');
   });
 });

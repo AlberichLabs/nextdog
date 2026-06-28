@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
+import { interactiveProps } from '../utils/a11y';
 import {
   type RecentSearch,
   type SavedSearch,
@@ -274,6 +275,7 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
   return (
     <>
       <button
+        type="button"
         ref={btnRef}
         className={`${triggerStyle} ${saved.length > 0 ? triggerActiveStyle : ''}`}
         onClick={() => setOpen((v) => !v)}
@@ -281,6 +283,7 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
         aria-label="Saved and recent searches"
       >
         <svg
+          aria-hidden="true"
           width="14"
           height="14"
           viewBox="0 0 24 24"
@@ -308,8 +311,10 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
               {saved.map((entry) => (
                 <div
                   key={entry.id}
+                  role="button"
+                  tabIndex={0}
                   className={itemStyle}
-                  onClick={() => apply(entry)}
+                  {...interactiveProps(() => apply(entry))}
                   title={summarize(entry)}
                 >
                   <div className={itemMainStyle}>
@@ -317,6 +322,7 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
                     <span className={itemQueryStyle}>{summarize(entry)}</span>
                   </div>
                   <button
+                    type="button"
                     className={itemActionStyle}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -326,6 +332,7 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
                     rename
                   </button>
                   <button
+                    type="button"
                     className={itemDeleteStyle}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -355,6 +362,7 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
               }}
             />
             <button
+              type="button"
               className={saveBtnStyle}
               onClick={handleSave}
               disabled={!name.trim() || !hasCurrent}
@@ -367,6 +375,7 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
             <span>Recent</span>
             {recent.length > 0 && (
               <button
+                type="button"
                 className={itemActionStyle}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -384,8 +393,10 @@ export function SavedSearches({ query, services, onApply }: SavedSearchesProps) 
               {recent.map((entry: RecentSearch, i) => (
                 <div
                   key={i}
+                  role="button"
+                  tabIndex={0}
                   className={itemStyle}
-                  onClick={() => apply(entry)}
+                  {...interactiveProps(() => apply(entry))}
                   title={summarize(entry)}
                 >
                   <div className={itemMainStyle}>

@@ -15,7 +15,8 @@ describe('list_recent_traces', () => {
 
   it('flags the checkout trace as an error with route + 500', async () => {
     const { traces } = await listRecentTraces(client());
-    const err = traces.find((t) => t.traceId === TRACE_ERR)!;
+    const err = traces.find((t) => t.traceId === TRACE_ERR);
+    if (!err) throw new Error(`expected a trace with id ${TRACE_ERR}`);
     expect(err.isError).toBe(true);
     expect(err.route).toBe('/api/checkout');
     expect(err.statusCode).toBe(500);
@@ -162,14 +163,16 @@ describe('get_errors', () => {
     const { errors } = await getErrors(client());
     // payments-charge (2020, ERROR) and web-checkout-root (2000, 500)
     expect(errors.map((e) => e.spanId)).toEqual(['payments-charge', 'web-checkout-root']);
-    const charge = errors.find((e) => e.spanId === 'payments-charge')!;
+    const charge = errors.find((e) => e.spanId === 'payments-charge');
+    if (!charge) throw new Error('expected a payments-charge error span');
     expect(charge.stack).toContain('card declined');
     expect(charge.message).toBe('card declined');
   });
 
   it('treats HTTP 500 as an error even without status ERROR override', async () => {
     const { errors } = await getErrors(client());
-    const root = errors.find((e) => e.spanId === 'web-checkout-root')!;
+    const root = errors.find((e) => e.spanId === 'web-checkout-root');
+    if (!root) throw new Error('expected a web-checkout-root error span');
     expect(root.statusCode).toBe(500);
   });
 

@@ -1,4 +1,5 @@
 import { css } from 'styled-system/css';
+import { interactiveProps } from '../utils/a11y';
 import { attrContextActions, showContextMenu } from './context-menu';
 
 const attrTableStyle = css({
@@ -137,7 +138,9 @@ export function AttributeTable({
                 ) : onFilter && isFilterable(value) ? (
                   <span
                     className={attrValueFilterableStyle}
-                    onClick={() => onFilter(key, String(value))}
+                    role="button"
+                    tabIndex={0}
+                    {...interactiveProps(() => onFilter(key, String(value)))}
                     onContextMenu={(e: MouseEvent) => handleContextMenu(e, key, String(value))}
                     title={`Left-click to filter, right-click for options`}
                   >

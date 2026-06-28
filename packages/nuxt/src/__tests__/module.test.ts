@@ -12,6 +12,11 @@ vi.mock('@nuxt/kit', () => ({
 
 import moduleDefinition from '../module';
 
+// `setup` is optional on the module-definition type; capture it once (failing
+// loudly if absent) so call sites don't need non-null assertions.
+const { setup } = moduleDefinition;
+if (!setup) throw new Error('@nextdog/nuxt module definition is missing setup()');
+
 function createNuxtMock(overrides: Record<string, any> = {}) {
   return {
     options: {
@@ -45,7 +50,7 @@ describe('@nextdog/nuxt module', () => {
     const nuxt = createNuxtMock();
     const options = { serviceName: 'my-app', url: 'http://localhost:9999' };
 
-    moduleDefinition.setup!(options, nuxt as any);
+    setup(options, nuxt as any);
 
     // Should set runtimeConfig
     expect(nuxt.options.runtimeConfig.nextdog).toEqual({
@@ -62,7 +67,7 @@ describe('@nextdog/nuxt module', () => {
     const nuxt = createNuxtMock();
     const defaults = moduleDefinition.defaults as Record<string, string>;
 
-    moduleDefinition.setup!(defaults, nuxt as any);
+    setup(defaults, nuxt as any);
 
     expect(nuxt.options.runtimeConfig.nextdog).toEqual({
       url: 'http://localhost:6789',
@@ -73,7 +78,7 @@ describe('@nextdog/nuxt module', () => {
   it('no-ops in production', () => {
     const nuxt = createNuxtMock({ dev: false });
 
-    moduleDefinition.setup!({ serviceName: 'app', url: 'http://localhost:6789' }, nuxt as any);
+    setup({ serviceName: 'app', url: 'http://localhost:6789' }, nuxt as any);
 
     // Should NOT set runtimeConfig or add plugin
     expect(nuxt.options.runtimeConfig.nextdog).toBeUndefined();

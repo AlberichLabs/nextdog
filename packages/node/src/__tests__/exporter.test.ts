@@ -262,7 +262,9 @@ describe('NextDogExporter', () => {
     });
     expect(result.code).toBe(0);
 
-    const body = JSON.parse(mockFetch.mock.calls.at(-1)![1].body);
+    const lastCall = mockFetch.mock.calls.at(-1);
+    if (!lastCall) throw new Error('expected at least one fetch call');
+    const body = JSON.parse(lastCall[1].body);
     const attrs = body.spans[0].attributes;
     expect(attrs['http.response.status']).toBe(200);
     expect(attrs['http.response.body']).toBe(payload);
@@ -301,7 +303,9 @@ describe('NextDogExporter', () => {
     });
     expect(result.code).toBe(0);
 
-    const body = JSON.parse(mockFetch.mock.calls.at(-1)![1].body);
+    const lastCall = mockFetch.mock.calls.at(-1);
+    if (!lastCall) throw new Error('expected at least one fetch call');
+    const body = JSON.parse(lastCall[1].body);
     const attrs = body.spans[0].attributes;
     // Set-Cookie must NOT leak onto the span...
     expect(attrs['http.response.header.set-cookie']).toBeUndefined();

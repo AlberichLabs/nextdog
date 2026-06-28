@@ -9,4 +9,6 @@ favicon.type = 'image/svg+xml';
 favicon.href = `data:image/svg+xml,${encodeURIComponent(logoSvgString)}`;
 document.head.appendChild(favicon);
 
-render(<App />, document.getElementById('app')!);
+const root = document.getElementById('app');
+if (!root) throw new Error('nextdog: overlay mount point #app not found');
+render(<App />, root);

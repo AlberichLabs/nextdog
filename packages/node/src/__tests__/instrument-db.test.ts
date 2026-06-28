@@ -88,13 +88,13 @@ describe('instrumentPgModule', () => {
     const spans = memoryExporter.getFinishedSpans();
     const dbSpan = spans.find((s) => s.attributes['db.system'] === 'postgresql');
     const server = spans.find((s) => s.kind === SpanKind.SERVER);
-    expect(dbSpan).toBeDefined();
-    expect(server).toBeDefined();
-    expect(dbSpan!.spanContext().traceId).toBe(server!.spanContext().traceId);
+    if (!dbSpan) throw new Error('expected a postgresql db span');
+    if (!server) throw new Error('expected a SERVER span');
+    expect(dbSpan.spanContext().traceId).toBe(server.spanContext().traceId);
     const parentSpanId =
       (dbSpan as unknown as { parentSpanContext?: { spanId: string } }).parentSpanContext?.spanId ??
       (dbSpan as unknown as { parentSpanId?: string }).parentSpanId;
-    expect(parentSpanId).toBe(server!.spanContext().spanId);
+    expect(parentSpanId).toBe(server.spanContext().spanId);
   });
 
   it('marks the span as ERROR when the query rejects', async () => {

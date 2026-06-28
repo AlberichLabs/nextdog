@@ -13,6 +13,7 @@ import { useKeyboard } from '../hooks/use-keyboard';
 import type { SSEEvent } from '../hooks/use-sse';
 import { useVirtualList } from '../hooks/use-virtual-list';
 import { colHeaderStyle, colResizeStyle, emptyStyle } from '../styles/shared';
+import { interactiveProps } from '../utils/a11y';
 import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format';
 
 interface RequestGroup {
@@ -60,8 +61,12 @@ function groupByTrace(events: SSEEvent[], customColumns: CustomColumn[]): Reques
   for (const event of events) {
     const traceId = event.data.traceId;
     if (!traceId) continue;
-    if (!groups.has(traceId)) groups.set(traceId, []);
-    groups.get(traceId)!.push(event);
+    let group = groups.get(traceId);
+    if (!group) {
+      group = [];
+      groups.set(traceId, group);
+    }
+    group.push(event);
   }
 
   return [...groups.entries()]
@@ -545,7 +550,13 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
           { id: 'service', label: 'Service' },
           ...customColumns.map((col) => ({ id: col.id, label: col.label })),
         ].map((col) => (
-          <span key={col.id} className={colHeaderStyle} onClick={() => toggleSort(col.id)}>
+          <span
+            key={col.id}
+            role="button"
+            tabIndex={0}
+            className={colHeaderStyle}
+            {...interactiveProps(() => toggleSort(col.id))}
+          >
             {col.label}
             <SortIndicator field={col.id} sortBy={sortBy} sortDir={sortDir} />
             <span
@@ -585,14 +596,17 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
                 <div
                   key={group.traceId}
                   ref={j === 0 ? rowRef : undefined}
+                  role="button"
+                  tabIndex={0}
                   className={`${requestRowStyle} ${i === selectedIndex ? requestRowSelectedStyle : ''}`}
                   style={{ gridTemplateColumns: gridTemplate }}
-                  onClick={() => {
+                  {...interactiveProps(() => {
                     setSelectedIndex(i);
                     onOpenTrace?.(group.traceId);
-                  }}
+                  })}
                 >
                   <span className={timestampStyle}>{formatTime(group.timestamp)}</span>
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
                   <span
                     className={getMethodClassName(group.method)}
                     onContextMenu={(e: MouseEvent) =>
@@ -601,6 +615,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
                   >
                     {group.method}
                   </span>
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
                   <span
                     className={routeStyle}
                     onContextMenu={(e: MouseEvent) =>
@@ -610,6 +625,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
                     {group.routePath}
                   </span>
                   {group.httpCode ? (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
                     <span
                       className={getHttpStatusClassName(group.httpCode)}
                       onContextMenu={(e: MouseEvent) =>
@@ -619,6 +635,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
                       {group.httpCode}
                     </span>
                   ) : (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
                     <span
                       className={group.status === 'ERROR' ? statusErrorStyle : statusOkStyle}
                       onContextMenu={(e: MouseEvent) =>
@@ -631,6 +648,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
                   <span className={getDurationClassName(group.durationMs, percentiles)}>
                     {group.duration}
                   </span>
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
                   <span
                     className={serviceStyle}
                     onContextMenu={(e: MouseEvent) =>
@@ -640,6 +658,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
                     {group.serviceName}
                   </span>
                   {customColumns.map((col) => (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
                     <span
                       key={col.id}
                       className={customColStyle}

@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img">
+  <title>nextdog</title>
   <rect x="10" y="20" width="44" height="38" rx="16" fill="#f0efed" stroke="#333" stroke-width="1.5"/>
   <path d="M14 22L18 4L26 20" fill="#f0efed" stroke="#333" stroke-width="1.5" stroke-linejoin="round"/>
   <path d="M50 22L46 4L38 20" fill="#f0efed" stroke="#333" stroke-width="1.5" stroke-linejoin="round"/>

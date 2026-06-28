@@ -1,4 +1,5 @@
 import type { SSEEvent } from '../hooks/use-sse';
+import { interactiveProps } from '../utils/a11y';
 
 function formatTime(timestamp: number): string {
   const ago = Date.now() - timestamp;
@@ -50,7 +51,12 @@ export function EventRow({ event, selected, onClick }: EventRowProps) {
     event.data.statusCode ?? (Number(event.data.attributes['http.status_code']) || undefined);
 
   return (
-    <div class={`event-row ${selected ? 'selected' : ''}`} onClick={onClick}>
+    <div
+      class={`event-row ${selected ? 'selected' : ''}`}
+      role="button"
+      tabIndex={0}
+      {...interactiveProps(onClick)}
+    >
       <span class="timestamp">{formatTime(event.timestamp)}</span>
       <span class="service">{event.data.serviceName}</span>
       {method ? (

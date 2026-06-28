@@ -31,7 +31,12 @@ export function ThemeToggle({ theme, onCycle }: ThemeToggleProps) {
   const label = theme === 'dark' ? 'Dark' : theme === 'light' ? 'Light' : 'System';
 
   return (
-    <button className={styles.button} onClick={onCycle} title={`Theme: ${label} (click to change)`}>
+    <button
+      type="button"
+      className={styles.button}
+      onClick={onCycle}
+      title={`Theme: ${label} (click to change)`}
+    >
       <span className={styles.icon}>{icon}</span>
     </button>
   );

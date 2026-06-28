@@ -3,14 +3,14 @@ import { type AccentColorName, accentColors, lightBadgeTintAlpha } from './theme
 
 /* ── WCAG contrast helpers ────────────────────────────────────────────── */
 
-type RGB = [number, number, number];
+type Rgb = [number, number, number];
 
-function hexToRgb(hex: string): RGB {
+function hexToRgb(hex: string): Rgb {
   const h = hex.replace('#', '');
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
-function relLuminance([r, g, b]: RGB): number {
+function relLuminance([r, g, b]: Rgb): number {
   const f = (c: number) => {
     const x = c / 255;
     return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
@@ -18,7 +18,7 @@ function relLuminance([r, g, b]: RGB): number {
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
 
-function contrast(a: RGB, b: RGB): number {
+function contrast(a: Rgb, b: Rgb): number {
   const l1 = relLuminance(a);
   const l2 = relLuminance(b);
   const hi = Math.max(l1, l2);
@@ -27,12 +27,12 @@ function contrast(a: RGB, b: RGB): number {
 }
 
 /** Composite `fg` at alpha `a` over opaque `bg`. */
-function composite(fg: RGB, a: number, bg: RGB): RGB {
+function composite(fg: Rgb, a: number, bg: Rgb): Rgb {
   return [
     fg[0] * a + bg[0] * (1 - a),
     fg[1] * a + bg[1] * (1 - a),
     fg[2] * a + bg[2] * (1 - a),
-  ] as RGB;
+  ] as Rgb;
 }
 
 /* ── Surfaces under test (must mirror panda.config semanticTokens) ─────── */

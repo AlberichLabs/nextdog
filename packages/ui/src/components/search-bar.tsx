@@ -392,6 +392,8 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
   return (
     <div class={containerStyle}>
       <div class={css({ display: 'flex', gap: '2', alignItems: 'center' })}>
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: click-to-focus shim around the real <input>; keyboard users focus the input directly (parked 2026-06-28) */}
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: click-to-focus shim around the real <input>; keyboard users focus the input directly (parked 2026-06-28) */}
         <div
           class={`${inputWrapperBase} ${focused ? inputWrapperFocused : ''}`}
           style="flex:1"
@@ -399,6 +401,7 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
         >
           {/* Search icon */}
           <svg
+            aria-hidden="true"
             width="14"
             height="14"
             viewBox="0 0 24 24"
@@ -411,6 +414,7 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           {tokens.map((token, i) => (
+            // biome-ignore lint/a11y/noStaticElementInteractions: double-click-to-edit a filter token; no standard keyboard equivalent (parked 2026-06-28)
             <span
               key={i}
               class={pillColorClass(token.key, token.negated)}
@@ -426,6 +430,7 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
               {token.key && <span class={pillSepStyle}>:</span>}
               <span class={pillValStyle}>{token.value}</span>
               <button
+                type="button"
                 class={pillRemoveStyle}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -470,6 +475,7 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
         </div>
         {/* Help icon */}
         <button
+          type="button"
           class={css({
             display: 'flex',
             alignItems: 'center',
@@ -491,6 +497,7 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
           title="Filter syntax help"
         >
           <svg
+            aria-hidden="true"
             width="14"
             height="14"
             viewBox="0 0 24 24"
@@ -530,6 +537,7 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
       {showSuggestions && suggestions.length > 0 && focused && (
         <div class={suggestionsStyle}>
           {suggestions.map((s, i) => (
+            // biome-ignore lint/a11y/noStaticElementInteractions: suggestion list is keyboard-navigable via the input (arrow keys + Enter); onMouseDown selects before the input blurs (parked 2026-06-28)
             <div
               key={s}
               class={`${suggestionStyle} ${i === selectedSuggestion ? suggestionSelectedStyle : ''}`}

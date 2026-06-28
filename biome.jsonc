@@ -1,7 +1,9 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
-  // nextdog Biome config. Deliberately "recommended + a curated few",
-  // NOT the full nursery/style firehose. See rule notes inline.
+  // nextdog Biome config. Hardened: recommended + the meaningful `style` rules
+  // (incl. useNamingConvention) at ERROR, full `a11y` (recommended) at ERROR,
+  // and `nursery` surfaced as advisory (non-gating) warnings. CI gates on
+  // `pnpm lint` (errors only) so this can't rot. See rule notes inline.
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -55,64 +57,100 @@
       "preset": "recommended",
 
       "correctness": {
-        // CURATED EXTRA (off by default): flags dead bindings/params/imports.
-        // High-signal for a lib that ships into users' dev servers — dead code
-        // is weight. Caught real dead values here (see PR notes).
+        // CURATED EXTRA: flags dead bindings/params/imports. High-signal for a
+        // lib that ships into users' dev servers — dead code is weight.
         "noUnusedVariables": "error",
         "noUnusedImports": "error",
-        // CURATED EXTRA: preact/react hooks dep-array correctness. The UI
-        // overlay is Preact with hooks; stale closures here are real bugs.
+        // CURATED EXTRA: preact/react hooks dep-array correctness.
         "useExhaustiveDependencies": "warn",
-        "useHookAtTopLevel": "error"
+        "useHookAtTopLevel": "error",
+        // GUARDRAIL: PR #47 deliberately made all relative imports EXTENSIONLESS
+        // (resolved at build by tsc-alias --resolve-full-paths). This rule
+        // enforces `.js`/`.ts` import extensions and would flag every relative
+        // import, fighting that decision. Keep it OFF. (Promoted out of nursery
+        // into `correctness` in Biome 2.x; it is not on by default, but we pin
+        // it off explicitly so it can never be re-enabled implicitly.)
+        "useImportExtensions": "off"
       },
 
       "suspicious": {
-        // CURATED EXTRA: the headline behavioural rule for this repo. Flags
-        // mixing ?? with || / && without parens (precedence footgun) — exactly
-        // the event-row.tsx:47 case the QA audit raised.
+        // CURATED EXTRA: ?? mixed with || / && precedence footgun, etc.
         "noConfusingVoidType": "error",
         "noDoubleEquals": "error",
-        // Confusing/precedence-sensitive expressions:
         "noFallthroughSwitchClause": "error",
-        // noExplicitAny is in `recommended`. Kept ON for source, but it fires
-        // 25x — almost entirely in test files casting mocks. Left as a WARNING
-        // (recommended default) rather than error so it doesn't gate; the real
-        // source `any`s were narrowed where trivially safe.
+        // noExplicitAny fires ~25x, almost entirely in test files casting mocks.
+        // Left as a WARNING (recommended default) so it doesn't gate.
         "noExplicitAny": "warn"
       },
 
-      // a11y group: turned OFF as a group. The ONLY UI surface in this repo is a
-      // dev-only debug overlay injected into the user's own `next dev` process —
-      // it is not a shippable end-user product. `recommended` would emit ~93
-      // errors (useButtonType, noStaticElementInteractions, useKeyWithClickEvents,
-      // noSvgWithoutTitle) forcing large manual churn (button types, keyboard
-      // handlers, SVG <title>s) on an internal tool for no real accessibility win.
-      // This is a deliberate, parked decision — see memos/parked-questions.md
-      // (2026-06-22): confirm whether a11y should be enforced on the overlay later.
+      // a11y: now ENFORCED. The only UI surface is the dev overlay (a Preact app
+      // injected into the user's `next dev`). Recommended a11y is on at ERROR:
+      // useButtonType, noStaticElementInteractions, useKeyWithClickEvents,
+      // noSvgWithoutTitle. Interactive <div>s were given real keyboard handlers
+      // (role + tabIndex + onKeyDown), not role-only silencers.
       "a11y": {
-        "recommended": false
+        "preset": "recommended",
+        // The overlay uses keyboard-operable <div role="button"> rows, list
+        // items, and sortable headers (role + tabIndex + Enter/Space handler via
+        // utils/a11y). useSemanticElements wants those converted to native
+        // <button>/<th>, which is a structural + visual refactor on the overlay
+        // (UA button styling, grid rows, header markup) that needs a design
+        // review — not in scope for this lint-adoption PR. OFF + PARKED
+        // (memos/parked-questions.md 2026-06-28). The elements remain fully
+        // keyboard-accessible; this only suppresses the "prefer native tag" nudge.
+        "useSemanticElements": "off"
       },
 
       "style": {
-        // noNonNullAssertion is a `recommended` warning that fires ~60x on the
-        // pre-existing `map.get(x)!` / `arr[0]!` idiom throughout the codebase.
-        // It is pure style (no correctness signal) and "fixing" it would mean
-        // mechanical `?.`/guards across dozens of call sites — large churn out of
-        // scope for a lint-adoption PR. Turned OFF deliberately; parked with a11y.
-        "noNonNullAssertion": "off"
-      }
+        // The meaningful `style` rules, promoted to ERROR so they gate (anti-rot)
+        // and so the one-time cleanup actually lands. Auto-fixable ones were
+        // applied by `biome check --write`; noNonNullAssertion was hand-fixed.
+        //
+        // NOTE: the rest of the `style` group (noTernary, noMagicNumbers,
+        // useBlockStatements, noJsxLiterals, noProcessEnv, noDefaultExport, ...)
+        // is intentionally NOT enabled. Turning on the full group (`preset:all`)
+        // emits ~1000 stylistic-philosophy diagnostics and conflicts with
+        // framework conventions (adapters require default exports; the tool reads
+        // process.env intentionally). That is a separate, opinionated decision —
+        // PARKED (see memos/parked-questions.md 2026-06-28).
+        "noNonNullAssertion": "error",
+        "useConst": "error",
+        "useImportType": "error",
+        "useExportType": "error",
+        "useTemplate": "error",
+        "useNodejsImportProtocol": "error",
+        "useShorthandFunctionType": "error",
+        "useNamingConvention": {
+          "level": "error",
+          "options": {
+            // Acronyms (SSEStream, useSSE, UseSSEResult) are public API — renaming
+            // is a breaking change. strictCase:false allows consecutive uppercase
+            // in camel/pascal names so these are valid without suppressions.
+            "strictCase": false,
+            "conventions": [
+              // Object-literal & type members frequently mirror EXTERNAL wire
+              // shapes (HTTP headers, OTLP/trace attribute keys, DB columns, SQL
+              // fixtures). Enforcing camelCase on them is wrong and would change
+              // behaviour. Accept any name for these selectors.
+              { "selector": { "kind": "objectLiteralMember" }, "match": ".*" },
+              { "selector": { "kind": "typeMember" }, "match": ".*" },
+              // Allow CONSTANT_CASE for const bindings (idiomatic for module
+              // constants like TWENTY_FOUR_HOURS / BUILTIN_FIELDS).
+              {
+                "selector": { "kind": "const" },
+                "formats": ["camelCase", "PascalCase", "CONSTANT_CASE"]
+              }
+            ]
+          }
+        }
+      },
 
-      // DELIBERATELY LEFT OFF (beyond the explicit toggles above):
-      // - rest of "style" group (useNamingConvention, useImportType firehose,
-      //   useConst-everywhere): cosmetic, would force large manual churn across
-      //   125 source files for no correctness gain. Revisit in a focused PR.
-      // - "nursery" group: unstable rules, not pinnable behaviour. Off.
-      //
-      // KEPT ON as advisory WARNINGS (real signal, surfaced not gated):
-      // - correctness/useExhaustiveDependencies (12), correctness/
-      //   noUnusedFunctionParameters (4): Preact hook + dead-param hygiene.
-      // - suspicious/noExplicitAny (~20, mostly test mocks): narrow when easy.
-      // These do NOT fail `pnpm lint` (Biome gates on errors, not warnings).
+      // nursery: UNSTABLE rules, enabled as advisory WARNINGS only (preset: all
+      // emits at each rule's default severity, which for nursery is warn/info —
+      // none gate `pnpm lint`). Real signal, surfaced not enforced.
+      "nursery": {
+        "preset": "all"
+      }
     }
   },
   "assist": {

@@ -180,7 +180,7 @@ describe('Server', () => {
       headers: Record<string, string | string[] | undefined>;
     }>((resolve) => {
       const req = httpRequest(`http://localhost:${port}/v1/spans`, { method: 'OPTIONS' }, (res) => {
-        resolve({ status: res.statusCode!, headers: res.headers });
+        resolve({ status: res.statusCode ?? 0, headers: res.headers });
       });
       req.end();
     });

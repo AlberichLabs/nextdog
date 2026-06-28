@@ -1,6 +1,7 @@
 import { css } from 'styled-system/css';
 import { token } from 'styled-system/tokens';
 import type { SSEEvent } from '../hooks/use-sse';
+import { interactiveProps } from '../utils/a11y';
 import { parseNano } from '../utils/format';
 
 const COLORS = [
@@ -110,8 +111,12 @@ export function buildTimings(spans: SSEEvent[]): {
     if (s.data.spanId) spanMap.set(s.data.spanId, s);
     const pid = s.data.parentSpanId;
     if (pid) {
-      if (!childMap.has(pid)) childMap.set(pid, []);
-      childMap.get(pid)!.push(s);
+      let children = childMap.get(pid);
+      if (!children) {
+        children = [];
+        childMap.set(pid, children);
+      }
+      children.push(s);
     }
   }
 
@@ -205,7 +210,9 @@ export function Waterfall({ spans, onSpanClick }: WaterfallProps) {
             key={i}
             className={waterfallRowStyle}
             style={`padding-left:${t.depth * 16}px;${onSpanClick ? 'cursor:pointer' : ''}`}
-            onClick={() => onSpanClick?.(t.source)}
+            {...(onSpanClick
+              ? { role: 'button', tabIndex: 0, ...interactiveProps(() => onSpanClick(t.source)) }
+              : {})}
           >
             <span className={waterfallLabelStyle} title={t.name}>
               <span className={serviceNameStyle}>{t.serviceName} </span>

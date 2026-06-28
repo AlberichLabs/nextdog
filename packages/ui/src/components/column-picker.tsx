@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
+import { interactiveProps } from '../utils/a11y';
 import type { CustomColumn } from './column-types';
 
 interface ColumnPickerProps {
@@ -100,6 +101,7 @@ export function ColumnPicker({
   return (
     <>
       <button
+        type="button"
         ref={btnRef}
         onClick={() => setOpen(!open)}
         className={css({
@@ -128,6 +130,7 @@ export function ColumnPicker({
           <div className={headerStyle}>
             <span>Add column</span>
             <button
+              type="button"
               onClick={() => setOpen(false)}
               className={css({
                 background: 'none',
@@ -166,6 +169,7 @@ export function ColumnPicker({
                 <div key={col.id} className={activeItemStyle}>
                   <span className={css({ fontSize: 'sm' })}>{col.attrKey}</span>
                   <button
+                    type="button"
                     onClick={() => onRemove(col.id)}
                     className={css({
                       background: 'none',
@@ -194,10 +198,12 @@ export function ColumnPicker({
               availableAttrs.map((attr) => (
                 <div
                   key={attr}
-                  onClick={() => {
+                  role="button"
+                  tabIndex={0}
+                  {...interactiveProps(() => {
                     onAdd(attr);
                     setOpen(false);
-                  }}
+                  })}
                   className={listItemStyle}
                 >
                   {attr}

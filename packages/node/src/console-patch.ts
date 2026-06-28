@@ -130,8 +130,6 @@ export function patchConsole(url: string, serviceName: string) {
     serviceName: string;
   }> = [];
 
-  let flushTimer: ReturnType<typeof setInterval> | undefined;
-
   function flush() {
     if (buffer.length === 0) return;
     const logs = buffer.splice(0, buffer.length);
@@ -149,7 +147,7 @@ export function patchConsole(url: string, serviceName: string) {
     }).catch(() => warnLogShipFailureOnce(originalWarn));
   }
 
-  flushTimer = setInterval(flush, 500);
+  const flushTimer = setInterval(flush, 500);
   if (flushTimer.unref) flushTimer.unref();
 
   for (const level of LEVELS) {

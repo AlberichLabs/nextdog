@@ -90,6 +90,8 @@ export function ShortcutHelp() {
 
   return (
     <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: presentational modal backdrop; click-to-dismiss is a pointer-only convenience (parked 2026-06-28) */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: presentational modal backdrop; keyboard dismiss is handled by the Escape key (parked 2026-06-28) */}
       <div className={overlayStyle} onClick={() => setOpen(false)} />
       <div className={dialogStyle}>
         <div className={titleStyle}>Keyboard Shortcuts</div>

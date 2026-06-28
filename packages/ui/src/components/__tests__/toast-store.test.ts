@@ -59,7 +59,9 @@ describe('ToastStore', () => {
     expect(toasts).toHaveLength(MAX_VISIBLE);
     // Newest survive; the two oldest are evicted.
     expect(toasts[0].message).toBe('toast-2');
-    expect(toasts.at(-1)!.message).toBe(`toast-${MAX_VISIBLE + 1}`);
+    const lastToast = toasts.at(-1);
+    if (!lastToast) throw new Error('expected at least one visible toast');
+    expect(lastToast.message).toBe(`toast-${MAX_VISIBLE + 1}`);
   });
 
   it('does not auto-dismiss an evicted (capped) toast after it is gone', () => {

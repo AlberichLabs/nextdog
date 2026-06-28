@@ -43,9 +43,11 @@ describe('buildLogRowCells', () => {
     const cells = buildLogRowCells(makeLog({}), { showService: true, customColumns: [] });
     const ids = cells.map((c) => c.id);
     expect(ids).toEqual(['time', 'level', 'service', 'runtime', 'message']);
-    const runtimeCell = cells.find((c) => c.id === 'runtime')!;
+    const runtimeCell = cells.find((c) => c.id === 'runtime');
+    const messageCell = cells.find((c) => c.id === 'message');
+    if (!runtimeCell || !messageCell) throw new Error('expected runtime and message cells');
     expect(runtimeCell.value).toBe(''); // placeholder, not the message
-    expect(cells.find((c) => c.id === 'message')!.value).toContain('Fetching user profile');
+    expect(messageCell.value).toContain('Fetching user profile');
   });
 
   it('accounts for custom columns in track order', () => {
@@ -61,6 +63,8 @@ describe('buildLogRowCells', () => {
       'message',
       'custom-region',
     ]);
-    expect(cells.at(-1)!.value).toBe('us-east-1');
+    const lastCell = cells.at(-1);
+    if (!lastCell) throw new Error('expected at least one cell');
+    expect(lastCell.value).toBe('us-east-1');
   });
 });
