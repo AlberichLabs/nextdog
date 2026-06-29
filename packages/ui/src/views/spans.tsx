@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import { ColumnPicker } from '../components/column-picker';
-import type { ColumnDef, CustomColumn } from '../components/column-types';
+import type { CustomColumn } from '../components/column-types';
 import { attrContextActions, showContextMenu } from '../components/context-menu';
 import { SavedSearches, useSavedSearches } from '../components/saved-searches';
 import { SearchBar } from '../components/search-bar';
@@ -17,7 +17,6 @@ import {
   computePercentiles,
   getDurationClassName,
   getHttpStatusClassName,
-  getMethodClassName,
   statusErrorStyle,
   statusOkStyle,
 } from '../styles/row-styles';
@@ -30,40 +29,34 @@ import {
   toolbarStyle,
 } from '../styles/shared';
 import { interactiveProps } from '../utils/a11y';
-import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format';
+import { formatDurationMs, formatTime, spanDurationMs } from '../utils/format';
 
-/** Columns collapsed on narrow viewports so Route keeps its width (issue #50). */
-const REQUESTS_NARROW_COLLAPSE: ReadonlySet<string> = new Set(['duration', 'service']);
+/** Columns collapsed on narrow viewports so Name keeps its width (issue #50). */
+const SPANS_NARROW_COLLAPSE: ReadonlySet<string> = new Set(['kind', 'service']);
 
-interface RequestGroup {
-  traceId: string;
-  method: string;
-  routePath: string;
+const SPAN_COLUMNS_STORAGE_KEY = 'nextdog:span-columns';
+
+type SortField = 'time' | 'name' | 'kind' | 'service' | 'duration' | 'status' | string;
+type SortDir = 'asc' | 'desc';
+
+/** A flattened span row — one per individual span (not grouped by trace). */
+interface SpanRow {
+  event: SSEEvent;
+  traceId?: string;
+  name: string;
+  kind: string;
+  serviceName: string;
+  durationMs: number;
+  duration: string;
   status: string;
   httpCode?: number;
-  duration: string;
-  durationMs: number;
-  serviceName: string;
-  spans: SSEEvent[];
   timestamp: number;
-  /** Arbitrary extra attributes keyed by column ID */
   extraAttrs: Record<string, string>;
 }
 
-const CORE_COLUMNS: ColumnDef[] = [
-  { id: 'time', label: 'Time', core: true },
-  { id: 'method', label: 'Method', core: true },
-  { id: 'route', label: 'Route', core: true },
-  { id: 'status', label: 'Status', core: true },
-  { id: 'duration', label: 'Duration', core: true },
-  { id: 'service', label: 'Service', core: true },
-];
-
-const COLUMNS_STORAGE_KEY = 'nextdog:request-columns';
-
 function loadCustomColumns(): CustomColumn[] {
   try {
-    const saved = localStorage.getItem(COLUMNS_STORAGE_KEY);
+    const saved = localStorage.getItem(SPAN_COLUMNS_STORAGE_KEY);
     if (saved) return JSON.parse(saved);
   } catch {}
   return [];
@@ -71,70 +64,38 @@ function loadCustomColumns(): CustomColumn[] {
 
 function saveCustomColumns(cols: CustomColumn[]) {
   try {
-    localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(cols));
+    localStorage.setItem(SPAN_COLUMNS_STORAGE_KEY, JSON.stringify(cols));
   } catch {}
 }
 
-function groupByTrace(events: SSEEvent[], customColumns: CustomColumn[]): RequestGroup[] {
-  const groups = new Map<string, SSEEvent[]>();
-  for (const event of events) {
-    const traceId = event.data.traceId;
-    if (!traceId) continue;
-    let group = groups.get(traceId);
-    if (!group) {
-      group = [];
-      groups.set(traceId, group);
-    }
-    group.push(event);
+function toSpanRow(event: SSEEvent, customColumns: CustomColumn[]): SpanRow {
+  const { data } = event;
+  const durationMs = spanDurationMs(event);
+  const httpCode =
+    (data.statusCode ?? (Number(data.attributes['http.status_code']) || undefined)) || undefined;
+  const extraAttrs: Record<string, string> = {};
+  for (const col of customColumns) {
+    const val = data.attributes[col.attrKey];
+    extraAttrs[col.id] = val != null ? String(val) : '';
   }
-
-  return [...groups.entries()]
-    .map(([traceId, spans]) => {
-      const rootSpan =
-        spans.find((s) => s.data.kind === 'SERVER' && !s.data.parentSpanId) ?? spans[0];
-      const { method, route: routePath } = extractHttpMeta(
-        rootSpan.data.attributes,
-        rootSpan.data.name,
-      );
-      const statusCode = rootSpan.data.status?.code ?? 'OK';
-      const httpCode =
-        (rootSpan.data as any).statusCode ??
-        (Number(rootSpan.data.attributes['http.status_code']) || undefined);
-      const durationMs = spanDurationMs(rootSpan);
-      const duration = formatDurationMs(durationMs);
-
-      // Extract custom column values
-      const extraAttrs: Record<string, string> = {};
-      for (const col of customColumns) {
-        if (col.attrKey) {
-          const val = rootSpan.data.attributes[col.attrKey];
-          extraAttrs[col.id] = val != null ? String(val) : '';
-        }
-      }
-
-      return {
-        traceId,
-        method,
-        routePath,
-        status: statusCode,
-        httpCode,
-        duration,
-        durationMs,
-        serviceName: rootSpan.data.serviceName,
-        spans,
-        timestamp: rootSpan.timestamp,
-        extraAttrs,
-      };
-    })
-    .reverse();
+  return {
+    event,
+    traceId: data.traceId,
+    name: data.name ?? '',
+    kind: data.kind ?? '',
+    serviceName: data.serviceName,
+    durationMs,
+    duration: formatDurationMs(durationMs),
+    status: data.status?.code ?? 'OK',
+    httpCode,
+    timestamp: event.timestamp,
+    extraAttrs,
+  };
 }
 
-type SortField = 'time' | 'method' | 'route' | 'status' | 'duration' | 'service' | string;
-type SortDir = 'asc' | 'desc';
+/* ── Styles ───────────────────────────────────────────────────────────── */
 
-/* ── PandaCSS style constants ─────────────────────────────────────────── */
-
-const requestRowStyle = css({
+const spanRowStyle = css({
   display: 'grid',
   gap: '2',
   py: '1.5',
@@ -150,12 +111,10 @@ const requestRowStyle = css({
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
   },
-  _hover: {
-    background: 'surface.hover',
-  },
+  _hover: { background: 'surface.hover' },
 });
 
-const requestRowHeaderStyle = css({
+const spanRowHeaderStyle = css({
   cursor: 'default',
   fontSize: 'xs',
   fontWeight: '600',
@@ -169,29 +128,19 @@ const requestRowHeaderStyle = css({
   position: 'sticky',
   top: '0',
   zIndex: '1',
-  _hover: {
-    background: 'surface.panel',
-  },
+  _hover: { background: 'surface.panel' },
 });
 
-const requestRowSelectedStyle = css({
+const spanRowSelectedStyle = css({
   background: 'surface.hover',
   outline: '1px solid token(colors.accent)',
   outlineOffset: '-1px',
 });
 
-const timestampStyle = css({
-  color: 'fg.dim',
-});
-
-const routeStyle = css({
-  color: 'fg',
-});
-
-const serviceStyle = css({
-  color: 'blue',
-});
-
+const timestampStyle = css({ color: 'fg.dim' });
+const nameStyle = css({ color: 'fg' });
+const kindStyle = css({ color: 'fg.dim', textTransform: 'uppercase', fontSize: 'sm' });
+const serviceStyle = css({ color: 'blue' });
 const customColStyle = css({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -200,13 +149,15 @@ const customColStyle = css({
   color: 'fg.dim',
 });
 
-interface RequestsProps {
+/* ── Component ────────────────────────────────────────────────────────── */
+
+interface SpansProps {
   path?: string;
   eventsResult: UseEventsResult;
   onOpenTrace?: (traceId: string) => void;
 }
 
-export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
+export function Spans({ eventsResult, onOpenTrace }: SpansProps) {
   const {
     filtered,
     services,
@@ -226,9 +177,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     [setSearchQuery, setServices],
   );
 
-  // Record the active filter in the recent ring once it settles (debounced so
-  // we capture searches the user actually ran, not every keystroke). De-dupe
-  // and capping live in the store.
+  // Record the active filter in the recent ring once it settles (debounced).
   useEffect(() => {
     const query = searchQuery.trim();
     const svcs = [...activeServices];
@@ -236,34 +185,29 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     const t = setTimeout(() => recordRecent({ query: searchQuery, services: svcs }), 1500);
     return () => clearTimeout(t);
   }, [searchQuery, activeServices, recordRecent]);
+
   const [sortBy, setSortBy] = useState<SortField>('time');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>(loadCustomColumns);
 
-  // Live-tail / pause — mirrors the Logs view control (issue #53). The Spans
-  // view streams silently otherwise; pausing freezes the current event snapshot
-  // so new spans stop being prepended, and resuming catches back up to live.
+  // Live-tail / pause — mirrors the Traces and Logs controls (issue #53).
   const [liveTail, setLiveTail] = useState(true);
-  const [frozenEvents, setFrozenEvents] = useState<SSEEvent[]>([]);
-  const displayEvents = liveTail ? filtered : frozenEvents;
+  const [frozen, setFrozen] = useState<SSEEvent[]>([]);
+  const sourceEvents = liveTail ? filtered : frozen;
+  const spanEvents = useMemo(
+    () => sourceEvents.filter((e) => e.type === 'span'),
+    [sourceEvents],
+  );
   const toggleLiveTail = () => {
     if (liveTail) {
-      setFrozenEvents([...filtered]);
+      setFrozen([...filtered]);
       setLiveTail(false);
     } else {
       setLiveTail(true);
     }
   };
 
-  // TODO(parked 2026-06-22): `allColumns` (and its input `CORE_COLUMNS`) are an
-  // unwired column-customization feature — computed but never rendered. Biome flags
-  // it as dead; suppressed rather than ripple-deleted here to avoid a feature-removal
-  // refactor inside a lint-adoption PR. See memos/parked-questions.md.
-  // biome-ignore lint/correctness/noUnusedVariables: unwired feature, see TODO above
-  const allColumns = useMemo(() => [...CORE_COLUMNS, ...customColumns], [customColumns]);
-
-  // Built-in fields already shown as core columns
   const BUILTIN_FIELDS = new Set([
     'http.method',
     'http.request.method',
@@ -284,22 +228,18 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     'type',
   ]);
 
-  // Discover available attribute keys from the events for the column picker
   const availableAttrs = useMemo(() => {
     const keys = new Set<string>();
-    for (const e of displayEvents) {
+    for (const e of spanEvents) {
       if (e.data.attributes) {
         for (const k of Object.keys(e.data.attributes)) {
           if (!BUILTIN_FIELDS.has(k)) keys.add(k);
         }
       }
     }
-    // Remove already-added custom columns
-    for (const col of customColumns) {
-      if (col.attrKey) keys.delete(col.attrKey);
-    }
+    for (const col of customColumns) keys.delete(col.attrKey);
     return [...keys].sort();
-  }, [displayEvents, customColumns]);
+  }, [spanEvents, customColumns]);
 
   const toggleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -310,56 +250,58 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     }
   };
 
-  const groups = useMemo(() => {
-    const g = groupByTrace(displayEvents, customColumns);
+  const rows = useMemo(() => {
+    const list = spanEvents.map((e) => toSpanRow(e, customColumns));
+    // Newest-first by default to match the Traces view.
+    list.reverse();
     const dir = sortDir === 'asc' ? 1 : -1;
-    g.sort((a, b) => {
+    list.sort((a, b) => {
       switch (sortBy) {
         case 'time':
           return (a.timestamp - b.timestamp) * dir;
-        case 'method':
-          return a.method.localeCompare(b.method) * dir;
-        case 'route':
-          return a.routePath.localeCompare(b.routePath) * dir;
-        case 'status':
-          return ((a.httpCode ?? 0) - (b.httpCode ?? 0)) * dir;
-        case 'duration':
-          return (a.durationMs - b.durationMs) * dir;
+        case 'name':
+          return a.name.localeCompare(b.name) * dir;
+        case 'kind':
+          return a.kind.localeCompare(b.kind) * dir;
         case 'service':
           return a.serviceName.localeCompare(b.serviceName) * dir;
+        case 'duration':
+          return (a.durationMs - b.durationMs) * dir;
+        case 'status':
+          return ((a.httpCode ?? 0) - (b.httpCode ?? 0) || a.status.localeCompare(b.status)) * dir;
         default: {
-          // Custom column sort
           const av = a.extraAttrs[sortBy] ?? '';
           const bv = b.extraAttrs[sortBy] ?? '';
-          const an = Number(av),
-            bn = Number(bv);
+          const an = Number(av);
+          const bn = Number(bv);
           if (!Number.isNaN(an) && !Number.isNaN(bn)) return (an - bn) * dir;
           return av.localeCompare(bv) * dir;
         }
       }
     });
-    return g;
-  }, [displayEvents, sortBy, sortDir, customColumns]);
+    return list;
+  }, [spanEvents, sortBy, sortDir, customColumns]);
 
-  const percentiles = useMemo(() => computePercentiles(groups.map((g) => g.durationMs)), [groups]);
+  const percentiles = useMemo(() => computePercentiles(rows.map((r) => r.durationMs)), [rows]);
 
-  // Windowed rendering — only the visible rows (+ overscan) hit the DOM so the
-  // list stays smooth as the SSE buffer fills (issue #9).
-  const { scrollRef, onScroll, rowRef, range, scrollToIndex } = useVirtualList(groups.length);
+  const { scrollRef, onScroll, rowRef, range, scrollToIndex } = useVirtualList(rows.length);
+
+  const openRow = useCallback(
+    (row: SpanRow) => {
+      if (row.traceId) onOpenTrace?.(row.traceId);
+    },
+    [onOpenTrace],
+  );
 
   useKeyboard({
-    onNext: () => setSelectedIndex((i) => Math.min(i + 1, groups.length - 1)),
+    onNext: () => setSelectedIndex((i) => Math.min(i + 1, rows.length - 1)),
     onPrev: () => setSelectedIndex((i) => Math.max(i - 1, 0)),
     onSelect: () => {
-      if (selectedIndex >= 0 && groups[selectedIndex]) {
-        onOpenTrace?.(groups[selectedIndex].traceId);
-      }
+      if (selectedIndex >= 0 && rows[selectedIndex]) openRow(rows[selectedIndex]);
     },
     onBack: () => setSelectedIndex(-1),
   });
 
-  // Keep the keyboard-selected row visible even when it sits outside the
-  // rendered window (the row may not be mounted otherwise).
   useEffect(() => {
     if (selectedIndex >= 0) scrollToIndex(selectedIndex);
   }, [selectedIndex, scrollToIndex]);
@@ -400,26 +342,22 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
     [setSearchQuery, addColumn, removeColumn, customColumns, activeColumnKeys],
   );
 
-  // Draggable column widths
   const columnConfigs = useMemo(
     () => [
       { id: 'time', defaultWidth: 75 },
-      { id: 'method', defaultWidth: 55 },
-      { id: 'route', defaultWidth: 0 }, // 0 = flex (1fr)
-      { id: 'status', defaultWidth: 50 },
-      { id: 'duration', defaultWidth: 75 },
+      { id: 'name', defaultWidth: 0 }, // 0 = flex (1fr)
+      { id: 'kind', defaultWidth: 70 },
       { id: 'service', defaultWidth: 90 },
+      { id: 'duration', defaultWidth: 75 },
+      { id: 'status', defaultWidth: 60 },
       ...customColumns.map((col) => ({ id: col.id, defaultWidth: 120 })),
     ],
     [customColumns],
   );
 
-  // On narrow viewports collapse the lower-value duration + service columns so
-  // the Route (flex) column stays legible instead of clipping to ~0 (issue #50).
   const narrow = useIsNarrow();
-  const collapsedIds = useMemo(() => (narrow ? REQUESTS_NARROW_COLLAPSE : undefined), [narrow]);
-
-  const { gridTemplate, startResize } = useColumnResize('requests', columnConfigs, collapsedIds);
+  const collapsedIds = useMemo(() => (narrow ? SPANS_NARROW_COLLAPSE : undefined), [narrow]);
+  const { gridTemplate, startResize } = useColumnResize('spans', columnConfigs, collapsedIds);
 
   return (
     <>
@@ -435,11 +373,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
         events={filtered}
         rightSlot={
           <>
-            <SavedSearches
-              query={searchQuery}
-              services={[...activeServices]}
-              onApply={applySearch}
-            />
+            <SavedSearches query={searchQuery} services={[...activeServices]} onApply={applySearch} />
             <ColumnPicker
               customColumns={customColumns}
               availableAttrs={availableAttrs}
@@ -450,7 +384,6 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
         }
       />
 
-      {/* Live-tail / pause — mirrors the Logs view control (issue #53). */}
       <div className={toolbarStyle}>
         <button
           type="button"
@@ -459,7 +392,7 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
         >
           {liveTail ? '● Live' : '○ Paused'}
         </button>
-        <span className={css({ fontSize: 'sm', color: 'fg.dim' })}>{groups.length} requests</span>
+        <span className={css({ fontSize: 'sm', color: 'fg.dim' })}>{rows.length} spans</span>
         {!liveTail && (
           <button type="button" className={pillStyle} onClick={toggleLiveTail}>
             Resume
@@ -469,16 +402,16 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
 
       {/* Column headers — click to sort, drag edge to resize */}
       <div
-        className={`${requestRowStyle} ${requestRowHeaderStyle}`}
+        className={`${spanRowStyle} ${spanRowHeaderStyle}`}
         style={{ gridTemplateColumns: gridTemplate }}
       >
         {[
           { id: 'time', label: 'Time' },
-          { id: 'method', label: 'Method' },
-          { id: 'route', label: 'Route' },
-          { id: 'status', label: 'Status' },
-          { id: 'duration', label: 'Duration' },
+          { id: 'name', label: 'Name' },
+          { id: 'kind', label: 'Kind' },
           { id: 'service', label: 'Service' },
+          { id: 'duration', label: 'Duration' },
+          { id: 'status', label: 'Status' },
           ...customColumns.map((col) => ({ id: col.id, label: col.label })),
         ].map((col) => (
           <span
@@ -512,93 +445,85 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
           fontSize: 'md',
         })}
       >
-        {groups.length === 0 ? (
+        {rows.length === 0 ? (
           <div className={emptyStyle}>
-            {searchQuery || activeServices.size > 0
-              ? 'No requests match this filter'
-              : 'No requests yet'}
+            {searchQuery || activeServices.size > 0 ? 'No spans match this filter' : 'No spans yet'}
           </div>
         ) : (
           <>
             {range.paddingTop > 0 && <div style={{ height: `${range.paddingTop}px` }} />}
-            {groups.slice(range.startIndex, range.endIndex + 1).map((group, j) => {
+            {rows.slice(range.startIndex, range.endIndex + 1).map((row, j) => {
               const i = range.startIndex + j;
               return (
                 <div
-                  key={group.traceId}
+                  key={row.event.data.spanId ?? i}
                   ref={j === 0 ? rowRef : undefined}
                   role="button"
                   tabIndex={0}
-                  className={`${requestRowStyle} ${i === selectedIndex ? requestRowSelectedStyle : ''}`}
+                  className={`${spanRowStyle} ${i === selectedIndex ? spanRowSelectedStyle : ''}`}
                   style={{ gridTemplateColumns: gridTemplate }}
                   {...interactiveProps(() => {
                     setSelectedIndex(i);
-                    onOpenTrace?.(group.traceId);
+                    openRow(row);
                   })}
                 >
-                  <span className={timestampStyle}>{formatTime(group.timestamp)}</span>
+                  <span className={timestampStyle}>{formatTime(row.timestamp)}</span>
                   {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
                   <span
-                    className={getMethodClassName(group.method)}
-                    onContextMenu={(e: MouseEvent) =>
-                      handleCellContext(e, 'http.method', group.method)
-                    }
+                    className={nameStyle}
+                    onContextMenu={(e: MouseEvent) => handleCellContext(e, 'name', row.name)}
                   >
-                    {group.method}
+                    {row.name}
                   </span>
                   {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
                   <span
-                    className={routeStyle}
-                    onContextMenu={(e: MouseEvent) =>
-                      handleCellContext(e, 'route', group.routePath)
-                    }
+                    className={kindStyle}
+                    onContextMenu={(e: MouseEvent) => handleCellContext(e, 'kind', row.kind)}
                   >
-                    {group.routePath}
-                  </span>
-                  {group.httpCode ? (
-                    // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
-                    <span
-                      className={getHttpStatusClassName(group.httpCode)}
-                      onContextMenu={(e: MouseEvent) =>
-                        handleCellContext(e, 'statusCode', String(group.httpCode))
-                      }
-                    >
-                      {group.httpCode}
-                    </span>
-                  ) : (
-                    // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
-                    <span
-                      className={group.status === 'ERROR' ? statusErrorStyle : statusOkStyle}
-                      onContextMenu={(e: MouseEvent) =>
-                        handleCellContext(e, 'status', group.status)
-                      }
-                    >
-                      {group.status}
-                    </span>
-                  )}
-                  <span className={getDurationClassName(group.durationMs, percentiles)}>
-                    {group.duration}
+                    {row.kind}
                   </span>
                   {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
                   <span
                     className={serviceStyle}
                     onContextMenu={(e: MouseEvent) =>
-                      handleCellContext(e, 'service', group.serviceName)
+                      handleCellContext(e, 'service', row.serviceName)
                     }
                   >
-                    {group.serviceName}
+                    {row.serviceName}
                   </span>
+                  <span className={getDurationClassName(row.durationMs, percentiles)}>
+                    {row.duration}
+                  </span>
+                  {row.httpCode ? (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
+                    <span
+                      className={getHttpStatusClassName(row.httpCode)}
+                      onContextMenu={(e: MouseEvent) =>
+                        handleCellContext(e, 'statusCode', String(row.httpCode))
+                      }
+                    >
+                      {row.httpCode}
+                    </span>
+                  ) : (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
+                    <span
+                      className={row.status === 'ERROR' ? statusErrorStyle : statusOkStyle}
+                      onContextMenu={(e: MouseEvent) => handleCellContext(e, 'status', row.status)}
+                    >
+                      {row.status}
+                    </span>
+                  )}
                   {customColumns.map((col) => (
                     // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
                     <span
                       key={col.id}
                       className={customColStyle}
-                      title={group.extraAttrs[col.id]}
+                      title={row.extraAttrs[col.id]}
                       onContextMenu={(e: MouseEvent) =>
-                        handleCellContext(e, col.attrKey, group.extraAttrs[col.id])
+                        handleCellContext(e, col.attrKey, row.extraAttrs[col.id])
                       }
                     >
-                      {group.extraAttrs[col.id] || '—'}
+                      {row.extraAttrs[col.id] || '—'}
                     </span>
                   ))}
                 </div>

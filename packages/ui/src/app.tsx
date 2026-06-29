@@ -5,6 +5,7 @@ import { ContextMenuContainer } from './components/context-menu';
 import { DetailPane } from './components/detail-pane';
 import { EmptyState } from './components/empty-state';
 import { ErrorBoundary } from './components/error-boundary';
+import { FacetDrawer } from './components/facet-drawer';
 import { Logo } from './components/logo';
 import { ShortcutHelp } from './components/shortcut-help';
 import { Sparkline } from './components/sparkline';
@@ -19,12 +20,15 @@ import {
 } from './components/trace-io';
 import { useEvents } from './hooks/use-events';
 import { useSSE } from './hooks/use-sse';
+import type { SSEEvent } from './hooks/use-sse';
 import { useTheme } from './hooks/use-theme';
 import { pillStyle } from './styles/shared';
+import { toggleToken } from './utils/filter-query';
 import { enterImported, exitImported, type ImportedSession } from './utils/imported-session';
 import type { ParseResult } from './utils/trace-export';
 import { Logs } from './views/logs';
 import { Requests } from './views/requests';
+import { Spans } from './views/spans';
 import { Trace } from './views/trace';
 
 const SIDECAR_URL =
@@ -148,6 +152,22 @@ const mainStyle = css({
   flexDirection: 'column',
 });
 
+// Horizontal split: facet drawer (left) + the active view (right). The view
+// column owns its own vertical layout, so it stays a flex column that fills.
+const contentRowStyle = css({
+  flex: 1,
+  display: 'flex',
+  overflow: 'hidden',
+});
+
+const viewColumnStyle = css({
+  flex: 1,
+  minWidth: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+});
+
 export function App() {
   const [currentPath, setCurrentPath] = useState('/');
   // Imported, read-only session (issue #7). Non-null = viewing a file: the live
@@ -187,14 +207,37 @@ export function App() {
     setImported(exitImported());
   }, []);
 
-  const { spanCount, logCount } = useMemo(() => {
-    let s = 0,
-      l = 0;
+  const { spanCount, logCount, traceCount } = useMemo(() => {
+    let s = 0;
+    let l = 0;
+    const traces = new Set<string>();
     for (const e of events) {
-      e.type === 'span' ? s++ : l++;
+      if (e.type === 'span') {
+        s++;
+        if (e.data.traceId) traces.add(e.data.traceId);
+      } else {
+        l++;
+      }
     }
-    return { spanCount: s, logCount: l };
+    return { spanCount: s, logCount: l, traceCount: traces.size };
   }, [events]);
+
+  // Facet drawer state. Counts come from the view-appropriate event subset
+  // (spans for Spans/Traces, logs for Logs); the drawer is hidden on the
+  // full-screen trace detail route.
+  const onTraceDetail = currentPath.startsWith('/trace/');
+  const facetType: SSEEvent['type'] = currentPath === '/logs' ? 'log' : 'span';
+  const facetEvents = useMemo(
+    () => events.filter((e) => e.type === facetType),
+    [events, facetType],
+  );
+
+  const handleFacetToggle = useCallback(
+    (key: string, value: string) => {
+      eventsResult.setSearchQuery((prev: string) => toggleToken(prev, key, value));
+    },
+    [eventsResult],
+  );
 
   // Track last-processed index to avoid re-scanning all events
   const lastProcessedIdx = useRef(0);
@@ -284,6 +327,19 @@ export function App() {
               )}
             </a>
             <a
+              href="/traces"
+              className={`${navLinkBase} ${isActive('/traces') ? navLinkActiveIndicator : ''}`}
+            >
+              Traces
+              {traceCount > 0 && (
+                <span
+                  className={`${navBadgeStyle} ${isActive('/traces') ? navBadgeActiveStyle : ''}`}
+                >
+                  {traceCount > 999 ? '999+' : traceCount}
+                </span>
+              )}
+            </a>
+            <a
               href="/logs"
               className={`${navLinkBase} ${isActive('/logs') ? navLinkActiveIndicator : ''}`}
             >
@@ -353,19 +409,33 @@ export function App() {
               />
             )
           ) : (
-            <ErrorBoundary>
-              <Router onChange={handleRoute}>
-                <Requests path="/" eventsResult={eventsResult} onOpenTrace={openTrace} />
-                <Logs
-                  path="/logs"
-                  eventsResult={eventsResult}
-                  allEvents={events}
-                  onOpenTrace={openTrace}
-                  onFilter={handleFilter}
-                />
-                <Trace path="/trace/:traceId" events={events} />
-              </Router>
-            </ErrorBoundary>
+            <div className={contentRowStyle}>
+              {!onTraceDetail && (
+                <ErrorBoundary>
+                  <FacetDrawer
+                    events={facetEvents}
+                    query={eventsResult.searchQuery}
+                    onToggleValue={handleFacetToggle}
+                  />
+                </ErrorBoundary>
+              )}
+              <div className={viewColumnStyle}>
+                <ErrorBoundary>
+                  <Router onChange={handleRoute}>
+                    <Spans path="/" eventsResult={eventsResult} onOpenTrace={openTrace} />
+                    <Requests path="/traces" eventsResult={eventsResult} onOpenTrace={openTrace} />
+                    <Logs
+                      path="/logs"
+                      eventsResult={eventsResult}
+                      allEvents={events}
+                      onOpenTrace={openTrace}
+                      onFilter={handleFilter}
+                    />
+                    <Trace path="/trace/:traceId" events={events} />
+                  </Router>
+                </ErrorBoundary>
+              </div>
+            </div>
           )}
         </div>
 

@@ -126,6 +126,98 @@ export function composeOrExpression(rawTokens: string[]): string {
 }
 
 /**
+ * Compare two facet values the way the matcher folds case for the facets the
+ * drawer emits (service/method/status/etc. are all case-insensitive). Keeps the
+ * "is this value active" check consistent with what the matcher will actually
+ * match.
+ */
+function valuesEqual(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * Build a `key:value` query token from a facet click, quoting the value when it
+ * contains whitespace so it survives `splitParts` as a single token. The result
+ * is a token the matcher already understands (e.g. `service:web`,
+ * `statusCode:404`, `method:GET`).
+ */
+export function tokenFor(key: string, value: string): string {
+  const v = /\s/.test(value) ? `"${value}"` : value;
+  return `${key}:${v}`;
+}
+
+/**
+ * True when the query already contains a non-negated `key:value` token — i.e.
+ * the facet value is currently active. Value comparison is case-insensitive to
+ * match the matcher's folding.
+ */
+export function hasToken(query: string, key: string, value: string): boolean {
+  return parseFilterTokens(query).some(
+    (t) => !t.negated && t.key === key && valuesEqual(t.value, value),
+  );
+}
+
+/** Serialize tokens back to a query string, re-inserting `OR` between OR-joined
+ *  tokens. Inverse of `parseFilterTokens` for the subset of queries the facet
+ *  drawer produces (no free-standing `AND` keywords). */
+function serializeTokens(tokens: FilterToken[]): string {
+  const parts: string[] = [];
+  tokens.forEach((t, i) => {
+    if (i > 0 && t.operator === 'OR') parts.push('OR');
+    parts.push(t.raw);
+  });
+  return parts.join(' ');
+}
+
+/**
+ * Add or remove a `key:value` facet token, returning the new query — the single
+ * source of truth for what a facet click does to the search bar.
+ *
+ * - If the value is already present (non-negated), it is removed. Removing the
+ *   head of an OR group promotes the next member to a fresh group head so the
+ *   grammar never dangles a leading `OR`.
+ * - Otherwise it is added. If a non-negated token for the same key already
+ *   exists, the new token is OR-joined into that key's group (Datadog's
+ *   same-facet-OR semantics: `service:web OR service:api`); different keys are
+ *   AND-joined (a new group).
+ */
+export function toggleToken(query: string, key: string, value: string): string {
+  const tokens = parseFilterTokens(query);
+  const idx = tokens.findIndex(
+    (t) => !t.negated && t.key === key && valuesEqual(t.value, value),
+  );
+
+  if (idx >= 0) {
+    const removed = tokens[idx];
+    const next = tokens.slice();
+    next.splice(idx, 1);
+    // If we removed a group head and the following token OR-joined it, promote
+    // that token to a fresh head so it isn't left dangling as a leading `OR`.
+    if (removed.operator !== 'OR' && next[idx]?.operator === 'OR') {
+      next[idx] = { ...next[idx], operator: 'AND' };
+    }
+    return serializeTokens(next);
+  }
+
+  const raw = tokenFor(key, value);
+
+  // OR-merge into an existing same-key group if one exists, keeping the new
+  // token contiguous with the rest of that key's values.
+  let lastSame = -1;
+  for (let i = 0; i < tokens.length; i++) {
+    if (!tokens[i].negated && tokens[i].key === key) lastSame = i;
+  }
+  if (lastSame >= 0) {
+    const newToken: FilterToken = { raw, negated: false, key, value, operator: 'OR' };
+    const next = tokens.slice();
+    next.splice(lastSame + 1, 0, newToken);
+    return serializeTokens(next);
+  }
+
+  return query ? `${query} ${raw}` : raw;
+}
+
+/**
  * Normalize a typed expression before it is committed to the query: collapse
  * runs of whitespace and drop a dangling trailing/leading `OR` or `AND` so the
  * committed string is exactly what the matcher will group.
