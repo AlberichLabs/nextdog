@@ -36,9 +36,10 @@ type ReplayState =
   | { phase: 'error'; data: ReplayError };
 
 /**
- * Editable copy of the request, shown before sending so the user can paste an
- * Authorization header (stripped at capture) or tweak anything else. Lives only
- * in component state — nothing here is persisted (issue #60).
+ * Editable copy of the request, shown before sending so the user can override
+ * the captured Authorization header (e.g. when it has expired) or tweak anything
+ * else. The captured token is pre-filled here; any edit lives only in component
+ * state and is never persisted (issue #60).
  */
 interface EditorState {
   loading: boolean; // fetching the prefill from the sidecar
@@ -263,8 +264,8 @@ export function ReplayButton({ event }: ReplayButtonProps) {
   }, [spanId]);
 
   // Open the editor: ask the sidecar to reconstruct the captured request (method,
-  // URL, non-auth headers, body) so we can pre-fill the form. prepareOnly means
-  // it is NOT sent — the user reviews/edits first.
+  // URL, headers incl. the captured Authorization, body) so we can pre-fill the
+  // form. prepareOnly means it is NOT sent — the user reviews/edits first.
   const openEditor = useCallback(async () => {
     setState({ phase: 'idle' });
     setEditor({
@@ -424,13 +425,13 @@ export function ReplayButton({ event }: ReplayButtonProps) {
                 <input
                   className={textInput}
                   value={editor.authorization}
-                  placeholder="e.g. Bearer eyJ… (not stored — sent only with this replay)"
+                  placeholder="e.g. Bearer eyJ… (overrides the captured token for this replay)"
                   onInput={(e) => updateEditor({ authorization: e.currentTarget.value })}
                 />
               </label>
               <div className={editorHint}>
-                Auth tokens are stripped at capture and never stored. Paste one here to replay
-                authenticated requests; it lives only for this send.
+                The captured token is pre-filled and one-click Replay re-sends it. Override it here
+                (e.g. if it has expired); your edit lives only for this send and is never stored.
               </div>
               <label className={fieldLabel}>
                 Other headers (one “Key: Value” per line)

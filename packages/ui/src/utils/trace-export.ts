@@ -15,6 +15,7 @@
 // ---------------------------------------------------------------------------
 
 import type { SSEEvent } from '../hooks/use-sse';
+import { redactEventsForExport } from './redact';
 
 /** Marker that identifies a file as a NextDog export. */
 export const EXPORT_MARKER = 'nextdog-trace-export';
@@ -47,17 +48,21 @@ export type ParseResult =
 
 /**
  * Serialize events into a self-contained export string (pretty-printed JSON).
- * The events are stored verbatim so import is a pure inverse of export.
+ * Export is an egress boundary, so events are first routed through the shared
+ * redactor ({@link redactEventsForExport}) — credential headers captured for
+ * Replay are stripped by default so tokens never leave the machine (#60).
+ * Everything else round-trips verbatim, so import remains a pure inverse.
  */
 export function serializeExport(events: SSEEvent[], meta: ExportMeta): string {
+  const safeEvents = redactEventsForExport(events);
   const envelope: ExportEnvelope = {
     nextdog: EXPORT_MARKER,
     version: EXPORT_VERSION,
     exportedAt: Date.now(),
     kind: meta.kind,
     ...(meta.traceId ? { traceId: meta.traceId } : {}),
-    eventCount: events.length,
-    events,
+    eventCount: safeEvents.length,
+    events: safeEvents,
   };
   return JSON.stringify(envelope, null, 2);
 }

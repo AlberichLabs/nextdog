@@ -16,4 +16,5 @@ export {
   getRequestContext,
   requestContextStorage,
 } from './request-context';
+export { SENSITIVE_HEADERS } from './sensitive-headers';
 export { ensureSidecar } from './sidecar';

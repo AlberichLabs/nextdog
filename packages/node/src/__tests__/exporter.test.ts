@@ -271,7 +271,10 @@ describe('NextDogExporter', () => {
     expect(attrs['http.response.header.content-type']).toContain('application/json');
   });
 
-  it('strips Set-Cookie from response headers on the span (credential leak)', async () => {
+  // store-but-don't-egress (issue #60): credential headers are captured RAW so
+  // one-click Replay can re-authenticate. They are redacted at export/MCP, not
+  // at capture. The sidecar + dashboard are localhost, so this is not egress.
+  it('captures Set-Cookie verbatim on the span (store-but-dont-egress)', async () => {
     startRequestCapture();
 
     const secret = 'sid=SUPER_SECRET_SESSION; Path=/; HttpOnly';
@@ -307,11 +310,57 @@ describe('NextDogExporter', () => {
     if (!lastCall) throw new Error('expected at least one fetch call');
     const body = JSON.parse(lastCall[1].body);
     const attrs = body.spans[0].attributes;
-    // Set-Cookie must NOT leak onto the span...
-    expect(attrs['http.response.header.set-cookie']).toBeUndefined();
-    // ...and its secret value must not appear under any attribute.
-    expect(JSON.stringify(attrs)).not.toContain('SUPER_SECRET_SESSION');
-    // Non-sensitive response headers still flow through.
+    // Set-Cookie is now STORED raw (redaction happens at the egress boundary).
+    expect(attrs['http.response.header.set-cookie']).toBe(secret);
+    // Non-sensitive response headers flow through unchanged.
     expect(attrs['http.response.header.x-safe']).toBe('visible');
+  });
+
+  it('captures request credential headers verbatim so Replay can re-auth (#60)', async () => {
+    startRequestCapture();
+
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"ok":true}');
+    });
+    await new Promise<void>((r) => server.listen(0, r));
+    const { port } = server.address() as { port: number };
+
+    await new Promise<void>((resolve, reject) => {
+      http
+        .request(
+          {
+            host: '127.0.0.1',
+            port,
+            method: 'GET',
+            path: '/api/secure',
+            headers: {
+              Authorization: 'Bearer s3cret-token',
+              'X-Api-Key': 'key-123',
+            },
+          },
+          (res) => {
+            res.on('data', () => {});
+            res.on('end', resolve);
+          },
+        )
+        .on('error', reject)
+        .end();
+    });
+    await new Promise<void>((r) => server.close(() => r()));
+
+    const exporter = new NextDogExporter('http://localhost:6789');
+    const result = await new Promise<{ code: number }>((resolve) => {
+      exporter.export([makeServerSpan('GET', '/api/secure') as any], (r) => resolve(r));
+    });
+    expect(result.code).toBe(0);
+
+    const lastCall = mockFetch.mock.calls.at(-1);
+    if (!lastCall) throw new Error('expected at least one fetch call');
+    const body = JSON.parse(lastCall[1].body);
+    const attrs = body.spans[0].attributes;
+    // Tokens are kept verbatim on disk so Replay re-authenticates.
+    expect(attrs['http.request.header.authorization']).toBe('Bearer s3cret-token');
+    expect(attrs['http.request.header.x-api-key']).toBe('key-123');
   });
 });

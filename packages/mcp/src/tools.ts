@@ -10,16 +10,28 @@
  *
  * READ-ONLY: nothing here mutates sidecar state.
  *
- * PRIVACY: these tools surface whatever the sidecar already returns — including
- * any captured request/response bodies and query params held in span attributes.
- * Redaction follows the project's (pending) telemetry-privacy policy; this layer
- * does not add or remove redaction. See README.
+ * PRIVACY (issue #60): the MCP server is an egress surface — its output leaves
+ * the machine to the AI agent — so every event is routed through the shared
+ * egress redactor ({@link redactEvents}) at one chokepoint, {@link loadEvents},
+ * before it becomes tool output. The sidecar stores credential headers verbatim
+ * for Replay; they are stripped here by default so tokens never reach the agent.
+ * Every tool MUST fetch via `loadEvents`, never `client.events` directly.
  */
-import type { SidecarClient } from './client';
+import type { EventQuery, SidecarClient } from './client';
 import { matchesQuery } from './matcher';
+import { redactEvents } from './redact';
 import { isLog, isSpan, type SidecarEvent, type SpanEvent } from './types';
 
 const DEFAULT_LIMIT = 50;
+
+/**
+ * The ONLY way tools read events: fetch from the sidecar, then redact credential
+ * headers before anything leaves the machine. Centralizing this is the #60
+ * invariant — a new tool that calls `loadEvents` inherits redaction for free.
+ */
+async function loadEvents(client: SidecarClient, query: EventQuery = {}): Promise<SidecarEvent[]> {
+  return redactEvents(await client.events(query));
+}
 
 function route(event: SidecarEvent): string | undefined {
   const a = event.data.attributes;
@@ -107,7 +119,7 @@ export async function listRecentTraces(
   const since =
     args.withinMinutes !== undefined ? Date.now() - args.withinMinutes * 60_000 : undefined;
 
-  const events = await client.events({ type: 'span', service: args.service, since });
+  const events = await loadEvents(client, { type: 'span', service: args.service, since });
   const spans = events.filter(isSpan);
   const byTrace = groupByTrace(spans);
 
@@ -235,7 +247,7 @@ export async function getTrace(
   client: SidecarClient,
   args: { traceId: string },
 ): Promise<GetTraceResult> {
-  const events = (await client.events({ traceId: args.traceId })).filter(
+  const events = (await loadEvents(client, { traceId: args.traceId })).filter(
     (e) => e.data.traceId === args.traceId,
   );
   const spans = events.filter(isSpan);
@@ -275,7 +287,7 @@ export async function searchLogs(
   client: SidecarClient,
   args: SearchLogsArgs = {},
 ): Promise<{ results: SidecarEvent[]; count: number }> {
-  const events = await client.events(args.includeSpans ? {} : { type: 'log' });
+  const events = await loadEvents(client, args.includeSpans ? {} : { type: 'log' });
   const filter = args.filter ?? '';
   const matched = events
     .filter((e) => matchesQuery(e, filter))
@@ -314,7 +326,7 @@ export async function getErrors(
 ): Promise<{ errors: ErrorSpanSummary[] }> {
   const since =
     args.withinMinutes !== undefined ? Date.now() - args.withinMinutes * 60_000 : undefined;
-  const events = await client.events({ type: 'span', service: args.service, since });
+  const events = await loadEvents(client, { type: 'span', service: args.service, since });
   const errors = events
     .filter(isSpan)
     .filter(isErrorSpan)

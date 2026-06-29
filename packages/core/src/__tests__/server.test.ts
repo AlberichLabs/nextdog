@@ -391,9 +391,11 @@ describe('Server replay — editable headers for auth (#60)', () => {
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  // Seed a captured SERVER span pointing at the target. Note: NO authorization
-  // header — it was stripped at capture (the privacy posture behind #60).
-  async function seedSpan() {
+  // Seed a captured SERVER span pointing at the target. By default NO
+  // authorization header is present (an unauthenticated capture). Pass an
+  // `authorization` to simulate the store-but-don't-egress posture (#60), where
+  // the token is captured verbatim and available to one-click Replay.
+  async function seedSpan(authorization?: string) {
     await fetch(`http://localhost:${port}/v1/spans`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -412,6 +414,7 @@ describe('Server replay — editable headers for auth (#60)', () => {
               'http.host': `localhost:${targetPort}`,
               'http.scheme': 'http',
               'http.request.header.content-type': 'application/json',
+              ...(authorization ? { 'http.request.header.authorization': authorization } : {}),
               'http.request.body': '{"title":"updated"}',
             },
             status: { code: 'OK' },
@@ -456,7 +459,41 @@ describe('Server replay — editable headers for auth (#60)', () => {
 
     expect(res.status).toBe(200); // the replay itself succeeded
     const data = await res.json();
-    expect(data.status).toBe(401); // endpoint rejected — no token, as before
+    expect(data.status).toBe(401); // endpoint rejected — this capture had no token
+  });
+
+  it('one-click replay re-sends the captured token and authenticates (200) (#60)', async () => {
+    server = await createServer({ port, dataDir });
+    await seedSpan('Bearer s3cret-token'); // token captured verbatim, store-but-dont-egress
+
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spanId: 'span-auth' }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // The stored token reached the endpoint server-side → authenticated.
+    expect(data.status).toBe(200);
+    expect(JSON.parse(data.body).ok).toBe(true);
+  });
+
+  it('prepareOnly pre-fills the captured Authorization for override (#60)', async () => {
+    server = await createServer({ port, dataDir });
+    await seedSpan('Bearer s3cret-token');
+
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spanId: 'span-auth', prepareOnly: true }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // Editor pre-fills the captured token so an expired one can be overridden.
+    expect(data.headers.authorization).toBe('Bearer s3cret-token');
+    expect(data.status).toBeUndefined(); // not sent
   });
 
   it('edited replay with a pasted Authorization header reaches the endpoint authenticated (200)', async () => {

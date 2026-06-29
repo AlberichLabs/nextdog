@@ -113,11 +113,16 @@ Restart the client; the four NextDog tools then appear to the agent.
 ## Privacy
 
 These tools surface **whatever the sidecar already returns**, which may include
-captured request/response bodies and query params held in span attributes. Body and
-param redaction follows NextDog's project-wide telemetry-privacy policy (pending) —
-**this MCP layer adds no redaction of its own and removes none**. If your captured
-telemetry contains secrets, that exposure exists in the dashboard today and reaches
-the agent here the same way.
+captured request/response bodies and query params held in span attributes.
+
+**Credential headers are redacted by default.** The MCP server is an egress
+surface, so every event it returns is routed through a shared redactor that strips
+credential-bearing headers (`authorization`, `proxy-authorization`, `x-api-key`,
+`x-auth-token`, `cookie`, `set-cookie`). NextDog stores those headers locally so
+one-click **Replay** can re-authenticate, but they never reach the agent. Other
+captured content — bodies, SQL, non-credential headers, query params — is surfaced
+as-is: if it contains secrets, that exposure exists in the dashboard today and
+reaches the agent here the same way.
 
 ## Programmatic use
 

@@ -83,11 +83,14 @@ interface ReplayRequest {
 }
 
 /**
- * Rebuild the original HTTP request from a captured SERVER span. Note that
- * credential headers (Authorization, cookies' session secrets, etc.) were
- * stripped at capture (see @nextdog/node exporter SKIP_HEADERS), so the result
- * is intentionally auth-free — the user re-supplies any token at replay time
- * (issue #60).
+ * Rebuild the original HTTP request from a captured SERVER span. Credential
+ * headers (Authorization, X-Api-Key, cookies, …) are now captured and stored
+ * VERBATIM (store-but-don't-egress, issue #60), so the reconstructed request
+ * carries them and one-click Replay re-authenticates against authed endpoints.
+ * The raw token only ever flows disk → the original endpoint here, server-side;
+ * it never reaches trace export or the MCP server (both redact it). For expired
+ * tokens, the Edit & Replay editor pre-fills the captured value and lets the
+ * user override it.
  */
 function buildReplayRequest(span: Span): ReplayRequest {
   const attrs = span.attributes;

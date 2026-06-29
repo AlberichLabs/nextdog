@@ -2,6 +2,8 @@ import { type ExportResult, ExportResultCode } from '@opentelemetry/core';
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace-node';
 import { getRequestMetadata } from './request-capture';
 
+export { SENSITIVE_HEADERS } from './sensitive-headers';
+
 /**
  * Warn at most once if telemetry export to the sidecar starts failing. Without
  * this, a wrong URL or a down sidecar shows up only as "no data in the
@@ -20,19 +22,14 @@ function warnExportFailureOnce(): void {
 }
 
 /**
- * Headers to never capture. Request cookies ARE kept (under http.request.cookies)
- * because they're needed for replay, but credential-bearing headers — including
- * Set-Cookie on the response side, which mints session secrets — are stripped so
- * they never ship to the sidecar or render in the dashboard.
+ * Capture posture (issue #60): **store-but-don't-egress**. All headers —
+ * including credential-bearing ones (`authorization`, `x-api-key`, cookies,
+ * `set-cookie`, …) — are captured and stored VERBATIM so one-click Replay can
+ * re-authenticate against your own endpoints. The sidecar and dashboard are
+ * localhost, so this is not egress. Those headers are redacted only at the
+ * egress boundary (trace export + the MCP server), never stripped at capture.
+ * The canonical list of what's sensitive lives in `./sensitive-headers`.
  */
-const SKIP_HEADERS = new Set([
-  'authorization',
-  'proxy-authorization',
-  'x-api-key',
-  'x-auth-token',
-  'set-cookie',
-  'set-cookie2',
-]);
 
 const SPAN_KIND_MAP: Record<number, string> = {
   0: 'INTERNAL',
@@ -74,9 +71,9 @@ function convertSpan(span: ReadableSpan) {
     );
     const metadata = getRequestMetadata(reqMethod, reqUrl);
     if (metadata) {
-      // Add request headers as http.request.header.{name}
+      // Add request headers as http.request.header.{name}. Credential headers are
+      // captured verbatim (store-but-don't-egress) — redaction happens at export.
       for (const [key, value] of Object.entries(metadata.headers)) {
-        if (SKIP_HEADERS.has(key.toLowerCase())) continue;
         attributes[`http.request.header.${key.toLowerCase()}`] = value;
       }
 
@@ -97,7 +94,6 @@ function convertSpan(span: ReadableSpan) {
       }
       if (metadata.responseHeaders) {
         for (const [key, value] of Object.entries(metadata.responseHeaders)) {
-          if (SKIP_HEADERS.has(key.toLowerCase())) continue;
           attributes[`http.response.header.${key.toLowerCase()}`] = value;
         }
       }

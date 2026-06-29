@@ -2,10 +2,10 @@
  * Header (de)serialization for the Replay editor.
  *
  * The editor shows non-auth headers as a "Key: Value" textarea (Postman-style)
- * plus a dedicated Authorization field. These helpers convert between that text
- * form and a plain headers object. Nothing here is persisted — the parsed
- * headers (including any pasted Authorization) live only for the outgoing replay
- * request (issue #60).
+ * plus a dedicated Authorization field pre-filled with the captured token. These
+ * helpers convert between that text form and a plain headers object. Nothing
+ * here is persisted — any edit to the headers (including the Authorization) lives
+ * only for the outgoing replay request (issue #60).
  */
 
 /** Case-insensitive header names the editor surfaces in its dedicated field. */
@@ -39,9 +39,9 @@ export function formatHeaderLines(headers: Record<string, string>): string {
 
 /**
  * Split a prefilled headers object into the dedicated Authorization value and
- * the remaining headers (case-insensitive on the auth key). Capture strips auth
- * headers, so `authorization` is normally empty — but we still handle it
- * defensively so a prefilled token would land in its own field, not the textarea.
+ * the remaining headers (case-insensitive on the auth key). The captured token
+ * is now stored, so `authorization` is normally present and lands in its own
+ * field (not the textarea); it is simply empty for unauthenticated captures.
  */
 export function splitAuthHeader(headers: Record<string, string>): {
   authorization: string;
