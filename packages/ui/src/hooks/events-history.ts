@@ -29,7 +29,13 @@ export function eventKey(event: SSEEvent): string {
   return `log:${event.data.serviceName}:${ts}:${event.data.message ?? ''}`;
 }
 
-function timestampOf(event: SSEEvent): number {
+/**
+ * The wall-clock timestamp (ms) of an event. Prefers the record's own
+ * `data.timestamp` (the ingest time the sidecar persisted) and falls back to the
+ * SSE envelope timestamp. Shared with the time-window filter so history paging
+ * and time-range scoping agree on what "when" means for an event.
+ */
+export function timestampOf(event: SSEEvent): number {
   return event.data.timestamp ?? event.timestamp ?? 0;
 }
 

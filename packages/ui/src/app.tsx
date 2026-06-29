@@ -11,6 +11,7 @@ import { ShortcutHelp } from './components/shortcut-help';
 import { detectSlowRequestToast } from './components/slow-request-toast';
 import { Sparkline } from './components/sparkline';
 import { ThemeToggle } from './components/theme-toggle';
+import { TimeRangePicker } from './components/time-range-picker';
 import { ToastContainer, useToasts } from './components/toast';
 import {
   ExportButton,
@@ -22,6 +23,7 @@ import { useEvents } from './hooks/use-events';
 import type { SSEEvent } from './hooks/use-sse';
 import { useSSE } from './hooks/use-sse';
 import { useTheme } from './hooks/use-theme';
+import { useTimeRange } from './hooks/use-time-range';
 import { pillStyle } from './styles/shared';
 import { toggleToken } from './utils/filter-query';
 import { enterImported, exitImported, type ImportedSession } from './utils/imported-session';
@@ -189,8 +191,14 @@ export function App() {
     loadingOlder,
     hasMoreHistory,
   } = useSSE(SIDECAR_URL, !isImported);
+  // Time-range filter, backed by the sidecar's 24h FileStore history. Scopes the
+  // event set the search query + facets then operate on. Disabled while an
+  // imported, read-only trace is open (it has its own fixed snapshot).
+  const timeRange = useTimeRange(SIDECAR_URL, liveEvents, !isImported);
   // Imported events flow through the exact same views/components as live data.
-  const events = isImported ? imported.events : liveEvents;
+  // Otherwise the active time window scopes the live buffer (and pulls history
+  // from disk for a relative/custom window).
+  const events = isImported ? imported.events : timeRange.events;
   const eventsResult = useEvents(events);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const { theme, cycle } = useTheme();
@@ -247,6 +255,9 @@ export function App() {
 
   // Track last-processed index to avoid re-scanning all events
   const lastProcessedIdx = useRef(0);
+  // The window selection in effect at the last toast scan. Switching windows
+  // swaps the event set wholesale, which must not retroactively re-fire toasts.
+  const prevSelectionRef = useRef(timeRange.selection);
   // The moment this dashboard started watching. Slow-request toasts are gated to
   // requests that completed at/after this time, so the FileStore history replayed
   // on every load/refresh doesn't re-fire stale toasts (issue #51).
@@ -259,12 +270,19 @@ export function App() {
       lastProcessedIdx.current = events.length;
       return;
     }
+    // A time-window switch reshuffles `events` wholesale — treat it as a fresh
+    // baseline rather than a stream of "new" events, so we don't replay toasts.
+    if (prevSelectionRef.current !== timeRange.selection) {
+      prevSelectionRef.current = timeRange.selection;
+      lastProcessedIdx.current = events.length;
+      return;
+    }
     for (let i = lastProcessedIdx.current; i < events.length; i++) {
       const toast = detectSlowRequestToast(events[i], watchStartMs.current);
       if (toast) addToast(toast);
     }
     lastProcessedIdx.current = events.length;
-  }, [events, addToast, isImported]);
+  }, [events, addToast, isImported, timeRange.selection]);
 
   const handleRoute = useCallback((e: { url: string }) => {
     setCurrentPath(e.url);
@@ -360,18 +378,32 @@ export function App() {
             </a>
           </nav>
           <div className={headerRightStyle}>
-            <Sparkline events={events} />
-            {!isImported && events.length > 0 && hasMoreHistory && (
-              <button
-                type="button"
-                className={pillStyle}
-                onClick={loadOlder}
-                disabled={loadingOlder}
-                title="Load older history from disk (beyond the live buffer)"
-              >
-                {loadingOlder ? 'Loading…' : 'Load older'}
-              </button>
+            {!isImported && (
+              <TimeRangePicker
+                selection={timeRange.selection}
+                onChange={timeRange.setSelection}
+                live={timeRange.live}
+                loading={timeRange.loading}
+              />
             )}
+            <Sparkline events={events} />
+            {/* "Load older" pages the live buffer; only meaningful in the
+                unbounded "All" window — a bounded window already loads its own
+                range from disk. */}
+            {!isImported &&
+              timeRange.selection.kind === 'all' &&
+              events.length > 0 &&
+              hasMoreHistory && (
+                <button
+                  type="button"
+                  className={pillStyle}
+                  onClick={loadOlder}
+                  disabled={loadingOlder}
+                  title="Load older history from disk (beyond the live buffer)"
+                >
+                  {loadingOlder ? 'Loading…' : 'Load older'}
+                </button>
+              )}
             {!isImported && eventsResult.filtered.length > 0 && (
               <ExportButton
                 events={eventsResult.filtered}
