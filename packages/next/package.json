@@ -55,10 +55,19 @@
   },
   "keywords": [
     "nextjs",
+    "next",
     "observability",
-    "tracing",
     "opentelemetry",
+    "otel",
+    "tracing",
     "devtools",
-    "instrumentation"
+    "developer-tools",
+    "dashboard",
+    "logging",
+    "debug",
+    "instrumentation",
+    "dev-observability",
+    "local",
+    "trace-waterfall"
   ]
 }

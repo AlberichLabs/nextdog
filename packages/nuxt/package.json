@@ -49,10 +49,18 @@
   },
   "keywords": [
     "nuxt",
+    "nuxt3",
+    "vue",
     "observability",
-    "tracing",
     "opentelemetry",
+    "otel",
+    "tracing",
     "devtools",
-    "instrumentation"
+    "dashboard",
+    "logging",
+    "debug",
+    "instrumentation",
+    "dev-observability",
+    "local"
   ]
 }

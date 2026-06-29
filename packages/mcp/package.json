@@ -40,11 +40,13 @@
   "keywords": [
     "mcp",
     "model-context-protocol",
-    "nextjs",
+    "ai",
     "observability",
+    "opentelemetry",
     "tracing",
-    "devtools",
     "claude",
-    "cursor"
+    "cursor",
+    "devtools",
+    "read-only"
   ]
 }

@@ -53,10 +53,17 @@
   "keywords": [
     "sveltekit",
     "svelte",
+    "vite",
     "observability",
-    "tracing",
     "opentelemetry",
+    "otel",
+    "tracing",
     "devtools",
-    "instrumentation"
+    "dashboard",
+    "logging",
+    "debug",
+    "instrumentation",
+    "dev-observability",
+    "local"
   ]
 }
