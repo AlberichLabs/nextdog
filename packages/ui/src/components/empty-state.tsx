@@ -2,7 +2,7 @@ import { css } from 'styled-system/css';
 import { selectEmptyState, sidecarLabel } from './empty-state-logic';
 
 /** Canonical setup docs (repo README Quick Start). */
-const SETUP_GUIDE_URL = 'https://github.com/cscherban/NextDog#readme';
+const SETUP_GUIDE_URL = 'https://github.com/AlberichLabs/nextdog#readme';
 
 interface EmptyStateProps {
   /** SSE connection established. */

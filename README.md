@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/cscherban/NextDog/main/packages/ui/src/components/logo-readme.svg" width="80" />
+  <img src="https://raw.githubusercontent.com/AlberichLabs/nextdog/main/packages/ui/src/components/logo-readme.svg" width="80" />
 </p>
 
 <h1 align="center">NextDog</h1>
@@ -12,12 +12,12 @@
   <a href="https://www.npmjs.com/package/@nextdog/next"><img src="https://img.shields.io/npm/v/@nextdog/next.svg?label=%40nextdog%2Fnext&color=2dd4bf" alt="@nextdog/next" /></a>
   <a href="https://www.npmjs.com/package/@nextdog/core"><img src="https://img.shields.io/npm/v/@nextdog/core.svg?label=%40nextdog%2Fcore&color=2dd4bf" alt="@nextdog/core" /></a>
   <a href="https://www.npmjs.com/package/@nextdog/ui"><img src="https://img.shields.io/npm/v/@nextdog/ui.svg?label=%40nextdog%2Fui&color=2dd4bf" alt="@nextdog/ui" /></a>
-  <a href="https://github.com/cscherban/NextDog/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license" /></a>
+  <a href="https://github.com/AlberichLabs/nextdog/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license" /></a>
 </p>
 
 ---
 
-> Found a bug or have feedback? [Open an issue](https://github.com/cscherban/NextDog/issues/new/choose).
+> Found a bug or have feedback? [Open an issue](https://github.com/AlberichLabs/nextdog/issues/new/choose).
 
 ## What is NextDog?
 
@@ -282,7 +282,7 @@ NextDog is **completely inert in production**:
 ## Development
 
 ```bash
-git clone https://github.com/cscherban/NextDog.git
+git clone https://github.com/AlberichLabs/nextdog.git
 cd NextDog
 pnpm install
 pnpm build

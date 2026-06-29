@@ -99,7 +99,7 @@ const DB_STATEMENTS = {
 
 const OUTBOUND = [
   { method: 'POST', url: 'https://api.stripe.com/v1/charges', status: 200 },
-  { method: 'GET', url: 'https://api.github.com/repos/cscherban/NextDog', status: 200 },
+  { method: 'GET', url: 'https://api.github.com/repos/AlberichLabs/nextdog', status: 200 },
   { method: 'GET', url: 'https://api.weather.example.com/v1/forecast', status: 503 },
   { method: 'POST', url: 'https://hooks.slack.com/services/T000/B000/xxxx', status: 200 },
 ];

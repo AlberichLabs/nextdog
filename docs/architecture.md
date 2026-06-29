@@ -209,10 +209,10 @@ toggle, and an empty state.
 These are tracked as open issues and inform the [roadmap](./roadmap.md):
 
 - The dashboard reloads from the RingBuffer's recent window on open; browsing the
-  full on-disk history is not wired up yet ([#8](https://github.com/cscherban/NextDog/issues/8)).
+  full on-disk history is not wired up yet ([#8](https://github.com/AlberichLabs/nextdog/issues/8)).
 - The service registry isn't rebuilt from the FileStore after a sidecar restart
-  ([#16](https://github.com/cscherban/NextDog/issues/16)).
+  ([#16](https://github.com/AlberichLabs/nextdog/issues/16)).
 - Outbound `fetch`/HTTP and DB query spans don't yet appear in the waterfall
-  ([#4](https://github.com/cscherban/NextDog/issues/4), [#5](https://github.com/cscherban/NextDog/issues/5)).
+  ([#4](https://github.com/AlberichLabs/nextdog/issues/4), [#5](https://github.com/AlberichLabs/nextdog/issues/5)).
 - The filter bar commits AND-only via pills; OR composition is dropped
-  ([#21](https://github.com/cscherban/NextDog/issues/21)).
+  ([#21](https://github.com/AlberichLabs/nextdog/issues/21)).
