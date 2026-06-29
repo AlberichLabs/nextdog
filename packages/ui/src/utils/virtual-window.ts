@@ -65,6 +65,40 @@ export function computeRange(
 }
 
 /**
+ * Largest row-height delta (px) treated as sub-pixel rounding noise rather than a
+ * genuine layout change. `offsetHeight` is an integer, so two single-line rows
+ * whose true heights differ by a fraction of a pixel (e.g. a 31.0px plain row vs a
+ * 31.5px row carrying a padded status badge) round to adjacent integers — 31 and
+ * 32 — a 1px difference that is not a real size change.
+ */
+const ROW_HEIGHT_JITTER_PX = 1;
+
+/**
+ * Decide the row height to keep after measuring the first rendered row.
+ *
+ * The virtualizer measures whichever row currently sits at the top of the window
+ * to replace its initial estimate. That row's identity changes as you scroll, and
+ * adjacent rows can round to heights 1px apart (see {@link ROW_HEIGHT_JITTER_PX}).
+ * Naively adopting every measurement makes the height flip 31↔32 on each scroll;
+ * because the height feeds back into which row is measured next, that flip never
+ * settles — an infinite re-render loop that froze the page while scrolling the
+ * flat Spans list (issue #58).
+ *
+ * Rules:
+ *  - a non-positive measurement (row detached / not laid out) is ignored;
+ *  - before any real measurement (`settled === false`) the first positive value is
+ *    adopted, so the estimate is replaced exactly once;
+ *  - once settled, only a change larger than the rounding jitter updates the
+ *    height — genuine relayout (font/density change) still adapts, rounding noise
+ *    can no longer oscillate.
+ */
+export function reconcileRowHeight(prev: number, measured: number, settled: boolean): number {
+  if (measured <= 0) return prev;
+  if (!settled) return measured;
+  return Math.abs(measured - prev) > ROW_HEIGHT_JITTER_PX ? measured : prev;
+}
+
+/**
  * Compute the scrollTop needed to bring row `index` into view, or `null` if the
  * row is already fully visible (so callers can avoid jittery no-op scrolls).
  *

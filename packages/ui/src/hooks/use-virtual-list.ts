@@ -1,5 +1,10 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { computeRange, scrollOffsetForIndex, type VirtualRange } from '../utils/virtual-window';
+import {
+  computeRange,
+  reconcileRowHeight,
+  scrollOffsetForIndex,
+  type VirtualRange,
+} from '../utils/virtual-window';
 
 /** Rows rendered above and below the visible window to cover fast scrolling. */
 const DEFAULT_OVERSCAN = 8;
@@ -61,12 +66,20 @@ export function useVirtualList(
     if (el) setScrollTop(el.scrollTop);
   }, []);
 
-  // Measure the real row height off the first rendered row. Only updates state
-  // when it actually changes to avoid a render loop.
+  // Measure the real row height off the first rendered row, replacing the
+  // estimate exactly once and thereafter ignoring sub-pixel rounding jitter.
+  // Rows can round to heights 1px apart (a plain row vs. one with a padded status
+  // badge); reacting to that flips the height every scroll and — because the
+  // height decides which row is measured next — never settles, freezing the page
+  // (issue #58). `reconcileRowHeight` enforces a stable, non-oscillating value.
+  const measuredRef = useRef(false);
   const rowRef = useCallback((el: HTMLElement | null) => {
     if (!el) return;
     const h = el.offsetHeight;
-    if (h > 0) setRowHeight((prev) => (Math.abs(prev - h) > 0.5 ? h : prev));
+    if (h <= 0) return;
+    const settled = measuredRef.current;
+    measuredRef.current = true;
+    setRowHeight((prev) => reconcileRowHeight(prev, h, settled));
   }, []);
 
   const range = computeRange(scrollTop, viewportHeight, rowHeight, itemCount, overscan);
