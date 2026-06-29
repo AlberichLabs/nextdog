@@ -49,24 +49,32 @@ const logLevelStyle = css({
   textAlign: 'center',
 });
 
+// Level badges: dark keeps its punchy tint; light uses a faint tint of the
+// (darker) light hue so the chip reads as colored rather than washed-out, while
+// the token-driven text stays AA — mirrors the HTTP-status badges in
+// row-styles.ts (see theme-colors.ts for the light hues).
 const logErrorStyle = css({
   color: 'red',
   background: 'rgba(225, 112, 85, 0.1)',
+  _light: { background: 'rgba(180, 35, 24, 0.06)' },
 });
 
 const logWarnStyle = css({
   color: 'yellow',
   background: 'rgba(253, 203, 110, 0.1)',
+  _light: { background: 'rgba(132, 100, 7, 0.06)' },
 });
 
 const logInfoStyle = css({
   color: 'blue',
   background: 'rgba(116, 185, 255, 0.1)',
+  _light: { background: 'rgba(29, 78, 216, 0.06)' },
 });
 
 const logDebugStyle = css({
   color: 'fg.dim',
   background: 'rgba(136, 136, 136, 0.1)',
+  _light: { background: 'rgba(100, 116, 139, 0.08)' },
 });
 
 const logMessageStyle = css({
@@ -88,16 +96,21 @@ const runtimeTagStyle = css({
   whiteSpace: 'nowrap',
 });
 
+// Runtime badge: in light mode the tint/border track the badge's own light hue
+// (teal accent / amber) instead of the dark-theme purple wash, so the chip is
+// cohesive with its text. Dark keeps its historical look.
 const runtimeServerStyle = css({
   color: 'accent',
   background: 'rgba(108, 92, 231, 0.12)',
   border: '1px solid rgba(108, 92, 231, 0.25)',
+  _light: { background: 'rgba(15, 118, 110, 0.10)', borderColor: 'rgba(15, 118, 110, 0.22)' },
 });
 
 const runtimeBrowserStyle = css({
   color: 'yellow',
   background: 'rgba(253, 203, 110, 0.12)',
   border: '1px solid rgba(253, 203, 110, 0.25)',
+  _light: { background: 'rgba(132, 100, 7, 0.10)', borderColor: 'rgba(132, 100, 7, 0.22)' },
 });
 
 const customColStyle = css({

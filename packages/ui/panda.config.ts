@@ -1,5 +1,10 @@
 import { defineConfig } from '@pandacss/dev';
-import { accentColors } from './src/styles/theme-colors';
+import {
+  accentColors,
+  lightBorders,
+  lightFg,
+  lightSurfaces,
+} from './src/styles/theme-colors';
 
 /** Build semantic color tokens (base = dark, _light = light override) from the
  *  shared accent palette so config and the contrast test share one source. */
@@ -85,39 +90,42 @@ export default defineConfig({
       colors: {
         // Theme-aware accent / status palette. Dark values are the historical
         // palette; light values are darker/more saturated to meet WCAG AA on the
-        // light panel (#f5f4f2) for method/status labels. See theme-colors.ts.
+        // light panel for method/status labels. See theme-colors.ts.
         ...accentSemanticTokens,
+        // Light surfaces/foreground/borders are single-sourced from
+        // theme-colors.ts (so the contrast test asserts against the same values).
+        // `base` (dark) keeps referencing the shared neutral scale — unchanged.
         surface: {
           bg: {
-            value: { base: '{colors.neutral.950}', _light: '#ededeb' },
+            value: { base: '{colors.neutral.950}', _light: lightSurfaces.bg },
           },
           panel: {
-            value: { base: '{colors.neutral.900}', _light: '#f5f4f2' },
+            value: { base: '{colors.neutral.900}', _light: lightSurfaces.panel },
           },
           hover: {
-            value: { base: '{colors.neutral.800}', _light: '#e4e3e0' },
+            value: { base: '{colors.neutral.800}', _light: lightSurfaces.hover },
           },
           raised: {
-            value: { base: '{colors.neutral.700}', _light: '#ebeae8' },
+            value: { base: '{colors.neutral.700}', _light: lightSurfaces.raised },
           },
         },
         border: {
           subtle: {
-            value: { base: 'rgba(255,255,255,0.06)', _light: 'rgba(0,0,0,0.08)' },
+            value: { base: 'rgba(255,255,255,0.06)', _light: lightBorders.subtle },
           },
           strong: {
-            value: { base: 'rgba(255,255,255,0.12)', _light: 'rgba(0,0,0,0.14)' },
+            value: { base: 'rgba(255,255,255,0.12)', _light: lightBorders.strong },
           },
         },
         fg: {
           DEFAULT: {
-            value: { base: '{colors.neutral.300}', _light: '{colors.neutral.600}' },
+            value: { base: '{colors.neutral.300}', _light: lightFg.DEFAULT },
           },
           dim: {
-            value: { base: '{colors.neutral.500}', _light: '{colors.neutral.400}' },
+            value: { base: '{colors.neutral.500}', _light: lightFg.dim },
           },
           bright: {
-            value: { base: '{colors.white}', _light: '{colors.neutral.950}' },
+            value: { base: '{colors.white}', _light: lightFg.bright },
           },
         },
       },

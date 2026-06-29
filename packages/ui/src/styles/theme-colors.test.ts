@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { type AccentColorName, accentColors, lightBadgeTintAlpha } from './theme-colors';
+import {
+  type AccentColorName,
+  accentColors,
+  lightBadgeTintAlpha,
+  lightFg,
+  lightSurfaces,
+} from './theme-colors';
 
 /* ── WCAG contrast helpers ────────────────────────────────────────────── */
 
@@ -35,11 +41,16 @@ function composite(fg: Rgb, a: number, bg: Rgb): Rgb {
   ] as Rgb;
 }
 
-/* ── Surfaces under test (must mirror panda.config semanticTokens) ─────── */
+/* ── Surfaces under test (single-sourced from theme-colors) ────────────── */
 
 // The Requests list and log rows render inside surface.panel in light theme.
-const LIGHT_PANEL = hexToRgb('#f5f4f2');
+const LIGHT_PANEL = hexToRgb(lightSurfaces.panel);
 const AA_NORMAL = 4.5;
+// Secondary text (timestamps, the Kind column, counts) uses fg.dim. It need not
+// hit AA, but it must clear this legibility floor so it isn't washed out — the
+// previous gray (#9ca3af) only managed ~2.3:1 on the panel, the harsh/washed-out
+// complaint this refinement fixes.
+const DIM_FLOOR = 3.0;
 
 const names = Object.keys(accentColors) as AccentColorName[];
 
@@ -65,6 +76,38 @@ describe('HTTP status badges stay AA on their light tint', () => {
     const tinted = composite(text, lightBadgeTintAlpha, LIGHT_PANEL);
     const ratio = contrast(text, tinted);
     expect(ratio).toBeGreaterThanOrEqual(AA_NORMAL);
+  });
+});
+
+describe('light foreground ramp is legible (not washed out)', () => {
+  it('fg.dim clears the legibility floor on the panel', () => {
+    const ratio = contrast(hexToRgb(lightFg.dim), LIGHT_PANEL);
+    expect(ratio).toBeGreaterThanOrEqual(DIM_FLOOR);
+  });
+
+  it('fg.DEFAULT and fg.bright are strong body/heading contrast (AA+)', () => {
+    expect(contrast(hexToRgb(lightFg.DEFAULT), LIGHT_PANEL)).toBeGreaterThanOrEqual(AA_NORMAL);
+    expect(contrast(hexToRgb(lightFg.bright), LIGHT_PANEL)).toBeGreaterThanOrEqual(7);
+  });
+
+  it('fg.bright is softened slate, not pure black (glare)', () => {
+    expect(lightFg.bright.toLowerCase()).not.toBe('#000000');
+  });
+});
+
+describe('light surfaces soften glare (not pure white)', () => {
+  it('reading surfaces are off-white, never #fff', () => {
+    for (const surface of [lightSurfaces.panel, lightSurfaces.bg]) {
+      expect(surface.toLowerCase()).not.toBe('#ffffff');
+      expect(surface.toLowerCase()).not.toBe('#fff');
+    }
+  });
+
+  it('the app backdrop sits a step below the panel (gentle elevation)', () => {
+    // bg darker than panel ⇒ panels read as raised rather than floating on white.
+    expect(relLuminance(hexToRgb(lightSurfaces.bg))).toBeLessThan(
+      relLuminance(hexToRgb(lightSurfaces.panel)),
+    );
   });
 });
 
