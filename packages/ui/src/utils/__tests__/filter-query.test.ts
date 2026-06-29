@@ -3,8 +3,11 @@ import {
   composeOrExpression,
   type FilterToken,
   groupFilterTokens,
+  hasToken,
   normalizeExpression,
   parseFilterTokens,
+  tokenFor,
+  toggleToken,
 } from '../filter-query';
 
 /** Compact a group into a readable signature for assertions. */
@@ -167,5 +170,86 @@ describe('round-trip to the matcher shape', () => {
     const groups = groupFilterTokens('status:ERROR OR statusCode:404');
     expect(groups).toHaveLength(1);
     expect(groups[0]).toHaveLength(2);
+  });
+});
+
+describe('tokenFor — facet click emits a matcher-legible token', () => {
+  it('builds a plain key:value token', () => {
+    expect(tokenFor('service', 'web')).toBe('service:web');
+    expect(tokenFor('statusCode', '404')).toBe('statusCode:404');
+    expect(tokenFor('method', 'GET')).toBe('method:GET');
+  });
+
+  it('quotes values containing whitespace so they survive tokenization', () => {
+    expect(tokenFor('route', '/api/a b')).toBe('route:"/api/a b"');
+    // and the quoted token parses back to the original value as one token
+    const toks = parseFilterTokens(tokenFor('route', '/api/a b'));
+    expect(toks).toHaveLength(1);
+    expect(toks[0]).toMatchObject({ key: 'route', value: '/api/a b' });
+  });
+});
+
+describe('hasToken — is a facet value currently active', () => {
+  it('detects a present non-negated token (case-insensitive value)', () => {
+    expect(hasToken('service:web status:ERROR', 'service', 'web')).toBe(true);
+    expect(hasToken('method:get', 'method', 'GET')).toBe(true);
+  });
+
+  it('a negated token does not count as active', () => {
+    expect(hasToken('!service:web', 'service', 'web')).toBe(false);
+  });
+
+  it('absent token → false', () => {
+    expect(hasToken('service:api', 'service', 'web')).toBe(false);
+    expect(hasToken('', 'service', 'web')).toBe(false);
+  });
+});
+
+describe('toggleToken — facet click add/remove round-trip', () => {
+  it('adds a token to an empty query', () => {
+    expect(toggleToken('', 'service', 'web')).toBe('service:web');
+  });
+
+  it('appends a different-key token with AND (space)', () => {
+    expect(toggleToken('service:web', 'statusCode', '404')).toBe('service:web statusCode:404');
+  });
+
+  it('removing a present token clears it', () => {
+    expect(toggleToken('service:web', 'service', 'web')).toBe('');
+  });
+
+  it('toggle is its own inverse (add then remove → original)', () => {
+    const q0 = 'status:ERROR';
+    const q1 = toggleToken(q0, 'service', 'web');
+    expect(q1).toBe('status:ERROR service:web');
+    expect(toggleToken(q1, 'service', 'web')).toBe('status:ERROR');
+  });
+
+  it('a second value of the SAME facet OR-merges (Datadog same-facet OR)', () => {
+    const q1 = toggleToken('service:web', 'service', 'api');
+    expect(q1).toBe('service:web OR service:api');
+    // and it groups into a single OR group the matcher will OR internally
+    const groups = groupFilterTokens(q1);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveLength(2);
+  });
+
+  it('removing one member of a same-facet OR group leaves the other well-formed', () => {
+    expect(toggleToken('service:web OR service:api', 'service', 'web')).toBe('service:api');
+    expect(toggleToken('service:web OR service:api', 'service', 'api')).toBe('service:web');
+  });
+
+  it('OR-merges a same-key token adjacent to its group, not at the end', () => {
+    // statusCode group is at the front; adding a 3rd statusCode keeps it contiguous
+    const q = toggleToken('statusCode:404 service:web', 'statusCode', '500');
+    expect(q).toBe('statusCode:404 OR statusCode:500 service:web');
+    expect(groupFilterTokens(q)).toEqual([
+      [expect.objectContaining({ value: '404' }), expect.objectContaining({ value: '500' })],
+      [expect.objectContaining({ value: 'web' })],
+    ]);
+  });
+
+  it('preserves free-text and other tokens around the toggle', () => {
+    expect(toggleToken('boom service:web', 'service', 'web')).toBe('boom');
   });
 });
