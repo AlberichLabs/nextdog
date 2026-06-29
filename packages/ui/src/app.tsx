@@ -8,9 +8,9 @@ import { ErrorBoundary } from './components/error-boundary';
 import { FacetDrawer } from './components/facet-drawer';
 import { Logo } from './components/logo';
 import { ShortcutHelp } from './components/shortcut-help';
+import { detectSlowRequestToast } from './components/slow-request-toast';
 import { Sparkline } from './components/sparkline';
 import { ThemeToggle } from './components/theme-toggle';
-import { detectSlowRequestToast } from './components/slow-request-toast';
 import { ToastContainer, useToasts } from './components/toast';
 import {
   ExportButton,
@@ -19,8 +19,8 @@ import {
   OpenTraceButton,
 } from './components/trace-io';
 import { useEvents } from './hooks/use-events';
-import { useSSE } from './hooks/use-sse';
 import type { SSEEvent } from './hooks/use-sse';
+import { useSSE } from './hooks/use-sse';
 import { useTheme } from './hooks/use-theme';
 import { pillStyle } from './styles/shared';
 import { toggleToken } from './utils/filter-query';
@@ -31,8 +31,14 @@ import { Requests } from './views/requests';
 import { Spans } from './views/spans';
 import { Trace } from './views/trace';
 
+// In dev, the harness (scripts/dev.mjs) serves the UI from a Vite port and the
+// sidecar from a separate dev port, so VITE_NEXTDOG_SIDECAR_URL points the UI at
+// it cross-origin (the sidecar sends CORS `*`). This branch is gated on
+// `import.meta.env.DEV`, so production builds tree-shake it away and the shipped
+// behaviour (port 5173 → :6789, otherwise same-origin) is unchanged.
 const SIDECAR_URL =
-  window.location.port === '5173' ? 'http://localhost:6789' : window.location.origin;
+  (import.meta.env.DEV && import.meta.env.VITE_NEXTDOG_SIDECAR_URL) ||
+  (window.location.port === '5173' ? 'http://localhost:6789' : window.location.origin);
 
 const appStyle = css({
   display: 'flex',

@@ -287,6 +287,43 @@ pnpm build
 pnpm test
 ```
 
+### Local development (one command)
+
+The fastest way to iterate on the overlay against realistic data — no real app
+required:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+This starts the whole local playground and prints a dashboard URL (default
+`http://localhost:5273`). `pnpm dev` orchestrates three processes and tears them
+all down cleanly on Ctrl-C:
+
+- the **sidecar** (`@nextdog/core`) on a dev port (default `6799`),
+- the **UI Vite dev server** with hot reload, pointed at that sidecar, and
+- a **telemetry generator** (`scripts/dev-telemetry.mjs`) that seeds a baseline
+  and then trickles live events every ~1-3s — multiple services, varied routes
+  and methods, slow (>1s) requests, 404/500s, `pg`/`mysql2` DB spans, outbound
+  `fetch` spans, multi-span traces, and correlated `console.*` logs.
+
+It is fully isolated: the sidecar listens on the dev port and writes to a scratch
+`node_modules/.cache/nextdog-dev` data dir, so it never collides with a real
+sidecar on `:6789` or touches `~/.nextdog/data`. Override the ports with
+`NEXTDOG_DEV_SIDECAR_PORT` / `NEXTDOG_DEV_UI_PORT` if needed.
+
+Generate telemetry against an already-running sidecar on its own:
+
+```bash
+# one-shot seed
+node scripts/dev-telemetry.mjs --url http://localhost:6799
+# seed, then continuous live trickle
+node scripts/dev-telemetry.mjs --url http://localhost:6799 --live
+```
+
+### Manual processes
+
 Start the sidecar locally:
 ```bash
 node packages/core/dist/cli.js
