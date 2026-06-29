@@ -27,7 +27,7 @@ NextDog gives you **local observability** for your app during development. It ca
 - **Logs** — `console.debug/log/info/warn/error` captured with trace correlation
 - **Database queries** — `pg` / `mysql2` calls auto-traced as child spans with the SQL statement (param **values** elided by default)
 - **Outbound HTTP** — `fetch` / `http` calls auto-traced as child spans
-- **Request & response bodies** — captured for the request detail pane (auth headers stripped)
+- **Request & response bodies** — captured for the request detail pane (auth headers stored locally for Replay, redacted from export + MCP)
 - **Trace Waterfall** — click any request to see the full span hierarchy
 - **Attribute Filtering** — Datadog-style search with `!` (NOT), `OR`, click-to-filter
 - **Export / Import** — save a trace or the current view to a portable file and re-open it later
@@ -171,13 +171,15 @@ The dashboard ships dark and light themes (toggle in the header) and is keyboard
 
 NextDog is a development-time APM, and like any APM it captures a lot. Here is exactly what it records, where that data lives, and what (if anything) leaves your machine.
 
-**Captures.** For each request: a span with method, route, status code, and duration; correlated `console.*` logs; the **request body** and **response body** (text/JSON only, capped at 16 KB / 50 KB; binary and compressed bodies are summarized, not stored); request/response headers; and child spans for outbound `fetch`/`http` calls and `pg`/`mysql2` database queries. Database spans include the **full SQL statement text**; bound **parameter values are elided by default** (only the parameter count is recorded). Credential-bearing headers (`authorization`, `proxy-authorization`, `x-api-key`, `x-auth-token`, `set-cookie`) are stripped before anything is stored.
+**Captures.** For each request: a span with method, route, status code, and duration; correlated `console.*` logs; the **request body** and **response body** (text/JSON only, capped at 16 KB / 50 KB; binary and compressed bodies are summarized, not stored); request/response headers; and child spans for outbound `fetch`/`http` calls and `pg`/`mysql2` database queries. Database spans include the **full SQL statement text**; bound **parameter values are elided by default** (only the parameter count is recorded).
+
+**Auth tokens — store locally, redact on egress.** Credential-bearing headers (`authorization`, `proxy-authorization`, `x-api-key`, `x-auth-token`, `cookie`, `set-cookie`) are captured and **stored verbatim in `~/.nextdog/data`** and shown in the local dashboard. This is what lets one-click **Replay** re-authenticate against your own endpoints. `~/.nextdog/data` and the dashboard are on your machine, so this is not egress. Those same headers are **redacted by default at every egress boundary** — both **trace export** and the **MCP server** — by a single shared redactor, so credentials never leave the machine. A raw token only ever flows from disk to the original endpoint, server-side, during Replay.
 
 **Storage.** Telemetry is written to `~/.nextdog/data` as hourly NDJSON files, retained ~24 hours, then deleted. It stays **local to your machine** — there is no NextDog account, server, or cloud. NextDog is **dev-only and inert unless `NODE_ENV=development`**: in any other environment the adapter returns your config unchanged and registers nothing.
 
 **Egress.** By default **nothing leaves your machine** — telemetry flows from your dev server to the local sidecar on `localhost:6789` and the dashboard reads it back, all on `localhost`.
 
-The one exception is opt-in: the optional **[`@nextdog/mcp`](packages/mcp)** server. If *you* connect it to an AI coding agent (Claude Code, Cursor, Claude Desktop), that agent can query your live telemetry — including request/response bodies and SQL statements — so it can reason over real spans and logs while you debug instead of pasting them by hand. That's the same bargain as pointing any APM at your data: it's exposed because you deliberately wired it up. No redaction is applied at the MCP layer; whatever the dashboard shows is what the agent can read. See the [`@nextdog/mcp` README](packages/mcp) for the tool set and setup.
+The one exception is opt-in: the optional **[`@nextdog/mcp`](packages/mcp)** server. If *you* connect it to an AI coding agent (Claude Code, Cursor, Claude Desktop), that agent can query your live telemetry — including request/response bodies and SQL statements — so it can reason over real spans and logs while you debug instead of pasting them by hand. That's the same bargain as pointing any APM at your data: it's exposed because you deliberately wired it up. **Credential headers are the exception: they are redacted by default at the MCP layer** (the same redactor used for trace export), so the auth tokens stored locally for Replay never reach the agent. See the [`@nextdog/mcp` README](packages/mcp) for the tool set and setup.
 
 ## How It Works
 

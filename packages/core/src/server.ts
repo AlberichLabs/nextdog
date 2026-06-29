@@ -70,6 +70,111 @@ async function readJsonObject(
   return { ok: true, body: parsed as Record<string, unknown> };
 }
 
+/**
+ * A fully-resolved HTTP request to replay. Either reconstructed from a captured
+ * span (one-click) or supplied verbatim by the UI's editor (the user has pasted
+ * an Authorization header / edited anything).
+ */
+interface ReplayRequest {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body?: string;
+}
+
+/**
+ * Rebuild the original HTTP request from a captured SERVER span. Credential
+ * headers (Authorization, X-Api-Key, cookies, …) are now captured and stored
+ * VERBATIM (store-but-don't-egress, issue #60), so the reconstructed request
+ * carries them and one-click Replay re-authenticates against authed endpoints.
+ * The raw token only ever flows disk → the original endpoint here, server-side;
+ * it never reaches trace export or the MCP server (both redact it). For expired
+ * tokens, the Edit & Replay editor pre-fills the captured value and lets the
+ * user override it.
+ */
+function buildReplayRequest(span: Span): ReplayRequest {
+  const attrs = span.attributes;
+  const method = String(attrs['http.method'] ?? attrs['http.request.method'] ?? 'GET');
+  const route = String(attrs['http.route'] ?? attrs['http.target'] ?? span.name);
+  const host = String(attrs['http.host'] ?? attrs['net.host.name'] ?? 'localhost:3000');
+  const scheme = String(attrs['http.scheme'] ?? 'http');
+  const url = route.startsWith('http') ? route : `${scheme}://${host}${route}`;
+
+  const headers: Record<string, string> = {};
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key.startsWith('http.request.header.')) {
+      headers[key.replace('http.request.header.', '')] = String(value);
+    }
+  }
+
+  const cookies = attrs['http.request.cookies'] ?? attrs.cookie;
+  if (cookies) {
+    headers.cookie = String(cookies);
+  }
+
+  const body = attrs['http.request.body'] ? String(attrs['http.request.body']) : undefined;
+  return { method, url, headers, body };
+}
+
+/**
+ * Coerce a user-edited request payload from the UI into a ReplayRequest. Returns
+ * null when there's no usable target URL. The headers the user typed (including
+ * any Authorization) are taken as-is and live only for this request — they are
+ * never written to the FileStore, preserving the don't-store-tokens posture.
+ */
+function coerceReplayRequest(raw: Record<string, unknown>): ReplayRequest | null {
+  const url = typeof raw.url === 'string' ? raw.url.trim() : '';
+  if (!url) return null;
+
+  const method = typeof raw.method === 'string' && raw.method.trim() ? raw.method.trim() : 'GET';
+
+  const headers: Record<string, string> = {};
+  if (raw.headers && typeof raw.headers === 'object' && !Array.isArray(raw.headers)) {
+    for (const [k, v] of Object.entries(raw.headers as Record<string, unknown>)) {
+      if (k.trim() && (typeof v === 'string' || typeof v === 'number')) {
+        headers[k] = String(v);
+      }
+    }
+  }
+
+  const body = typeof raw.body === 'string' ? raw.body : undefined;
+  return { method, url, headers, body };
+}
+
+/** Send a replay request and shape the response for the dashboard. */
+async function performReplay(replayReq: ReplayRequest) {
+  const startTime = Date.now();
+  const response = await fetch(replayReq.url, {
+    method: replayReq.method,
+    headers: replayReq.headers,
+    body:
+      replayReq.body && replayReq.method !== 'GET' && replayReq.method !== 'HEAD'
+        ? replayReq.body
+        : undefined,
+    redirect: 'follow',
+  });
+
+  const duration = Date.now() - startTime;
+  const responseBody = await response.text();
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((v, k) => {
+    responseHeaders[k] = v;
+  });
+
+  return {
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+    body:
+      responseBody.length > 50_000
+        ? `${responseBody.slice(0, 50_000)}\n... (truncated)`
+        : responseBody,
+    duration,
+    url: replayReq.url,
+    method: replayReq.method,
+  };
+}
+
 function json(res: ServerResponse, status: number, data: unknown): void {
   const body = JSON.stringify(data, bigintReplacer);
   res.writeHead(status, {
@@ -239,14 +344,44 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       return json(res, 200, { services: [...services] });
     }
 
-    // Replay a request by spanId — reconstructs and re-sends the original HTTP request
+    // Replay a request. Three modes, all on POST /api/replay:
+    //   1. { request: {...} }          — send a user-edited request verbatim.
+    //      This is how an Authorization header reaches an authed endpoint: the
+    //      token lives only in this request and is never written to disk,
+    //      preserving the don't-store-tokens posture (issue #60).
+    //   2. { spanId, prepareOnly: true } — reconstruct the captured request and
+    //      hand it back (auth-stripped) so the UI can pre-fill its editor. No send.
+    //   3. { spanId }                  — one-click replay of the captured request.
     if (req.method === 'POST' && pathname === '/api/replay') {
       const parsed = await readJsonObject(req);
       if (!parsed.ok) {
         return json(res, 400, { error: 'invalid request body: expected a JSON object' });
       }
-      const { spanId } = parsed.body;
 
+      // Mode 1 — edited replay. Send exactly what the user supplied.
+      const rawRequest = parsed.body.request;
+      if (rawRequest !== undefined) {
+        if (typeof rawRequest !== 'object' || rawRequest === null || Array.isArray(rawRequest)) {
+          return json(res, 400, { error: 'request must be an object' });
+        }
+        const replayReq = coerceReplayRequest(rawRequest as Record<string, unknown>);
+        if (!replayReq) {
+          return json(res, 400, { error: 'request.url is required' });
+        }
+        try {
+          return json(res, 200, await performReplay(replayReq));
+        } catch (err) {
+          return json(res, 502, {
+            error: 'replay failed',
+            message: (err as Error).message,
+            url: replayReq.url,
+            method: replayReq.method,
+          });
+        }
+      }
+
+      // Modes 2 & 3 — reconstruct from a captured span.
+      const { spanId, prepareOnly } = parsed.body;
       if (!spanId || typeof spanId !== 'string') {
         return json(res, 400, { error: 'spanId is required' });
       }
@@ -274,65 +409,22 @@ export function createServer(opts: ServerOptions): Promise<Server> {
         return json(res, 404, { error: 'span not found' });
       }
 
-      const attrs = targetSpan.attributes;
-      const method = String(attrs['http.method'] ?? attrs['http.request.method'] ?? 'GET');
-      const route = String(attrs['http.route'] ?? attrs['http.target'] ?? targetSpan.name);
-      const host = String(attrs['http.host'] ?? attrs['net.host.name'] ?? 'localhost:3000');
-      const scheme = String(attrs['http.scheme'] ?? 'http');
-      const targetUrl = route.startsWith('http') ? route : `${scheme}://${host}${route}`;
+      const replayReq = buildReplayRequest(targetSpan);
 
-      // Reconstruct headers
-      const headers: Record<string, string> = {};
-      for (const [key, value] of Object.entries(attrs)) {
-        if (key.startsWith('http.request.header.')) {
-          const headerName = key.replace('http.request.header.', '');
-          headers[headerName] = String(value);
-        }
+      // Mode 2 — prefill the editor only; do NOT send.
+      if (prepareOnly === true) {
+        return json(res, 200, replayReq);
       }
 
-      // Add cookies
-      const cookies = attrs['http.request.cookies'] ?? attrs.cookie;
-      if (cookies) {
-        headers.cookie = String(cookies);
-      }
-
-      // Request body
-      const reqBody = attrs['http.request.body'] ? String(attrs['http.request.body']) : undefined;
-
+      // Mode 3 — one-click replay (unchanged behaviour for non-auth requests).
       try {
-        const startTime = Date.now();
-        const response = await fetch(targetUrl, {
-          method,
-          headers,
-          body: reqBody && method !== 'GET' && method !== 'HEAD' ? reqBody : undefined,
-          redirect: 'follow',
-        });
-
-        const duration = Date.now() - startTime;
-        const responseBody = await response.text();
-        const responseHeaders: Record<string, string> = {};
-        response.headers.forEach((v, k) => {
-          responseHeaders[k] = v;
-        });
-
-        return json(res, 200, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: responseHeaders,
-          body:
-            responseBody.length > 50_000
-              ? `${responseBody.slice(0, 50_000)}\n... (truncated)`
-              : responseBody,
-          duration,
-          url: targetUrl,
-          method,
-        });
+        return json(res, 200, await performReplay(replayReq));
       } catch (err) {
         return json(res, 502, {
           error: 'replay failed',
           message: (err as Error).message,
-          url: targetUrl,
-          method,
+          url: replayReq.url,
+          method: replayReq.method,
         });
       }
     }

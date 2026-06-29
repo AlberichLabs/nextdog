@@ -1,5 +1,6 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { request as httpRequest, type Server } from 'node:http';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer as httpCreateServer, request as httpRequest, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -349,5 +350,213 @@ describe('Server static files', () => {
 
     const res = await fetch(`http://localhost:${port}/api/unknown`);
     expect(res.status).toBe(404);
+  });
+});
+
+describe('Server replay — editable headers for auth (#60)', () => {
+  let server: Server;
+  let target: Server;
+  let targetPort: number;
+  let dataDir: string;
+  const port = 16792;
+
+  // A target endpoint that requires Authorization: 200 with the right bearer
+  // token, 401 without it. Stands in for an authed app route (e.g. PUT
+  // /api/questions/[id]). It echoes the request body so we can assert the edited
+  // body round-trips too.
+  beforeEach(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), 'nextdog-replay-'));
+    target = httpCreateServer((req, res) => {
+      let body = '';
+      req.on('data', (c) => {
+        body += c;
+      });
+      req.on('end', () => {
+        if (req.headers.authorization === 'Bearer s3cret-token') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, echoedBody: body }));
+        } else {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'unauthorized' }));
+        }
+      });
+    });
+    await new Promise<void>((resolve) => target.listen(0, () => resolve()));
+    targetPort = (target.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (target) await new Promise<void>((resolve) => target.close(() => resolve()));
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  // Seed a captured SERVER span pointing at the target. By default NO
+  // authorization header is present (an unauthenticated capture). Pass an
+  // `authorization` to simulate the store-but-don't-egress posture (#60), where
+  // the token is captured verbatim and available to one-click Replay.
+  async function seedSpan(authorization?: string) {
+    await fetch(`http://localhost:${port}/v1/spans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        spans: [
+          {
+            traceId: 't-auth',
+            spanId: 'span-auth',
+            name: 'PUT /api/questions/123',
+            kind: 'SERVER',
+            startTimeUnixNano: '1000',
+            endTimeUnixNano: '2000',
+            attributes: {
+              'http.method': 'PUT',
+              'http.target': '/api/questions/123',
+              'http.host': `localhost:${targetPort}`,
+              'http.scheme': 'http',
+              'http.request.header.content-type': 'application/json',
+              ...(authorization ? { 'http.request.header.authorization': authorization } : {}),
+              'http.request.body': '{"title":"updated"}',
+            },
+            status: { code: 'OK' },
+            serviceName: 'app',
+          },
+        ],
+      }),
+    });
+  }
+
+  it('prepareOnly returns the reconstructed request (no auth header) without sending it', async () => {
+    server = await createServer({ port, dataDir });
+    await seedSpan();
+
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spanId: 'span-auth', prepareOnly: true }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.method).toBe('PUT');
+    expect(data.url).toBe(`http://localhost:${targetPort}/api/questions/123`);
+    expect(data.body).toBe('{"title":"updated"}');
+    expect(data.headers['content-type']).toBe('application/json');
+    // Auth was stripped at capture — the prefill must not invent one.
+    expect(data.headers.authorization).toBeUndefined();
+    // It was NOT sent: no response status comes back.
+    expect(data.status).toBeUndefined();
+  });
+
+  it('one-click replay (no auth) still reaches the endpoint — returns its 401', async () => {
+    server = await createServer({ port, dataDir });
+    await seedSpan();
+
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spanId: 'span-auth' }),
+    });
+
+    expect(res.status).toBe(200); // the replay itself succeeded
+    const data = await res.json();
+    expect(data.status).toBe(401); // endpoint rejected — this capture had no token
+  });
+
+  it('one-click replay re-sends the captured token and authenticates (200) (#60)', async () => {
+    server = await createServer({ port, dataDir });
+    await seedSpan('Bearer s3cret-token'); // token captured verbatim, store-but-dont-egress
+
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spanId: 'span-auth' }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // The stored token reached the endpoint server-side → authenticated.
+    expect(data.status).toBe(200);
+    expect(JSON.parse(data.body).ok).toBe(true);
+  });
+
+  it('prepareOnly pre-fills the captured Authorization for override (#60)', async () => {
+    server = await createServer({ port, dataDir });
+    await seedSpan('Bearer s3cret-token');
+
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spanId: 'span-auth', prepareOnly: true }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // Editor pre-fills the captured token so an expired one can be overridden.
+    expect(data.headers.authorization).toBe('Bearer s3cret-token');
+    expect(data.status).toBeUndefined(); // not sent
+  });
+
+  it('edited replay with a pasted Authorization header reaches the endpoint authenticated (200)', async () => {
+    server = await createServer({ port, dataDir });
+    await seedSpan();
+
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        request: {
+          method: 'PUT',
+          url: `http://localhost:${targetPort}/api/questions/123`,
+          headers: {
+            'content-type': 'application/json',
+            authorization: 'Bearer s3cret-token',
+          },
+          body: '{"title":"updated"}',
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.status).toBe(200); // authenticated — the pasted token reached the endpoint
+    const echoed = JSON.parse(data.body);
+    expect(echoed.ok).toBe(true);
+    expect(echoed.echoedBody).toBe('{"title":"updated"}');
+  });
+
+  it('never persists a pasted Authorization token to disk', async () => {
+    server = await createServer({ port, dataDir });
+    await seedSpan();
+
+    await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        request: {
+          method: 'PUT',
+          url: `http://localhost:${targetPort}/api/questions/123`,
+          headers: { authorization: 'Bearer s3cret-token' },
+        },
+      }),
+    });
+
+    // Scan everything the sidecar has on disk: the token must appear nowhere.
+    const files = await readdir(dataDir).catch(() => [] as string[]);
+    for (const f of files) {
+      const content = await readFile(join(dataDir, f), 'utf8');
+      expect(content).not.toContain('s3cret-token');
+    }
+  });
+
+  it('rejects an edited request with no url', async () => {
+    server = await createServer({ port, dataDir });
+
+    const res = await fetch(`http://localhost:${port}/api/replay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request: { method: 'GET' } }),
+    });
+
+    expect(res.status).toBe(400);
   });
 });

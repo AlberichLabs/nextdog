@@ -2,6 +2,7 @@ import { useCallback, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import type { SSEEvent } from '../hooks/use-sse';
 import { formatBody } from '../utils/body-format';
+import { composeReplayHeaders, formatHeaderLines, splitAuthHeader } from '../utils/replay-headers';
 
 interface ReplayResponse {
   status: number;
@@ -20,11 +21,36 @@ interface ReplayError {
   method: string;
 }
 
+/** Reconstructed request the sidecar hands back for the editor to pre-fill. */
+interface PreparedRequest {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body?: string;
+}
+
 type ReplayState =
   | { phase: 'idle' }
   | { phase: 'loading' }
   | { phase: 'success'; data: ReplayResponse }
   | { phase: 'error'; data: ReplayError };
+
+/**
+ * Editable copy of the request, shown before sending so the user can override
+ * the captured Authorization header (e.g. when it has expired) or tweak anything
+ * else. The captured token is pre-filled here; any edit lives only in component
+ * state and is never persisted (issue #60).
+ */
+interface EditorState {
+  loading: boolean; // fetching the prefill from the sidecar
+  prepareError?: string;
+  method: string;
+  url: string;
+  authorization: string;
+  headersText: string; // non-auth headers, one "Key: Value" per line
+  body: string;
+  sending: boolean;
+}
 
 const statusGreen = css({ color: 'green', fontWeight: 600 });
 const statusYellow = css({ color: 'yellow', fontWeight: 600 });
@@ -133,12 +159,79 @@ const errorDetail = css({
   marginTop: '1',
 });
 
+const buttonRow = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '2',
+});
+
+const editorPanel = css({
+  marginTop: '2',
+  border: '1px solid token(colors.border.subtle)',
+  borderRadius: 'md',
+  background: 'surface.panel',
+  p: '3',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2',
+});
+
+const fieldLabel = css({
+  display: 'block',
+  fontSize: 'xs',
+  color: 'fg.dim',
+  fontFamily: 'mono',
+  mb: '1',
+});
+
+const textInput = css({
+  width: '100%',
+  py: '1',
+  px: '2',
+  borderRadius: 'sm',
+  border: '1px solid token(colors.border.strong)',
+  background: 'surface.base',
+  color: 'fg',
+  fontFamily: 'mono',
+  fontSize: 'sm',
+  _focus: { outline: 'none', borderColor: 'fg.dim' },
+});
+
+const textArea = css({
+  width: '100%',
+  minHeight: '60px',
+  py: '1',
+  px: '2',
+  borderRadius: 'sm',
+  border: '1px solid token(colors.border.strong)',
+  background: 'surface.base',
+  color: 'fg',
+  fontFamily: 'mono',
+  fontSize: 'sm',
+  resize: 'vertical',
+  _focus: { outline: 'none', borderColor: 'fg.dim' },
+});
+
+const editorHint = css({
+  fontSize: 'xs',
+  color: 'fg.dim',
+});
+
+const editorActions = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '2',
+  mt: '1',
+});
+
 interface ReplayButtonProps {
   event: SSEEvent;
 }
 
 export function ReplayButton({ event }: ReplayButtonProps) {
   const [state, setState] = useState<ReplayState>({ phase: 'idle' });
+  const [editor, setEditor] = useState<EditorState | null>(null);
+  const spanId = event.data.spanId;
 
   const replay = useCallback(async () => {
     setState({ phase: 'loading' });
@@ -147,7 +240,7 @@ export function ReplayButton({ event }: ReplayButtonProps) {
       const res = await fetch('/api/replay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spanId: event.data.spanId }),
+        body: JSON.stringify({ spanId }),
       });
 
       const data = await res.json();
@@ -168,19 +261,210 @@ export function ReplayButton({ event }: ReplayButtonProps) {
         },
       });
     }
-  }, [event]);
+  }, [spanId]);
+
+  // Open the editor: ask the sidecar to reconstruct the captured request (method,
+  // URL, headers incl. the captured Authorization, body) so we can pre-fill the
+  // form. prepareOnly means it is NOT sent — the user reviews/edits first.
+  const openEditor = useCallback(async () => {
+    setState({ phase: 'idle' });
+    setEditor({
+      loading: true,
+      method: '',
+      url: '',
+      authorization: '',
+      headersText: '',
+      body: '',
+      sending: false,
+    });
+
+    try {
+      const res = await fetch('/api/replay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spanId, prepareOnly: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEditor({
+          loading: false,
+          prepareError: (data as ReplayError).message ?? 'could not prepare request',
+          method: '',
+          url: '',
+          authorization: '',
+          headersText: '',
+          body: '',
+          sending: false,
+        });
+        return;
+      }
+      const prepared = data as PreparedRequest;
+      const { authorization, rest } = splitAuthHeader(prepared.headers ?? {});
+      setEditor({
+        loading: false,
+        method: prepared.method,
+        url: prepared.url,
+        authorization,
+        headersText: formatHeaderLines(rest),
+        body: prepared.body ?? '',
+        sending: false,
+      });
+    } catch (err) {
+      setEditor({
+        loading: false,
+        prepareError: (err as Error).message,
+        method: '',
+        url: '',
+        authorization: '',
+        headersText: '',
+        body: '',
+        sending: false,
+      });
+    }
+  }, [spanId]);
+
+  // Send the edited request verbatim. The composed headers (including any pasted
+  // Authorization) travel only in this request body — the sidecar never writes
+  // them to disk (issue #60).
+  const sendEdited = useCallback(async () => {
+    if (!editor) return;
+    const headers = composeReplayHeaders(editor.headersText, editor.authorization);
+    setEditor((e) => (e ? { ...e, sending: true } : e));
+    setState({ phase: 'loading' });
+
+    try {
+      const res = await fetch('/api/replay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request: {
+            method: editor.method,
+            url: editor.url,
+            headers,
+            body: editor.body ? editor.body : undefined,
+          },
+        }),
+      });
+      const data = await res.json();
+      setEditor((e) => (e ? { ...e, sending: false } : e));
+      if (res.ok) {
+        setState({ phase: 'success', data: data as ReplayResponse });
+      } else {
+        setState({ phase: 'error', data: data as ReplayError });
+      }
+    } catch (err) {
+      setEditor((e) => (e ? { ...e, sending: false } : e));
+      setState({
+        phase: 'error',
+        data: { error: 'network error', message: (err as Error).message, url: '', method: '' },
+      });
+    }
+  }, [editor]);
+
+  const updateEditor = useCallback((patch: Partial<EditorState>) => {
+    setEditor((e) => (e ? { ...e, ...patch } : e));
+  }, []);
 
   return (
     <div>
-      <button
-        type="button"
-        className={pillButton}
-        onClick={replay}
-        disabled={state.phase === 'loading'}
-        style={{ opacity: state.phase === 'loading' ? 0.6 : 1 }}
-      >
-        {state.phase === 'loading' ? 'Replaying...' : 'Replay'}
-      </button>
+      <div className={buttonRow}>
+        <button
+          type="button"
+          className={pillButton}
+          onClick={replay}
+          disabled={state.phase === 'loading'}
+          style={{ opacity: state.phase === 'loading' ? 0.6 : 1 }}
+        >
+          {state.phase === 'loading' && !editor?.sending ? 'Replaying...' : 'Replay'}
+        </button>
+        <button
+          type="button"
+          className={pillButton}
+          onClick={editor ? () => setEditor(null) : openEditor}
+          title="Edit headers (e.g. add an Authorization token) before sending"
+        >
+          {editor ? 'Close editor' : 'Edit & Replay'}
+        </button>
+      </div>
+
+      {editor && (
+        <div className={editorPanel}>
+          {editor.loading ? (
+            <span className={dimText}>Preparing request…</span>
+          ) : editor.prepareError ? (
+            <div className={errorContainer}>
+              <div className={errorTitle}>Could not prepare request</div>
+              <div className={errorDetail}>{editor.prepareError}</div>
+            </div>
+          ) : (
+            <>
+              <div className={css({ display: 'flex', gap: '2' })}>
+                <div className={css({ flexShrink: 0, width: '80px' })}>
+                  <label className={fieldLabel}>
+                    Method
+                    <input
+                      className={textInput}
+                      value={editor.method}
+                      onInput={(e) => updateEditor({ method: e.currentTarget.value })}
+                    />
+                  </label>
+                </div>
+                <div className={css({ flex: 1 })}>
+                  <label className={fieldLabel}>
+                    URL
+                    <input
+                      className={textInput}
+                      value={editor.url}
+                      onInput={(e) => updateEditor({ url: e.currentTarget.value })}
+                    />
+                  </label>
+                </div>
+              </div>
+              <label className={fieldLabel}>
+                Authorization
+                <input
+                  className={textInput}
+                  value={editor.authorization}
+                  placeholder="e.g. Bearer eyJ… (overrides the captured token for this replay)"
+                  onInput={(e) => updateEditor({ authorization: e.currentTarget.value })}
+                />
+              </label>
+              <div className={editorHint}>
+                The captured token is pre-filled and one-click Replay re-sends it. Override it here
+                (e.g. if it has expired); your edit lives only for this send and is never stored.
+              </div>
+              <label className={fieldLabel}>
+                Other headers (one “Key: Value” per line)
+                <textarea
+                  className={textArea}
+                  value={editor.headersText}
+                  onInput={(e) => updateEditor({ headersText: e.currentTarget.value })}
+                />
+              </label>
+              <label className={fieldLabel}>
+                Body
+                <textarea
+                  className={textArea}
+                  value={editor.body}
+                  onInput={(e) => updateEditor({ body: e.currentTarget.value })}
+                />
+              </label>
+
+              <div className={editorActions}>
+                <button
+                  type="button"
+                  className={pillButton}
+                  onClick={sendEdited}
+                  disabled={editor.sending}
+                  style={{ opacity: editor.sending ? 0.6 : 1 }}
+                >
+                  {editor.sending ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {(state.phase === 'success' || state.phase === 'error') && (
         <button
