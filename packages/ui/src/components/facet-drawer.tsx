@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useMemo, useRef, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 import type { SSEEvent } from '../hooks/use-sse';
-import { deriveFacets } from '../utils/facets';
+import { deriveFacets, filterFacets } from '../utils/facets';
 import { hasToken } from '../utils/filter-query';
 
 /* ── Persisted UI state ───────────────────────────────────────────────── */
@@ -86,6 +86,60 @@ const s = {
     color: 'fg.dim',
     cursor: 'pointer',
     transition: 'all 0.12s ease',
+    _hover: { background: 'surface.hover', color: 'fg.bright' },
+  }),
+  // Compact search box mirroring the main search-bar's input chrome, sized down
+  // for the dense drawer (issue #66). Display-only filter over derived facets.
+  searchRow: css({
+    flexShrink: 0,
+    px: '2',
+    py: '1.5',
+    borderBottom: '1px solid token(colors.border.subtle)',
+    background: 'surface.bg',
+  }),
+  searchWrap: css({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1.5',
+    px: '1.5',
+    background: 'surface.panel',
+    border: '1px solid token(colors.border.subtle)',
+    borderRadius: 'sm',
+    _focusWithin: { borderColor: 'accent' },
+  }),
+  searchIcon: css({
+    flexShrink: 0,
+    color: 'fg.dim',
+    opacity: 0.5,
+  }),
+  searchInput: css({
+    flex: 1,
+    minWidth: 0,
+    height: '22px',
+    border: 'none',
+    background: 'transparent',
+    color: 'fg',
+    fontFamily: 'mono',
+    fontSize: 'sm',
+    outline: 'none',
+    padding: 0,
+    _placeholder: { color: 'fg.dim', opacity: 0.6 },
+  }),
+  searchClear: css({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    width: '16px',
+    height: '16px',
+    border: 'none',
+    borderRadius: '2px',
+    background: 'transparent',
+    color: 'fg.dim',
+    cursor: 'pointer',
+    fontSize: 'xs',
+    lineHeight: 1,
+    padding: 0,
     _hover: { background: 'surface.hover', color: 'fg.bright' },
   }),
   railBtn: css({
@@ -284,8 +338,18 @@ export function FacetDrawer({ events, query, onToggleValue }: FacetDrawerProps) 
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [open, setOpen] = useState<Record<string, boolean>>(loadOpen);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const facets = useMemo(() => deriveFacets(events), [events]);
+  const allFacets = useMemo(() => deriveFacets(events), [events]);
+  const searching = search.trim() !== '';
+  // Display-only narrowing — counts, ordering and click tokens are untouched.
+  const facets = useMemo(() => filterFacets(allFacets, search), [allFacets, search]);
+
+  const clearSearch = () => {
+    setSearch('');
+    searchRef.current?.focus();
+  };
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -351,26 +415,76 @@ export function FacetDrawer({ events, query, onToggleValue }: FacetDrawerProps) 
         </button>
       </div>
 
+      <div className={s.searchRow}>
+        <div className={s.searchWrap}>
+          <svg
+            aria-hidden="true"
+            className={s.searchIcon}
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            ref={searchRef}
+            type="text"
+            className={s.searchInput}
+            placeholder="Filter values…"
+            aria-label="Filter facet values"
+            value={search}
+            onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && search) {
+                e.preventDefault();
+                e.stopPropagation();
+                clearSearch();
+              }
+            }}
+          />
+          {search && (
+            <button
+              type="button"
+              className={s.searchClear}
+              onClick={clearSearch}
+              title="Clear filter"
+              aria-label="Clear facet filter"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className={s.list}>
-        {facets.length === 0 ? (
+        {allFacets.length === 0 ? (
           <div className={s.empty}>
             Facets appear here as events stream in — click a value to filter.
           </div>
+        ) : facets.length === 0 ? (
+          <div className={s.empty}>No facet values match “{search.trim()}”.</div>
         ) : (
           facets.map((facet) => {
             const showAll = expanded[facet.key];
             const visible = showAll ? facet.values : facet.values.slice(0, VALUE_CAP);
             const hiddenCount = facet.values.length - visible.length;
+            // While searching, reveal matching facets so their hits are visible
+            // without changing the persisted open/closed state.
+            const showValues = isOpen(facet.key) || searching;
             return (
               <div key={facet.key} className={s.facet}>
                 <button type="button" className={s.facetHeader} onClick={() => toggleOpen(facet.key)}>
                   <span className={s.facetChevron}>
-                    {isOpen(facet.key) ? chevronDown : chevronRight}
+                    {showValues ? chevronDown : chevronRight}
                   </span>
                   <span className={s.facetLabel}>{facet.label}</span>
                   <span className={s.facetCount}>{facet.values.length}</span>
                 </button>
-                {isOpen(facet.key) && (
+                {showValues && (
                   <div className={s.values}>
                     {visible.map((v) => {
                       const active = hasToken(query, facet.key, v.value);

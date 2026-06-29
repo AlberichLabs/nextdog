@@ -158,3 +158,30 @@ export function deriveFacets(events: SSEEvent[], options: DeriveFacetsOptions = 
   const attrs = options.includeAttributes === false ? [] : attributeFacets(events);
   return [...named, ...attrs];
 }
+
+/**
+ * Narrow already-derived facets to those matching a free-text search — the
+ * client-side filter behind the drawer's search box (issue #66). Purely a
+ * *display* filter: counts and ordering are preserved untouched, and the
+ * tokens emitted on click are unaffected.
+ *
+ * A facet whose key/label matches keeps all its values (typing a facet name
+ * reveals everything under it); otherwise only values containing the term
+ * (case-insensitive substring) are kept, and facets left with no matching
+ * values are dropped. An empty/whitespace search returns the input as-is.
+ */
+export function filterFacets(facets: Facet[], search: string): Facet[] {
+  const term = search.trim().toLowerCase();
+  if (!term) return facets;
+
+  const result: Facet[] = [];
+  for (const facet of facets) {
+    if (facet.key.toLowerCase().includes(term) || facet.label.toLowerCase().includes(term)) {
+      result.push(facet);
+      continue;
+    }
+    const values = facet.values.filter((v) => v.value.toLowerCase().includes(term));
+    if (values.length > 0) result.push({ ...facet, values });
+  }
+  return result;
+}

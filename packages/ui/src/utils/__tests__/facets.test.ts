@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { matchesQuery } from '../../hooks/use-events';
 import type { SSEEvent } from '../../hooks/use-sse';
 import { tokenFor } from '../filter-query';
-import { deriveFacets } from '../facets';
+import { type Facet, deriveFacets, filterFacets } from '../facets';
 
 /** Build a span event with the given overrides. */
 function span(data: Partial<SSEEvent['data']> & { serviceName: string }): SSEEvent {
@@ -131,6 +131,71 @@ describe('deriveFacets — attribute facets', () => {
     const keys = deriveFacets(events, { includeAttributes: false }).map((f) => f.key);
     expect(keys).not.toContain('db.system');
     expect(keys).toContain('service');
+  });
+});
+
+describe('filterFacets — client-side value/name search', () => {
+  const facets: Facet[] = [
+    {
+      key: 'service',
+      label: 'Service',
+      values: [
+        { value: 'web', count: 5 },
+        { value: 'api', count: 3 },
+        { value: 'worker', count: 1 },
+      ],
+    },
+    {
+      key: 'method',
+      label: 'Method',
+      values: [
+        { value: 'GET', count: 4 },
+        { value: 'POST', count: 2 },
+      ],
+    },
+  ];
+
+  it('returns the input unchanged for an empty or whitespace search', () => {
+    expect(filterFacets(facets, '')).toBe(facets);
+    expect(filterFacets(facets, '   ')).toBe(facets);
+  });
+
+  it('keeps only values matching the term (case-insensitive substring)', () => {
+    const result = filterFacets(facets, 'we');
+    expect(result).toEqual([
+      { key: 'service', label: 'Service', values: [{ value: 'web', count: 5 }] },
+    ]);
+  });
+
+  it('matches values regardless of case', () => {
+    const result = filterFacets(facets, 'get');
+    expect(result).toEqual([
+      { key: 'method', label: 'Method', values: [{ value: 'GET', count: 4 }] },
+    ]);
+  });
+
+  it('keeps matching values across facets, preserving order/counts', () => {
+    const result = filterFacets(facets, 'p');
+    // 'api' (service) and 'POST' (method) both contain "p"; labels don't.
+    expect(result).toEqual([
+      { key: 'service', label: 'Service', values: [{ value: 'api', count: 3 }] },
+      { key: 'method', label: 'Method', values: [{ value: 'POST', count: 2 }] },
+    ]);
+  });
+
+  it('keeps all values of a facet when its name/label matches the term', () => {
+    const result = filterFacets(facets, 'method');
+    expect(result).toEqual([facets[1]]);
+  });
+
+  it('returns an empty list when nothing matches', () => {
+    expect(filterFacets(facets, 'zzz')).toEqual([]);
+  });
+
+  it('does not mutate the input facets', () => {
+    const snapshot = JSON.parse(JSON.stringify(facets));
+    filterFacets(facets, 'we');
+    expect(facets).toEqual(snapshot);
   });
 });
 
