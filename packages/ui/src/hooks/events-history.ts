@@ -63,7 +63,8 @@ export function mergeEvents(a: SSEEvent[], b: SSEEvent[]): SSEEvent[] {
 }
 
 /**
- * Hard cap on the live in-memory event buffer (issue #58).
+ * Hard cap on the live in-memory event buffer, applied *per event type* (issue #58,
+ * refined by issue #71).
  *
  * The dashboard's persistent record lives on disk (core's FileStore); the client
  * only needs a bounded *live* window — "Load older" pages further back on demand.
@@ -73,18 +74,61 @@ export function mergeEvents(a: SSEEvent[], b: SSEEvent[]): SSEEvent[] {
  * buffer size — O(n²) over a session. Under real traffic the main thread saturated
  * and the page froze (felt acutely while scrolling). Small-dataset QA never hit it.
  *
- * 2000 matches the buffer size the virtualized lists were already designed around
- * (see utils/virtual-window.ts); this enforces the intended ceiling.
+ * The cap is enforced **independently for logs and for spans** rather than as one
+ * shared budget (issue #71). Console logs are typically far higher-volume than
+ * spans, so a single shared cap let a log flood evict the sparse spans — and,
+ * symmetrically, a span burst evict logs — making one type's entries "randomly
+ * clear" while the other persisted. A per-type budget means one stream's volume can
+ * never evict the other's entries. Each type is still bounded, so the #58 guarantee
+ * holds: the total buffer can never exceed `2 × MAX_LIVE_EVENTS`, independent of
+ * session length, and each virtualized list still renders at most MAX_LIVE_EVENTS
+ * rows — the size utils/virtual-window.ts was designed around.
  */
 export const MAX_LIVE_EVENTS = 2000;
 
 /**
+ * Bound a sorted, oldest-first buffer to at most `cap` events *of each type*,
+ * dropping the oldest of whichever type overflows while preserving the overall
+ * oldest-first order (issue #71). Returns the input array untouched when nothing
+ * needs trimming, so callers can bail out of a re-render. O(n) in buffer length.
+ */
+function capPerType(list: SSEEvent[], cap: number): SSEEvent[] {
+  let logs = 0;
+  let spans = 0;
+  for (const e of list) {
+    if (e.type === 'span') spans++;
+    else logs++;
+  }
+  if (logs <= cap && spans <= cap) return list;
+
+  // Walk newest→oldest, keeping only the most recent `cap` events of each type.
+  let keptLogs = 0;
+  let keptSpans = 0;
+  const keep = new Array<boolean>(list.length);
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i].type === 'span') {
+      keep[i] = keptSpans < cap;
+      if (keep[i]) keptSpans++;
+    } else {
+      keep[i] = keptLogs < cap;
+      if (keep[i]) keptLogs++;
+    }
+  }
+  const out: SSEEvent[] = [];
+  for (let i = 0; i < list.length; i++) {
+    if (keep[i]) out.push(list[i]);
+  }
+  return out;
+}
+
+/**
  * Append live SSE events onto an oldest-first buffer, de-duplicating by
  * {@link eventKey}, keeping it sorted oldest-first, and bounding it to the most
- * recent `cap` events. Unlike {@link mergeEvents}, this never re-sorts the whole
- * buffer: a live event is almost always the newest, so it appends in O(1); a rare
- * out-of-order delivery is binary-inserted. Cost per call is therefore bounded by
- * `cap`, not by how long the session has been running (issue #58).
+ * recent `cap` events *of each type* (see {@link capPerType} and issue #71). Unlike
+ * {@link mergeEvents}, this never re-sorts the whole buffer: a live event is almost
+ * always the newest, so it appends in O(1); a rare out-of-order delivery is
+ * binary-inserted. Cost per call is therefore bounded by `cap`, not by how long the
+ * session has been running (issue #58).
  *
  * Used only for the live SSE tail. History backfill and "load older" still go
  * through {@link mergeEvents}, which merges two ordered lists.
@@ -125,7 +169,7 @@ export function appendLiveEvents(
   }
 
   if (!next) return buf;
-  return next.length > cap ? next.slice(next.length - cap) : next;
+  return capPerType(next, cap);
 }
 
 /** Timestamp of the oldest event in an oldest-first list, or undefined if empty. */

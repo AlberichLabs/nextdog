@@ -152,6 +152,75 @@ describe('appendLiveEvents', () => {
   });
 });
 
+// Regression for #71: logs "randomly clear" while spans/traces persist.
+// Root cause — the live buffer was a SINGLE shared cap across both event types.
+// Console logs are far higher-volume than spans, so a log flood pushed the shared
+// window forward and evicted the *other* type; symmetrically a span burst could
+// evict logs. The cap must be PER TYPE so one stream's volume can never clear the
+// other's entries, while each stays bounded (the #58 freeze fix must survive).
+describe('appendLiveEvents — per-type budgets (#71)', () => {
+  it('does not evict spans when a flood of logs streams in', () => {
+    let buf: SSEEvent[] = [];
+    // Sparse spans first…
+    for (let i = 0; i < 50; i++) buf = appendLiveEvents(buf, [span(`sp${i}`, i)]);
+    // …then a flood of newer logs, far exceeding the buffer cap.
+    for (let i = 0; i < 3000; i++) buf = appendLiveEvents(buf, [log(1000 + i, `m${i}`)]);
+
+    const spans = buf.filter((e) => e.type === 'span');
+    const logs = buf.filter((e) => e.type === 'log');
+    expect(spans).toHaveLength(50); // every span survives the log flood
+    expect(logs.length).toBeLessThanOrEqual(MAX_LIVE_EVENTS); // logs stay bounded
+  });
+
+  it('does not evict logs when a burst of spans streams in', () => {
+    let buf: SSEEvent[] = [];
+    for (let i = 0; i < 50; i++) buf = appendLiveEvents(buf, [log(i, `m${i}`)]);
+    for (let i = 0; i < 3000; i++) buf = appendLiveEvents(buf, [span(`sp${i}`, 1000 + i)]);
+
+    const logs = buf.filter((e) => e.type === 'log');
+    const spans = buf.filter((e) => e.type === 'span');
+    expect(logs).toHaveLength(50); // every log survives the span burst
+    expect(spans.length).toBeLessThanOrEqual(MAX_LIVE_EVENTS);
+  });
+
+  it('keeps logs that fit their own budget even when spans share the buffer', () => {
+    // 1500 logs + 500 spans = 2000 events. Both are individually under budget, but
+    // the old single shared cap (2000) would evict the oldest as soon as newer
+    // events arrived because spans occupied slots. Per-type budgets keep both.
+    let buf: SSEEvent[] = [];
+    let ts = 0;
+    for (let i = 0; i < 1500; i++) {
+      buf = appendLiveEvents(buf, [log(ts++, `log${i}`)]);
+      if (i % 3 === 0) buf = appendLiveEvents(buf, [span(`sp${i}`, ts++)]);
+    }
+    // Push one more newer log to force an eviction decision on a full-ish buffer.
+    buf = appendLiveEvents(buf, [log(ts++, 'log-final')]);
+    const logs = buf.filter((e) => e.type === 'log');
+    const spans = buf.filter((e) => e.type === 'span');
+    expect(logs).toHaveLength(1501); // no log cleared by the presence of spans
+    expect(spans).toHaveLength(500);
+  });
+
+  it('bounds EACH type under sustained mixed traffic (preserves the #58 cap)', () => {
+    let buf: SSEEvent[] = [];
+    let ts = 0;
+    for (let i = 0; i < 2500; i++) {
+      buf = appendLiveEvents(buf, [log(ts++, `log${i}`)]);
+      buf = appendLiveEvents(buf, [span(`sp${i}`, ts++)]);
+    }
+    const logs = buf.filter((e) => e.type === 'log');
+    const spans = buf.filter((e) => e.type === 'span');
+    expect(logs.length).toBeLessThanOrEqual(MAX_LIVE_EVENTS);
+    expect(spans.length).toBeLessThanOrEqual(MAX_LIVE_EVENTS);
+    // Total is bounded (no unbounded growth → no O(n²) / freeze regression).
+    expect(buf.length).toBeLessThanOrEqual(2 * MAX_LIVE_EVENTS);
+    // …and the buffer stays oldest-first.
+    for (let i = 1; i < buf.length; i++) {
+      expect(buf[i].timestamp).toBeGreaterThanOrEqual(buf[i - 1].timestamp);
+    }
+  });
+});
+
 describe('oldestTimestamp', () => {
   it('returns the minimum timestamp for load-older paging', () => {
     expect(oldestTimestamp([span('s1', 30), span('s2', 10), span('s3', 20)])).toBe(10);
