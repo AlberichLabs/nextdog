@@ -9,3 +9,5 @@ dist/
 *.log
 .DS_Store
 styled-system/
+.next/
+next-env.d.ts
