@@ -146,6 +146,47 @@ describe('response capture', () => {
     expect(meta.responseBody).toContain('image/png');
   });
 
+  it('captures a response body written as Uint8Array chunks (Web-stream piping)', async () => {
+    // App Router pipes the Web Response body to the Node res as Uint8Array
+    // chunks (see next/dist/server/pipe-readable), NOT Buffers/strings.
+    const payload = JSON.stringify({ ok: true, source: 'app-router' });
+    const enc = new TextEncoder();
+    const result = await driveRequest({
+      method: 'GET',
+      path: '/api/webstream',
+      handler: (_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.write(enc.encode(payload.slice(0, 5)));
+        res.write(enc.encode(payload.slice(5)));
+        res.end();
+      },
+    });
+
+    // Client received the intact body.
+    expect(result.clientBody.toString('utf-8')).toBe(payload);
+
+    const meta = expectMeta('GET', '/api/webstream');
+    expect(meta.responseStatus).toBe(200);
+    expect(meta.responseBody).toBe(payload);
+  });
+
+  it('captures a response body delivered as a single Uint8Array to res.end()', async () => {
+    const payload = JSON.stringify({ done: true });
+    const result = await driveRequest({
+      method: 'GET',
+      path: '/api/webstream-end',
+      handler: (_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(new TextEncoder().encode(payload));
+      },
+    });
+
+    expect(result.clientBody.toString('utf-8')).toBe(payload);
+
+    const meta = expectMeta('GET', '/api/webstream-end');
+    expect(meta.responseBody).toBe(payload);
+  });
+
   it('summarizes a gzip-compressed JSON response instead of capturing mojibake', async () => {
     const payload = JSON.stringify({ ok: true, items: [1, 2, 3] });
     const gz = zlib.gzipSync(Buffer.from(payload, 'utf-8'));
@@ -173,5 +214,87 @@ describe('response capture', () => {
     expect(meta.responseBody).toContain('gzip');
     // And it must not contain the decoded plaintext either (we don't decompress).
     expect(meta.responseBody).not.toContain('items');
+  });
+});
+
+describe('request body capture — App Router (Web Request) semantics', () => {
+  it('captures a POST body consumed via async iteration (undici/Web Request), not on("data")', async () => {
+    // App Router builds a Web Request whose body stream undici drains via
+    // read()/async-iteration — it never registers a raw `req.on('data')`
+    // listener. The capture must still observe the body bytes.
+    const payload = JSON.stringify({ title: 'app-router-task' });
+    const result = await driveRequest({
+      method: 'POST',
+      path: '/api/tasks',
+      reqBody: payload,
+      reqHeaders: { 'content-type': 'application/json' },
+      handler: async (req, res) => {
+        // Deliberately consume the body WITHOUT req.on('data'): iterate the
+        // stream the way undici does for a Web Request body.
+        let received = '';
+        for await (const chunk of req) received += (chunk as Buffer).toString('utf-8');
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(new TextEncoder().encode(received));
+      },
+    });
+
+    // The handler echoed the body it read, proving the client's bytes were
+    // delivered intact and our capture didn't disturb the stream.
+    expect(result.clientBody.toString('utf-8')).toBe(payload);
+
+    const meta = expectMeta('POST', '/api/tasks');
+    expect(meta.body).toBe(payload);
+    expect(meta.responseBody).toBe(payload);
+  });
+
+  it('still captures a POST body consumed via on("data") (Pages Router / raw Node)', async () => {
+    // Regression guard: the Pages Router path (raw Node req/res, body read via
+    // 'data' events) must keep working unchanged.
+    const payload = JSON.stringify({ title: 'pages-router-task' });
+    const result = await driveRequest({
+      method: 'POST',
+      path: '/api/echo',
+      reqBody: payload,
+      reqHeaders: { 'content-type': 'application/json' },
+      handler: (req, res) => {
+        const chunks: Buffer[] = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf-8');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(body);
+        });
+      },
+    });
+
+    expect(result.clientBody.toString('utf-8')).toBe(payload);
+
+    const meta = expectMeta('POST', '/api/echo');
+    expect(meta.body).toBe(payload);
+    expect(meta.responseBody).toBe(payload);
+  });
+
+  it('caps a large request body at the max size', async () => {
+    const big = 'y'.repeat(20 * 1024); // 20KB > 16KB request cap
+    const wrapped = JSON.stringify({ blob: big });
+    await driveRequest({
+      method: 'POST',
+      path: '/api/big-body',
+      reqBody: wrapped,
+      reqHeaders: { 'content-type': 'application/json' },
+      handler: async (req, res) => {
+        // consume via async iteration
+        for await (const _chunk of req) {
+          /* drain */
+        }
+        res.writeHead(200);
+        res.end('ok');
+      },
+    });
+
+    const meta = expectMeta('POST', '/api/big-body');
+    if (meta.body === undefined) throw new Error('expected captured request body');
+    expect(meta.body.length).toBeLessThanOrEqual(16 * 1024);
+    expect(meta.body.length).toBeGreaterThan(0);
   });
 });
