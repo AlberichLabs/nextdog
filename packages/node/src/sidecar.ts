@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, open, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
@@ -25,30 +25,137 @@ const PROBE_TIMEOUT_MS = 2000;
 type ProbeResult = 'nextdog' | 'foreign' | 'absent';
 
 /**
- * Single source of truth for reading and classifying `${url}/health`. Both
- * {@link isHealthy} and {@link isForeignOccupant} are thin views over this so
- * the fetch/timeout/JSON/marker logic lives in exactly one place.
+ * A classified `${url}/health` probe. When `kind` is `nextdog`, `version` carries
+ * the sidecar's self-reported build (from its `/health` payload) — or `undefined`
+ * for a pre-#79 sidecar that predates the version handshake. `version` is only ever
+ * present for `nextdog`.
+ */
+export interface SidecarProbe {
+  kind: ProbeResult;
+  version?: string;
+}
+
+/**
+ * Single source of truth for reading and classifying `${url}/health`, including the
+ * sidecar's advertised version. {@link probeHealth}, {@link isHealthy} and
+ * {@link isForeignOccupant} are thin views over this so the fetch/timeout/JSON/marker
+ * logic lives in exactly one place.
  *
  * @internal exported for testing.
  */
-export async function probeHealth(url: string): Promise<ProbeResult> {
+export async function probeSidecar(url: string): Promise<SidecarProbe> {
   try {
     const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
-    if (!res.ok) return 'absent';
+    if (!res.ok) return { kind: 'absent' };
     let body: unknown;
     try {
       body = await res.json();
     } catch {
-      return 'foreign'; // 2xx, but not even JSON — something else holds the port.
+      return { kind: 'foreign' }; // 2xx, but not even JSON — something else holds the port.
     }
-    const marked =
-      typeof body === 'object' &&
-      body !== null &&
-      (body as { service?: unknown }).service === NEXTDOG_HEALTH_MARKER;
-    return marked ? 'nextdog' : 'foreign';
+    if (typeof body !== 'object' || body === null) return { kind: 'foreign' };
+    const marked = (body as { service?: unknown }).service === NEXTDOG_HEALTH_MARKER;
+    if (!marked) return { kind: 'foreign' };
+    const rawVersion = (body as { version?: unknown }).version;
+    return { kind: 'nextdog', version: typeof rawVersion === 'string' ? rawVersion : undefined };
   } catch {
-    return 'absent'; // connection refused / aborted — port is free, not foreign.
+    return { kind: 'absent' }; // connection refused / aborted — port is free, not foreign.
   }
+}
+
+/**
+ * Classification-only view over {@link probeSidecar}.
+ *
+ * @internal exported for testing.
+ */
+export async function probeHealth(url: string): Promise<ProbeResult> {
+  return (await probeSidecar(url)).kind;
+}
+
+/**
+ * Compare two `x.y.z` versions, ignoring any prerelease/build suffix on the
+ * release core. Returns -1 if `a < b`, 1 if `a > b`, 0 if equal (or unparseable —
+ * an ambiguous compare must never trigger a churny "upgrade").
+ *
+ * @internal exported for testing.
+ */
+export function compareVersions(a: string, b: string): number {
+  const core = (v: string) =>
+    v
+      .split(/[-+]/)[0]
+      .split('.')
+      .map((n) => Number(n));
+  const pa = core(a);
+  const pb = core(b);
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] ?? 0;
+    const y = pb[i] ?? 0;
+    if (Number.isNaN(x) || Number.isNaN(y)) return 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+
+/**
+ * Decide whether an already-running sidecar (`running`, from its `/health`) should
+ * be auto-upgraded to the `installed` `@nextdog/core` build. Upgrade only when the
+ * running sidecar is strictly older, or when it predates the version handshake and
+ * reports no version at all. Never downgrade, and never churn when we cannot tell
+ * what the installed target is.
+ *
+ * @internal exported for testing.
+ */
+export function shouldUpgrade(running: string | undefined, installed: string | undefined): boolean {
+  if (!installed) return false; // can't determine the target — leave the running one alone
+  if (!running) return true; // pre-#79 sidecar with no version → stale, upgrade it
+  return compareVersions(running, installed) < 0;
+}
+
+/**
+ * Read the version of the installed `@nextdog/core` — the build that would be
+ * spawned as the sidecar. Resolves `@nextdog/core/package.json` through the same
+ * bundler-robust strategy as {@link resolveCoreCliPath}, then reads its `version`.
+ * Returns `undefined` if it cannot be resolved (in which case we never upgrade).
+ *
+ * @internal exported for testing.
+ */
+export function resolveInstalledCoreVersion(
+  opts: { anchorUrl?: string; projectRoot?: string } = {},
+): string | undefined {
+  const anchorUrl = opts.anchorUrl ?? import.meta.url;
+  const projectRoot = opts.projectRoot ?? process.cwd();
+
+  const candidates: string[] = [];
+  const tryResolve = (fromUrl: string): void => {
+    try {
+      candidates.push(createRequire(fromUrl).resolve('@nextdog/core/package.json'));
+    } catch {
+      // not resolvable from this anchor
+    }
+  };
+
+  if (isRealFileUrl(anchorUrl)) tryResolve(anchorUrl);
+  tryResolve(pathToFileURL(join(projectRoot, 'package.json')).href);
+
+  // Last resort: walk up node_modules from the project root.
+  let dir = projectRoot;
+  for (;;) {
+    candidates.push(join(dir, 'node_modules', '@nextdog', 'core', 'package.json'));
+    const parent = parsePath(dir).dir;
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  for (const pkgPath of candidates) {
+    try {
+      if (!existsSync(pkgPath)) continue;
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { version?: unknown };
+      if (typeof pkg.version === 'string') return pkg.version;
+    } catch {
+      // unreadable/malformed — try the next candidate
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -257,30 +364,78 @@ export function _resetForeignOccupantWarnings(): void {
   warnedForeignPorts.clear();
 }
 
-export async function ensureSidecar(url: string): Promise<SidecarStatus> {
-  // Already running and healthy — fast path
-  if (await isHealthy(url)) return { ready: true, foreignOccupant: false };
+/**
+ * Ask the sidecar at `url` to shut down gracefully (flush → release port → exit)
+ * via its `/shutdown` control endpoint, then wait until the port is actually free.
+ * The request may be interrupted as the process tears itself down mid-response — we
+ * treat that as success and confirm by polling until nothing answers `/health`.
+ * Returns whether the port became free within `timeoutMs`.
+ */
+async function shutdownAndAwaitPortFree(url: string, timeoutMs = 5000): Promise<boolean> {
+  try {
+    await fetch(`${url}/shutdown`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
+  } catch {
+    // Socket dropped as the sidecar exited — expected; the poll below is the truth.
+  }
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if ((await probeSidecar(url)).kind === 'absent') return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
 
-  // The port answers 2xx but without the NextDog signature: a foreign process
-  // holds it. Do not adopt it; warn once and tell the caller to skip telemetry.
-  if (await isForeignOccupant(url)) {
+export async function ensureSidecar(
+  url: string,
+  opts: { installedVersion?: string } = {},
+): Promise<SidecarStatus> {
+  const probe = await probeSidecar(url);
+
+  if (probe.kind === 'nextdog') {
+    const installed = opts.installedVersion ?? resolveInstalledCoreVersion();
+    // Same (or newer) version — reuse the running sidecar. This is the fast path
+    // that intentionally survives a `next dev` restart (the detached sidecar keeps
+    // running and we re-adopt it).
+    if (!shouldUpgrade(probe.version, installed)) {
+      return { ready: true, foreignOccupant: false };
+    }
+
+    // Version mismatch — LOSSLESS auto-upgrade. Signal the old sidecar to flush and
+    // release the port, wait for the handoff, then spawn the installed build on the
+    // SAME port + NEXTDOG_DATA_DIR so it inherits all history from the shared store.
+    console.warn(`[nextdog] upgrading sidecar ${probe.version ?? 'unknown'} → ${installed}`);
+    const freed = await shutdownAndAwaitPortFree(url);
+    if (!freed) {
+      // Couldn't reclaim the port — the old sidecar still works, so keep using it
+      // rather than fighting over :6789.
+      console.warn('[nextdog] could not free the old sidecar; continuing with the running one');
+      return { ready: true, foreignOccupant: false };
+    }
+    // fall through to spawn a fresh sidecar on the freed port
+  } else if (probe.kind === 'foreign') {
+    // The port answers 2xx but without the NextDog signature: a foreign process
+    // holds it. Do not adopt it; warn once and tell the caller to skip telemetry.
     warnForeignOccupant(url);
     return { ready: false, foreignOccupant: true };
-  }
-
-  // PID file exists and process is alive — wait for it to become healthy
-  const pid = await readPid();
-  if (pid && (await isProcessRunning(pid))) {
-    for (let i = 0; i < 4; i++) {
-      await new Promise((r) => setTimeout(r, 500));
-      if (await isHealthy(url)) return { ready: true, foreignOccupant: false };
+  } else {
+    // Nothing answering. A sidecar we spawned may still be booting — if its PID is
+    // alive, wait for it to become healthy before spawning a duplicate.
+    const pid = await readPid();
+    if (pid && (await isProcessRunning(pid))) {
+      for (let i = 0; i < 4; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        if (await isHealthy(url)) return { ready: true, foreignOccupant: false };
+      }
+      console.warn(`[nextdog] sidecar process ${pid} is running but not responding at ${url}`);
+      console.warn(`[nextdog] check ${LOG_FILE} for sidecar logs`);
+      return { ready: false, foreignOccupant: false };
     }
-    console.warn(`[nextdog] sidecar process ${pid} is running but not responding at ${url}`);
-    console.warn(`[nextdog] check ${LOG_FILE} for sidecar logs`);
-    return { ready: false, foreignOccupant: false };
   }
 
-  // No sidecar running — spawn one
+  // Spawn a new sidecar (fresh start, or the freshly-freed port after an upgrade).
   try {
     await spawnSidecar(url);
   } catch (err) {

@@ -1,13 +1,28 @@
 #!/usr/bin/env node
 import { stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import type { Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { parseCliCommand, stopSidecar } from './control';
 import { createServer } from './server';
 
 const DEFAULT_PORT = 6789;
 const DEFAULT_DATA_DIR = join(homedir(), '.nextdog', 'data');
+/** Idle window before an unused sidecar shuts itself down. `0` disables it (#79). */
+const DEFAULT_IDLE_MS = 60_000;
+
+function resolveIdleMs(): number {
+  const raw = process.env.NEXTDOG_IDLE_MS;
+  if (raw === undefined) return DEFAULT_IDLE_MS;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : DEFAULT_IDLE_MS;
+}
+
+function resolveUrl(): { url: string; port: number; host: string } {
+  const url = process.env.NEXTDOG_URL ?? `http://localhost:${DEFAULT_PORT}`;
+  const parsed = new URL(url);
+  return { url, port: Number(parsed.port) || DEFAULT_PORT, host: parsed.hostname };
+}
 
 async function resolveUiDir(): Promise<string | undefined> {
   try {
@@ -22,33 +37,39 @@ async function resolveUiDir(): Promise<string | undefined> {
   return undefined;
 }
 
-async function main() {
-  const url = process.env.NEXTDOG_URL ?? `http://localhost:${DEFAULT_PORT}`;
-  const parsed = new URL(url);
-  const port = Number(parsed.port) || DEFAULT_PORT;
-  const host = parsed.hostname;
+async function startServer(): Promise<void> {
+  const { port, host } = resolveUrl();
   const dataDir = process.env.NEXTDOG_DATA_DIR ?? DEFAULT_DATA_DIR;
   const uiDir = process.env.NEXTDOG_UI_DIR ?? (await resolveUiDir());
+  const idleMs = resolveIdleMs();
 
-  const server = await createServer({ port, host, dataDir, uiDir });
+  const server = await createServer({
+    port,
+    host,
+    dataDir,
+    uiDir,
+    idleMs,
+    // The idle timer and the /shutdown control endpoint decide when to terminate;
+    // give them the real process exit.
+    onExit: (code) => process.exit(code),
+  });
+
   console.log(`[nextdog] sidecar running at http://${host}:${port}`);
   console.log(`[nextdog] data dir: ${dataDir}`);
+  if (idleMs > 0) {
+    console.log(
+      `[nextdog] idle shutdown after ${idleMs}ms of no telemetry or open dashboard ` +
+        `(set NEXTDOG_IDLE_MS=0 to disable)`,
+    );
+  }
   if (uiDir) {
     console.log(`[nextdog] UI served from: ${uiDir}`);
   } else {
     console.log(`[nextdog] UI not available (run pnpm build in @nextdog/ui)`);
   }
 
-  // Track open connections so we can destroy them on shutdown
-  const connections = new Set<Socket>();
-  server.on('connection', (socket) => {
-    connections.add(socket);
-    socket.on('close', () => connections.delete(socket));
-  });
-
   let shuttingDown = false;
-
-  function shutdown() {
+  const onSignal = async () => {
     if (shuttingDown) {
       // Second signal — force exit immediately
       console.log('\n[nextdog] forced exit');
@@ -56,23 +77,46 @@ async function main() {
     }
     shuttingDown = true;
     console.log('\n[nextdog] shutting down...');
+    // Graceful: flush the buffer to disk (lossless) before releasing the port.
+    await server.gracefulShutdown();
+    process.exit(0);
+  };
 
-    // Stop accepting new connections
-    server.close(() => process.exit(0));
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+}
 
-    // Destroy all active connections (SSE clients etc.) after a short grace period
-    setTimeout(() => {
-      for (const socket of connections) {
-        socket.destroy();
-      }
-    }, 500).unref();
+/** `nextdog stop` — gracefully stop a running sidecar. Returns false only for a
+ * foreign occupant (so `restart` knows not to try binding the port). */
+async function runStop(): Promise<boolean> {
+  const { url } = resolveUrl();
+  const result = await stopSidecar(url);
+  if (result === 'stopped') {
+    console.log(`[nextdog] sidecar at ${url} stopped`);
+  } else if (result === 'not-running') {
+    console.log(`[nextdog] no sidecar running at ${url}`);
+  } else {
+    console.log(`[nextdog] ${url} is held by a non-NextDog process — leaving it alone`);
+  }
+  return result !== 'foreign';
+}
 
-    // Force exit if server.close callback never fires
-    setTimeout(() => process.exit(0), 2000).unref();
+async function main() {
+  const command = parseCliCommand(process.argv.slice(2));
+
+  if (command === 'stop') {
+    await runStop();
+    return;
   }
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  if (command === 'restart') {
+    const canBind = await runStop();
+    if (!canBind) return; // a foreign process holds the port — nothing to restart
+    await startServer();
+    return;
+  }
+
+  await startServer();
 }
 
 main().catch((err) => {

@@ -13,11 +13,11 @@ import { _resetForeignOccupantWarnings, ensureSidecar, isHealthy, probeHealth } 
 
 const mockFetch = vi.fn();
 
-/** A response shaped like a real NextDog `/health` reply. */
-function nextdogHealth() {
+/** A response shaped like a real NextDog `/health` reply (post-#79 it carries a version). */
+function nextdogHealth(version = '1.0.0') {
   return {
     ok: true,
-    json: () => Promise.resolve({ status: 'ok', service: NEXTDOG_HEALTH_MARKER }),
+    json: () => Promise.resolve({ status: 'ok', service: NEXTDOG_HEALTH_MARKER, version }),
   };
 }
 
@@ -105,9 +105,10 @@ describe('ensureSidecar', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns ready immediately when a verified sidecar answers', async () => {
-    mockFetch.mockResolvedValueOnce(nextdogHealth());
-    const result = await ensureSidecar('http://localhost:6789');
+  it('returns ready immediately when a verified same-version sidecar answers', async () => {
+    mockFetch.mockResolvedValue(nextdogHealth('1.0.0'));
+    // Same installed version → reuse the running sidecar (fast path, no upgrade).
+    const result = await ensureSidecar('http://localhost:6789', { installedVersion: '1.0.0' });
     expect(result.ready).toBe(true);
     expect(mockFetch).toHaveBeenCalledWith(
       'http://localhost:6789/health',

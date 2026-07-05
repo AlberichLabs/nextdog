@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { appendLiveEvents, mergeEvents, oldestTimestamp } from './events-history';
+import { initialConnectionState, onSSEOpen } from './sse-lifecycle';
 
 export interface SSEEvent {
   type: 'span' | 'log';
@@ -45,27 +46,32 @@ export function useSSE(url: string, enabled = true): UseSSEResult {
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
   const esRef = useRef<EventSource | null>(null);
   const initialLoadDone = useRef(false);
+  const connectionState = useRef(initialConnectionState);
 
-  // Reload full history (spans AND logs) from the FileStore on initial load.
-  // Survives page refresh and dev-server restart — the dashboard is a persistent
-  // record, not just a live tail (issue #8). Skipped while disabled (e.g. an
-  // imported, read-only trace is open — issue #7).
-  useEffect(() => {
-    if (!enabled) return;
-    if (initialLoadDone.current) return;
-    initialLoadDone.current = true;
-
+  // Reload full history (spans AND logs) from the FileStore. Merges under whatever
+  // SSE has already delivered, de-duplicating overlap. The dashboard is a persistent
+  // record, not just a live tail (issue #8), so this backfills on mount AND on every
+  // SSE reconnect (see below).
+  const loadHistory = useCallback(() => {
     fetch(`${url}/api/events?last=${HISTORY_PAGE}`)
       .then((r) => r.json())
       .then((data) => {
         const history = (data.events ?? []) as SSEEvent[];
         if (history.length === 0) return;
         if (history.length < HISTORY_PAGE) setHasMoreHistory(false);
-        // Merge under whatever SSE has already delivered, de-duplicating overlap.
         setEvents((prev) => mergeEvents(history, prev));
       })
       .catch(() => {}); // Silently fail — SSE will still work
-  }, [url, enabled]);
+  }, [url]);
+
+  // Initial load. Survives page refresh and dev-server restart. Skipped while
+  // disabled (e.g. an imported, read-only trace is open — issue #7).
+  useEffect(() => {
+    if (!enabled) return;
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    loadHistory();
+  }, [enabled, loadHistory]);
 
   useEffect(() => {
     if (!enabled) {
@@ -78,6 +84,14 @@ export function useSSE(url: string, enabled = true): UseSSEResult {
     es.onopen = () => {
       setConnected(true);
       setError(null);
+      // On a RECONNECT (not the first open), the process on :6789 may have been
+      // replaced — an idle-shutdown recovery or a version auto-upgrade — with a
+      // fresh sidecar whose in-memory ring buffer is empty, so its SSE backfill
+      // carries none of the inherited history. Reload it from disk so the dashboard
+      // recovers seamlessly with no gap (issue #79).
+      const { state, reloadHistory } = onSSEOpen(connectionState.current);
+      connectionState.current = state;
+      if (reloadHistory) loadHistory();
     };
 
     es.onmessage = (e) => {
@@ -101,8 +115,11 @@ export function useSSE(url: string, enabled = true): UseSSEResult {
     return () => {
       es.close();
       esRef.current = null;
+      // A fresh EventSource (url/enabled change) starts a new connection lifecycle;
+      // its first open is an initial connect, not a reconnect.
+      connectionState.current = initialConnectionState;
     };
-  }, [url, enabled]);
+  }, [url, enabled, loadHistory]);
 
   const loadOlder = useCallback(() => {
     if (loadingOlder || !hasMoreHistory) return;
