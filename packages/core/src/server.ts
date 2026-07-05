@@ -5,6 +5,7 @@ import {
   type Server,
   type ServerResponse,
 } from 'node:http';
+import type { Socket } from 'node:net';
 import { extname, join } from 'node:path';
 import { EventBus } from './event-bus';
 import { FileStore } from './file-store';
@@ -13,12 +14,43 @@ import { RingBuffer } from './ring-buffer';
 import { bigintReplacer } from './serialize';
 import { SSEStream } from './sse-stream';
 import type { NextDogEvent, Span } from './types';
+import { readCoreVersion } from './version';
 
 export interface ServerOptions {
   port: number;
   host?: string;
   dataDir: string;
   uiDir?: string;
+  /**
+   * Version advertised on `/health` for the client-side upgrade handshake (#79).
+   * Defaults to `@nextdog/core`'s own package.json version; overridable for tests.
+   */
+  version?: string;
+  /**
+   * Milliseconds of inactivity — no telemetry ingest AND no connected SSE dashboard
+   * client — after which the sidecar gracefully shuts itself down (flush first), so a
+   * killed app never leaves an orphaned `:6789` process (#79). `0` or negative
+   * disables idle shutdown. When omitted, idle shutdown is off (the CLI supplies the
+   * default window via `NEXTDOG_IDLE_MS`).
+   */
+  idleMs?: number;
+  /**
+   * Called with an exit code when the sidecar decides to terminate itself — either
+   * from a `/shutdown` request or the idle timer. Defaults to a no-op so `createServer`
+   * never kills the process in tests; the CLI passes `process.exit`.
+   */
+  onExit?: (code: number) => void;
+}
+
+/**
+ * The HTTP server plus a graceful-shutdown handle. `gracefulShutdown` flushes any
+ * buffered telemetry to disk (lossless), stops the background timers, closes the
+ * listener, and destroys lingering keep-alive/SSE connections so the port is
+ * released. It does NOT exit the process — the caller decides (the CLI's signal
+ * handlers call it, then `process.exit`). See issue #79.
+ */
+export interface NextDogServer extends Server {
+  gracefulShutdown(reason?: string): Promise<void>;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -202,7 +234,10 @@ function cors(res: ServerResponse): void {
   res.end();
 }
 
-export function createServer(opts: ServerOptions): Promise<Server> {
+export function createServer(opts: ServerOptions): Promise<NextDogServer> {
+  const version = opts.version ?? readCoreVersion();
+  const onExit = opts.onExit ?? (() => {});
+  const idleMs = opts.idleMs ?? 0;
   const bus = new EventBus();
   const ringBuffer = new RingBuffer(500);
   const fileStore = new FileStore(opts.dataDir);
@@ -215,14 +250,27 @@ export function createServer(opts: ServerOptions): Promise<Server> {
     sseStream.broadcast(event);
   });
 
+  // Last moment there was activity — a telemetry ingest, or an SSE dashboard client
+  // connecting/disconnecting. The idle timer measures inactivity from here (#79).
+  let lastActivityAt = Date.now();
+  const markActive = () => {
+    lastActivityAt = Date.now();
+  };
+
+  // Drain the ring buffer's pending events to disk. Shared by the periodic flush
+  // and the graceful-shutdown flush so shutdown is lossless (#79).
+  const flushPending = async (): Promise<void> => {
+    const events = ringBuffer.drain();
+    if (events.length > 0) {
+      await fileStore.flush(events);
+    }
+  };
+
   // Periodic flush to disk
   let flushTimer: ReturnType<typeof setInterval> | undefined;
   const startFlushing = () => {
-    flushTimer = setInterval(async () => {
-      const events = ringBuffer.drain();
-      if (events.length > 0) {
-        await fileStore.flush(events);
-      }
+    flushTimer = setInterval(() => {
+      void flushPending();
     }, 2000);
     flushTimer.unref();
   };
@@ -257,8 +305,22 @@ export function createServer(opts: ServerOptions): Promise<Server> {
       return json(res, 200, {
         status: 'ok',
         service: NEXTDOG_HEALTH_MARKER,
+        version,
         uptime: process.uptime(),
       });
+    }
+
+    // Graceful shutdown control endpoint (#79). Used by the client's auto-upgrade
+    // handoff and by `nextdog stop`/`restart`. Targeting whoever holds the port —
+    // rather than a PID file that can go stale if the port was rebound — makes this
+    // the robust shutdown path. We ack first, then flush + release the port so the
+    // caller's request completes before its socket is torn down.
+    if (req.method === 'POST' && pathname === '/shutdown') {
+      json(res, 200, { stopping: true });
+      res.on('finish', () => {
+        void gracefulShutdown('shutting down (requested)').then(() => onExit(0));
+      });
+      return;
     }
 
     // Ingest spans
@@ -291,6 +353,7 @@ export function createServer(opts: ServerOptions): Promise<Server> {
         };
         bus.emit(event);
       }
+      if (spans.length > 0) markActive();
       return json(res, 202, { accepted: spans.length });
     }
 
@@ -310,6 +373,7 @@ export function createServer(opts: ServerOptions): Promise<Server> {
         if (event.data.serviceName) services.add(event.data.serviceName);
         bus.emit(event);
       }
+      if (logs.length > 0) markActive();
       return json(res, 202, { accepted: logs.length });
     }
 
@@ -440,7 +504,11 @@ export function createServer(opts: ServerOptions): Promise<Server> {
     // SSE live tail
     if (req.method === 'GET' && pathname === '/sse') {
       sseStream.addClient(res);
-      req.on('close', () => sseStream.removeClient(res));
+      markActive(); // a connected dashboard counts as activity — never idle out under one
+      req.on('close', () => {
+        sseStream.removeClient(res);
+        markActive(); // reset the idle clock when the dashboard disconnects
+      });
       return;
     }
 
@@ -484,13 +552,61 @@ export function createServer(opts: ServerOptions): Promise<Server> {
     json(res, 404, { error: 'not found' });
   });
 
+  // Track open sockets so a graceful shutdown can force-close SSE keep-alives,
+  // which would otherwise keep `server.close()` pending forever and never release
+  // the port for a replacement sidecar (#79).
+  const connections = new Set<Socket>();
+  server.on('connection', (socket) => {
+    connections.add(socket);
+    socket.on('close', () => connections.delete(socket));
+  });
+
+  let idleTimer: ReturnType<typeof setInterval> | undefined;
+  let shuttingDown = false;
+
+  async function gracefulShutdown(reason?: string): Promise<void> {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    if (reason) console.log(`[nextdog] ${reason}`);
+    if (flushTimer) clearInterval(flushTimer);
+    if (cleanupTimer) clearInterval(cleanupTimer);
+    if (idleTimer) clearInterval(idleTimer);
+    // Lossless: persist whatever is still buffered before the port is released.
+    await flushPending();
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve());
+      for (const socket of connections) socket.destroy();
+    });
+  }
+
+  // Idle self-shutdown: exit after `idleMs` of no telemetry ingest AND no connected
+  // SSE dashboard client. A connected client short-circuits the check, and any
+  // ingest (or a client (dis)connect) refreshes `lastActivityAt`, so a brief gap
+  // during a `next dev` restart never trips it while the default window is 60s (#79).
+  const startIdleWatch = () => {
+    if (idleMs <= 0) return;
+    const checkEvery = Math.max(50, Math.min(idleMs, 1000));
+    idleTimer = setInterval(() => {
+      if (sseStream.clientCount > 0) return;
+      if (Date.now() - lastActivityAt < idleMs) return;
+      void gracefulShutdown(
+        `idle for ${idleMs}ms with no telemetry or dashboard — shutting down`,
+      ).then(() => onExit(0));
+    }, checkEvery);
+    idleTimer.unref();
+  };
+
   startFlushing();
   startCleanup();
+  startIdleWatch();
 
   server.on('close', () => {
     if (flushTimer) clearInterval(flushTimer);
     if (cleanupTimer) clearInterval(cleanupTimer);
+    if (idleTimer) clearInterval(idleTimer);
   });
+
+  (server as NextDogServer).gracefulShutdown = gracefulShutdown;
 
   return new Promise((resolve, reject) => {
     // Rehydrate the service registry from persisted events so `service:` /
@@ -505,7 +621,7 @@ export function createServer(opts: ServerOptions): Promise<Server> {
         // The registry simply repopulates from live ingest.
       })
       .finally(() => {
-        server.listen(opts.port, opts.host ?? '127.0.0.1', () => resolve(server));
+        server.listen(opts.port, opts.host ?? '127.0.0.1', () => resolve(server as NextDogServer));
       });
 
     server.on('error', reject);

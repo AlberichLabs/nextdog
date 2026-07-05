@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NEXTDOG_HEALTH_MARKER } from '../health';
 import { createServer } from '../server';
+import { readCoreVersion } from '../version';
 
 describe('Server', () => {
   let server: Server;
@@ -33,6 +34,22 @@ describe('Server', () => {
     // other process that happens to answer 2xx on :6789 (issue #17). The value
     // comes from the shared constant so producer and consumer cannot drift.
     expect(data.service).toBe(NEXTDOG_HEALTH_MARKER);
+  });
+
+  it('GET /health advertises the sidecar version for the upgrade handshake (#79)', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server', version: '9.9.9' });
+    const res = await fetch(`http://localhost:${port}/health`);
+    const data = await res.json();
+    // The client compares this to the installed @nextdog/core version to decide
+    // whether an already-running sidecar is stale and must be auto-upgraded.
+    expect(data.version).toBe('9.9.9');
+  });
+
+  it('GET /health defaults version to core’s own package.json version', async () => {
+    server = await createServer({ port, dataDir: '/tmp/nextdog-test-server' });
+    const res = await fetch(`http://localhost:${port}/health`);
+    const data = await res.json();
+    expect(data.version).toBe(readCoreVersion());
   });
 
   it('POST /v1/spans ingests spans and returns 202', async () => {
