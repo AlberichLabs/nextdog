@@ -316,6 +316,44 @@ describe('NextDogExporter', () => {
     expect(attrs['http.response.header.x-safe']).toBe('visible');
   });
 
+  it('populates http.host on SERVER spans from the captured Host header (#78)', async () => {
+    startRequestCapture();
+
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"ok":true}');
+    });
+    await new Promise<void>((r) => server.listen(0, r));
+    const { port } = server.address() as { port: number };
+
+    await new Promise<void>((resolve, reject) => {
+      http
+        .request({ host: '127.0.0.1', port, method: 'GET', path: '/api/host-check' }, (res) => {
+          res.on('data', () => {});
+          res.on('end', resolve);
+        })
+        .on('error', reject)
+        .end();
+    });
+    await new Promise<void>((r) => server.close(() => r()));
+
+    const exporter = new NextDogExporter('http://localhost:6789');
+    const result = await new Promise<{ code: number }>((resolve) => {
+      exporter.export([makeServerSpan('GET', '/api/host-check') as any], (r) => resolve(r));
+    });
+    expect(result.code).toBe(0);
+
+    const lastCall = mockFetch.mock.calls.at(-1);
+    if (!lastCall) throw new Error('expected at least one fetch call');
+    const body = JSON.parse(lastCall[1].body);
+    const attrs = body.spans[0].attributes;
+    // The real authority the client dialed flows onto the span as the canonical
+    // http.host, so Replay + the URL display target the actual port (not :3000).
+    expect(attrs['http.host']).toBe(`127.0.0.1:${port}`);
+    // Host is deliberately NOT re-copied as a redundant request header (#78).
+    expect(attrs['http.request.header.host']).toBeUndefined();
+  });
+
   it('captures request credential headers verbatim so Replay can re-auth (#60)', async () => {
     startRequestCapture();
 

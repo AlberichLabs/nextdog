@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { SSEEvent } from '../../hooks/use-sse';
-import { formatSpanDuration, httpCodeOf, parseNano, spanDurationMs } from '../format';
+import {
+  extractHttpMeta,
+  formatSpanDuration,
+  httpCodeOf,
+  parseNano,
+  spanDurationMs,
+} from '../format';
 
 function span(data: Partial<SSEEvent['data']>): SSEEvent {
   return {
@@ -83,6 +89,28 @@ describe('httpCodeOf (#54 — composes with #52)', () => {
 
   it('returns undefined for a non-numeric value rather than NaN', () => {
     expect(httpCodeOf(span({ attributes: { 'http.status_code': 'oops' } }))).toBeUndefined();
+  });
+});
+
+describe('extractHttpMeta (#78 — URL uses the captured host, any port)', () => {
+  it('reconstructs the display URL against the real captured host/port', () => {
+    const meta = extractHttpMeta(
+      { 'http.host': 'localhost:3001', 'http.target': '/api/tasks' },
+      'POST /api/tasks',
+    );
+    expect(meta.host).toBe('localhost:3001');
+    expect(meta.url).toBe('http://localhost:3001/api/tasks');
+  });
+
+  it('falls back to net.host.name before the last-resort default', () => {
+    const meta = extractHttpMeta({ 'net.host.name': 'localhost:4000', 'http.route': '/x' }, 'GET /x');
+    expect(meta.host).toBe('localhost:4000');
+    expect(meta.url).toBe('http://localhost:4000/x');
+  });
+
+  it('uses the hardcoded default only as a genuine last resort (no host at all)', () => {
+    const meta = extractHttpMeta({ 'http.route': '/y' }, 'GET /y');
+    expect(meta.host).toBe('localhost:3000');
   });
 });
 
