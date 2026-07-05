@@ -68,11 +68,19 @@ export function httpCodeOf(event: SSEEvent): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * Genuine last-resort authority used only when a span carries NO host at all
+ * (neither `http.host` nor `net.host.name`). The capture path now records the
+ * real `Host` header (issue #78), so the app's actual port drives the URL on any
+ * port; this default is reached only for hostless/pre-fix spans.
+ */
+const LAST_RESORT_HOST = 'localhost:3000';
+
 /** Extract common HTTP metadata from span attributes */
 export function extractHttpMeta(attrs: Record<string, unknown>, name: string) {
   const method = String(attrs['http.method'] ?? attrs['http.request.method'] ?? 'GET');
   const route = String(attrs['http.route'] ?? attrs['http.target'] ?? name);
-  const host = String(attrs['http.host'] ?? attrs['net.host.name'] ?? 'localhost:3000');
+  const host = String(attrs['http.host'] ?? attrs['net.host.name'] ?? LAST_RESORT_HOST);
   const scheme = String(attrs['http.scheme'] ?? 'http');
   const url = route.startsWith('http') ? route : `${scheme}://${host}${route}`;
   return { method, route, host, scheme, url };

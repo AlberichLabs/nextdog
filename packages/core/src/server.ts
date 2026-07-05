@@ -83,6 +83,14 @@ interface ReplayRequest {
 }
 
 /**
+ * Genuine last-resort authority used only when a captured span carries NO host
+ * at all (neither `http.host` nor `net.host.name`). The capture path now records
+ * the real `Host` header (issue #78), so this is reached only for spans that
+ * predate the fix or were produced without request capture.
+ */
+const LAST_RESORT_HOST = 'localhost:3000';
+
+/**
  * Rebuild the original HTTP request from a captured SERVER span. Credential
  * headers (Authorization, X-Api-Key, cookies, …) are now captured and stored
  * VERBATIM (store-but-don't-egress, issue #60), so the reconstructed request
@@ -96,7 +104,7 @@ function buildReplayRequest(span: Span): ReplayRequest {
   const attrs = span.attributes;
   const method = String(attrs['http.method'] ?? attrs['http.request.method'] ?? 'GET');
   const route = String(attrs['http.route'] ?? attrs['http.target'] ?? span.name);
-  const host = String(attrs['http.host'] ?? attrs['net.host.name'] ?? 'localhost:3000');
+  const host = String(attrs['http.host'] ?? attrs['net.host.name'] ?? LAST_RESORT_HOST);
   const scheme = String(attrs['http.scheme'] ?? 'http');
   const url = route.startsWith('http') ? route : `${scheme}://${host}${route}`;
 

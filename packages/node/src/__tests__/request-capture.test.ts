@@ -274,6 +274,26 @@ describe('request body capture — App Router (Web Request) semantics', () => {
     expect(meta.responseBody).toBe(payload);
   });
 
+  it('captures the real Host header so URL reconstruction targets the right port (#78)', async () => {
+    // The app can run on ANY port. The capture must record the actual authority
+    // the client dialed (host:port) so downstream URL/Replay reconstruction does
+    // not fall back to a hardcoded localhost:3000.
+    await driveRequest({
+      method: 'GET',
+      path: '/api/whoami',
+      handler: (_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"ok":true}');
+      },
+    });
+
+    const meta = expectMeta('GET', '/api/whoami');
+    // driveRequest dials 127.0.0.1:<ephemeral-port>, so the Host header carries
+    // that authority verbatim — NOT a hardcoded default.
+    if (meta.host === undefined) throw new Error('expected captured request host');
+    expect(meta.host).toMatch(/^127\.0\.0\.1:\d+$/);
+  });
+
   it('caps a large request body at the max size', async () => {
     const big = 'y'.repeat(20 * 1024); // 20KB > 16KB request cap
     const wrapped = JSON.stringify({ blob: big });

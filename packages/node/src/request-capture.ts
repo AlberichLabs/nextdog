@@ -13,6 +13,13 @@ export interface RequestMetadata {
   method: string;
   url: string;
   headers: Record<string, string>;
+  /**
+   * The request's authority (host[:port]) from the `Host` header — e.g.
+   * `localhost:3001`. The app can run on any port, so this is the only reliable
+   * source of the real port for URL/Replay reconstruction (issue #78). Surfaced
+   * on the span as the canonical `http.host` attribute by the exporter.
+   */
+  host?: string;
   cookies: string;
   body?: string;
   /** Response status code of the ORIGINAL request (what actually happened) */
@@ -323,10 +330,16 @@ export function startRequestCapture() {
       const res = args[1] as http.ServerResponse | undefined;
 
       const headers = captureHeaders(req);
+      // Record the real authority (host[:port]) the client dialed. We keep it OFF
+      // `headers` (host is intentionally skipped there) and carry it separately so
+      // the exporter can set the canonical `http.host` span attribute — without
+      // which URL/Replay reconstruction falls back to a hardcoded port (#78).
+      const host = typeof req.headers.host === 'string' ? req.headers.host : undefined;
       const metadata: RequestMetadata = {
         method: req.method ?? 'GET',
         url: req.url ?? '/',
         headers,
+        host,
         cookies: headers.cookie ?? '',
         capturedAt: Date.now(),
       };

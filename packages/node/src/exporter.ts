@@ -71,6 +71,14 @@ function convertSpan(span: ReadableSpan) {
     );
     const metadata = getRequestMetadata(reqMethod, reqUrl);
     if (metadata) {
+      // Surface the real authority (host[:port]) as the canonical http.host so
+      // URL display + Replay target the app's actual port on ANY port, not a
+      // hardcoded localhost:3000 (issue #78). Only fill it when the span doesn't
+      // already carry one, so a value OTel set wins.
+      if (metadata.host && attributes['http.host'] === undefined) {
+        attributes['http.host'] = metadata.host;
+      }
+
       // Add request headers as http.request.header.{name}. Credential headers are
       // captured verbatim (store-but-don't-egress) — redaction happens at export.
       for (const [key, value] of Object.entries(metadata.headers)) {
