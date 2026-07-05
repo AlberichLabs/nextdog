@@ -86,10 +86,32 @@ function captureHeaders(req: http.IncomingMessage): Record<string, string> {
 }
 
 /**
- * Capture the request body WITHOUT adding 'data' listeners (which would put
- * the stream into flowing mode and break Next.js 14's body parsing).
- * Instead, we monkey-patch req.on so that when Next.js (or any other consumer)
- * reads the body, we passively observe the chunks.
+ * Coerce a chunk of any shape Node/undici may hand us — Buffer, string, or an
+ * ArrayBufferView (Uint8Array, as produced by Web `ReadableStream` bodies) —
+ * into a Buffer for capture. Returns null for anything we can't read as bytes.
+ * Views are wrapped zero-copy (we only ever read the bytes; the same chunk is
+ * always forwarded UNCHANGED to the real consumer/writer).
+ */
+function toBuffer(chunk: unknown, encoding?: BufferEncoding): Buffer | null {
+  if (Buffer.isBuffer(chunk)) return chunk;
+  if (typeof chunk === 'string') return Buffer.from(chunk, encoding);
+  if (ArrayBuffer.isView(chunk)) {
+    return Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+  }
+  return null;
+}
+
+/**
+ * Capture the request body by passively observing `req.push()`.
+ *
+ * `IncomingMessage` extends `Readable`, and the HTTP parser feeds EVERY body
+ * byte into the stream via `push()` — regardless of how the eventual consumer
+ * drains it. Pages Router reads the raw Node stream via `req.on('data')`;
+ * App Router builds a Web `Request` whose body undici drains via
+ * `read()`/async-iteration and NEVER registers a `'data'` listener (issue #74).
+ * Both paths sit DOWNSTREAM of `push()`, so teeing `push` captures the body in
+ * either case without adding listeners (no flowing-mode change) and without
+ * consuming the bytes the real reader needs.
  */
 function captureBody(req: http.IncomingMessage, metadata: RequestMetadata): void {
   const method = (req.method ?? 'GET').toUpperCase();
@@ -97,37 +119,38 @@ function captureBody(req: http.IncomingMessage, metadata: RequestMetadata): void
 
   const chunks: Buffer[] = [];
   let size = 0;
-  const originalOn = req.on;
+  const originalPush = req.push;
 
-  // Intercept listener registration to piggyback on whoever reads the body
-  req.on = function (
+  const finalizeBody = (): void => {
+    if (chunks.length === 0) return;
+    const body = Buffer.concat(chunks).toString('utf-8');
+    metadata.body = body.length > MAX_BODY_SIZE ? body.slice(0, MAX_BODY_SIZE) : body;
+    chunks.length = 0;
+  };
+
+  req.push = function (
     this: http.IncomingMessage,
-    event: string,
-    listener: (...args: any[]) => void,
-  ) {
-    if (event === 'data') {
-      const wrappedListener = (chunk: Buffer) => {
-        if (size < MAX_BODY_SIZE) {
-          chunks.push(chunk);
-          size += chunk.length;
-        }
-        return listener.call(this, chunk);
-      };
-      return originalOn.call(this, event, wrappedListener);
+    chunk: unknown,
+    encoding?: BufferEncoding,
+  ): boolean {
+    if (chunk == null) {
+      // push(null) signals end-of-stream — assemble the captured body now.
+      finalizeBody();
+    } else if (size < MAX_BODY_SIZE) {
+      const buf = toBuffer(chunk, encoding);
+      if (buf) {
+        // Copy only up to the cap so a large upload can't grow memory unbounded.
+        const remaining = MAX_BODY_SIZE - size;
+        chunks.push(buf.length > remaining ? buf.subarray(0, remaining) : buf);
+        size += buf.length;
+      }
     }
-    if (event === 'end') {
-      const wrappedListener = (...args: any[]) => {
-        if (chunks.length > 0) {
-          const body = Buffer.concat(chunks).toString('utf-8');
-          metadata.body = body.length > MAX_BODY_SIZE ? body.slice(0, MAX_BODY_SIZE) : body;
-          chunks.length = 0;
-        }
-        return listener.call(this, ...args);
-      };
-      return originalOn.call(this, event, wrappedListener);
-    }
-    return originalOn.call(this, event, listener);
-  } as typeof req.on;
+    return (originalPush as (...a: unknown[]) => boolean).call(this, chunk, encoding);
+  } as typeof req.push;
+
+  // Belt-and-suspenders: if the stream ends without a push(null) we observed
+  // (e.g. an early destroy), still assemble whatever we captured.
+  req.on('end', finalizeBody);
 }
 
 /**
@@ -150,13 +173,12 @@ function captureResponse(res: http.ServerResponse, metadata: RequestMetadata): v
   // exactly what the client received.
   const writeHeadHeaders: Record<string, string> = {};
 
-  const observe = (chunk: unknown): void => {
+  const observe = (chunk: unknown, encoding?: BufferEncoding): void => {
     if (overflowed || chunk == null) return;
-    const buf = Buffer.isBuffer(chunk)
-      ? chunk
-      : typeof chunk === 'string'
-        ? Buffer.from(chunk)
-        : null;
+    // App Router pipes the Web Response body to res as Uint8Array chunks (see
+    // next/dist/server/pipe-readable) — handle any ArrayBufferView, not just
+    // Buffers/strings, or the response body is silently dropped (issue #74).
+    const buf = toBuffer(chunk, encoding);
     if (!buf) return;
     if (size + buf.length > MAX_RESPONSE_BODY_SIZE) {
       // Take what fits, then stop buffering.
@@ -236,16 +258,24 @@ function captureResponse(res: http.ServerResponse, metadata: RequestMetadata): v
 
   // res.write(chunk[, encoding][, cb])
   res.write = function (this: http.ServerResponse, chunk: unknown, ...rest: unknown[]) {
-    observe(chunk);
+    // encoding is only meaningful for string chunks; it's the first non-callback arg.
+    observe(chunk, typeof rest[0] === 'string' ? (rest[0] as BufferEncoding) : undefined);
     return (originalWrite as (...a: unknown[]) => boolean)(chunk, ...rest);
   } as typeof res.write;
 
   // res.end([chunk][, encoding][, cb])
   res.end = function (this: http.ServerResponse, ...args: unknown[]) {
-    // The first arg is the final chunk only if it's not a callback/encoding.
+    // The first arg is the final chunk only if it's a Buffer, string, or an
+    // ArrayBufferView (Uint8Array — App Router / Web-stream bodies), not a
+    // callback or bare encoding.
     const maybeChunk = args[0];
-    if (maybeChunk != null && (Buffer.isBuffer(maybeChunk) || typeof maybeChunk === 'string')) {
-      observe(maybeChunk);
+    if (
+      maybeChunk != null &&
+      (Buffer.isBuffer(maybeChunk) ||
+        typeof maybeChunk === 'string' ||
+        ArrayBuffer.isView(maybeChunk))
+    ) {
+      observe(maybeChunk, typeof args[1] === 'string' ? (args[1] as BufferEncoding) : undefined);
     }
     const result = (originalEnd as (...a: unknown[]) => http.ServerResponse)(...args);
     finalize();

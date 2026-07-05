@@ -44,28 +44,13 @@ That's it. Everything below is captured automatically — no per-route code.
 | Route | Demonstrates |
 |-------|--------------|
 | `GET /api/tasks` | a calm, normal request |
-| `POST /api/tasks` | **request + response body capture** (the money frame — see the note below) |
+| `POST /api/tasks` | **request + response body capture** (the money frame — shown side-by-side in the request detail pane) |
 | `GET /api/tasks/:id` | a **404** with a response body (unknown id) |
 | `GET /api/secure` | **Bearer auth** — 401 without a token; the 200 is **Replay**-able with the token |
 | `GET /api/slow` | a **~1.5s** request, visible in the waterfall |
 | `GET /api/outbound` | an **outbound `fetch`** → auto-instrumented **child span** |
 | `GET /api/boom` | a **500** + a `console.error` carrying an **Error object** (Logs view) |
 | `GET /api/db` | an **optional** SQL `db.statement` span — see below |
-
-## Known limitation: body capture on the App Router
-
-At the time of writing, running this app on the **Next.js App Router** (Next 16,
-Turbopack) captures everything **except** request/response **bodies**: the
-`http.request.body` / `http.response.body` fields stay empty for `app/**/route.ts`
-handlers. Headers, cookies, status, timing, the outbound-`fetch` child span, and
-all console logs are captured correctly.
-
-The cause is that App Router handlers consume a Web `Request` and return a Web
-`Response`, and Next's Node↔Web bridge moves the body bytes outside the raw
-`http` request/response streams that NextDog's body capture hooks. This has been
-flagged to the maintainer as a product bug. Once the adapter captures bodies at
-the App Router boundary, `POST /api/tasks` will show the request and response
-bodies side-by-side with no change to this example.
 
 ## The SQL route is optional (and why)
 
