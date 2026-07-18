@@ -24,7 +24,11 @@ const containerStyle = css({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  justifyContent: 'center',
+  // Pull the message up out of dead-center (issue #82): sitting it ~25% higher
+  // than the vertical midpoint closes the large empty gap under the toolbar so
+  // the "connected" state reads immediately instead of floating mid-screen.
+  justifyContent: 'flex-start',
+  paddingTop: '18vh',
   height: '100%',
   width: '100%',
   gap: '4',

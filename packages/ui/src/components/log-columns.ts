@@ -27,6 +27,21 @@ export function runtimeTag(event: SSEEvent): string | null {
   return rt === 'server' || rt === 'browser' ? rt : null;
 }
 
+/**
+ * The default runtime for server-side logs. When a log's runtime equals this,
+ * the pill is redundant (every server log would wear an identical badge), so the
+ * row suppresses it — only the notable `browser` runtime gets a visible pill
+ * (issue #82). NB: the runtime GRID CELL is still always emitted (issue #18);
+ * this only governs whether that cell renders a visible badge.
+ */
+export const DEFAULT_RUNTIME = 'server';
+
+/** The runtime to SHOW as a pill: null for the default (redundant) runtime. */
+export function displayRuntimeTag(event: SSEEvent): string | null {
+  const rt = runtimeTag(event);
+  return rt && rt !== DEFAULT_RUNTIME ? rt : null;
+}
+
 interface BuildCellsOptions {
   showService: boolean;
   /**

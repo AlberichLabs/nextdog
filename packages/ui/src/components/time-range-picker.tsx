@@ -104,18 +104,63 @@ const labelStyle = css({
   color: 'fg.dim',
 });
 
-const inputStyle = css({
-  fontFamily: 'mono',
-  fontSize: 'sm',
+// Wrapper that frames the native datetime-local input so the raw browser
+// control blends into the overlay's system instead of sticking out — a bordered,
+// panel-tinted field with a calendar glyph the input sits inside (issue #82).
+const inputWrapStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '1',
   py: '1',
   px: '2',
   background: 'surface.bg',
   border: '1px solid token(colors.border.subtle)',
   borderRadius: 'sm',
-  color: 'fg',
-  colorScheme: 'dark',
-  _focus: { borderColor: 'accent', outline: 'none' },
+  transition: 'border-color 0.12s ease',
+  _focusWithin: { borderColor: 'accent' },
 });
+
+const inputIconStyle = css({
+  flexShrink: 0,
+  color: 'fg.dim',
+  display: 'flex',
+});
+
+const inputStyle = css({
+  flex: 1,
+  minWidth: 0,
+  fontFamily: 'mono',
+  fontSize: 'sm',
+  background: 'transparent',
+  border: 'none',
+  color: 'fg',
+  // Track the theme so the native calendar/spinner glyphs invert correctly in
+  // light mode (they were hardcoded dark, showing as dark-on-light artifacts).
+  colorScheme: 'dark',
+  _light: { colorScheme: 'light' },
+  _focus: { outline: 'none' },
+});
+
+function CalendarIcon() {
+  return (
+    <span className={inputIconStyle}>
+      <svg
+        aria-hidden="true"
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    </span>
+  );
+}
 
 const applyBtnStyle = css({
   py: '1',
@@ -309,25 +354,31 @@ export function TimeRangePicker({ selection, onChange, live, loading }: TimeRang
             <label className={labelStyle} htmlFor="time-range-from">
               From
             </label>
-            <input
-              id="time-range-from"
-              type="datetime-local"
-              className={inputStyle}
-              value={fromValue}
-              onInput={(e) => setFromValue((e.target as HTMLInputElement).value)}
-            />
+            <div className={inputWrapStyle}>
+              <CalendarIcon />
+              <input
+                id="time-range-from"
+                type="datetime-local"
+                className={inputStyle}
+                value={fromValue}
+                onInput={(e) => setFromValue((e.target as HTMLInputElement).value)}
+              />
+            </div>
           </div>
           <div className={fieldRowStyle}>
             <label className={labelStyle} htmlFor="time-range-to">
               To
             </label>
-            <input
-              id="time-range-to"
-              type="datetime-local"
-              className={inputStyle}
-              value={toValue}
-              onInput={(e) => setToValue((e.target as HTMLInputElement).value)}
-            />
+            <div className={inputWrapStyle}>
+              <CalendarIcon />
+              <input
+                id="time-range-to"
+                type="datetime-local"
+                className={inputStyle}
+                value={toValue}
+                onInput={(e) => setToValue((e.target as HTMLInputElement).value)}
+              />
+            </div>
           </div>
           {error && <div className={errorStyle}>{error}</div>}
           <div

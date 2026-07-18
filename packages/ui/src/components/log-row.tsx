@@ -3,7 +3,7 @@ import { css } from 'styled-system/css';
 import type { SSEEvent } from '../hooks/use-sse';
 import { interactiveProps } from '../utils/a11y';
 import { formatTime } from '../utils/format';
-import { runtimeTag } from './log-columns';
+import { displayRuntimeTag } from './log-columns';
 
 const logRowStyle = css({
   display: 'grid',
@@ -179,7 +179,10 @@ export function LogRow({
   const level = event.data.level ?? event.data.status?.code ?? '';
   const message = event.data.message ?? event.data.name;
   const ts = event.data.timestamp ?? event.timestamp;
-  const runtime = runtimeTag(event);
+  // Only the notable `browser` runtime shows a pill; the default `server` badge
+  // was redundant on every server log (issue #82). The grid cell is still always
+  // emitted below so the track count stays correct (issue #18).
+  const runtime = displayRuntimeTag(event);
 
   return (
     <div
