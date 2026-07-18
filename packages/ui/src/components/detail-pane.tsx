@@ -7,6 +7,7 @@ import { jsonViewStyle } from '../styles/shared';
 import { interactiveProps } from '../utils/a11y';
 import { stripResponseAttributes } from '../utils/body-format';
 import { formatSpanDuration, httpCodeOf } from '../utils/format';
+import { findRootSpan } from '../utils/root-span';
 import { AttributeTable } from './attribute-table';
 import { CopyCurl } from './copy-curl';
 import { LogRow } from './log-row';
@@ -300,9 +301,24 @@ export function DetailPane({ traceId, events, onClose, onFilter }: DetailPanePro
   const logs = useMemo(() => traceEvents.filter((e) => e.type === 'log'), [traceEvents]);
 
   // Find root span for header info
-  const rootSpan = useMemo(() => {
-    return spans.find((s) => s.data.kind === 'SERVER' && !s.data.parentSpanId) ?? spans[0];
-  }, [spans]);
+  const rootSpan = useMemo(() => findRootSpan(spans) ?? undefined, [spans]);
+
+  // Auto-select the root span when the pane opens (issue #82). Previously the
+  // request/response body + attributes (ResponseSection) only appeared after the
+  // user drilled into a span INSIDE the waterfall, hiding the headline feature
+  // two clicks deep. Defaulting the selection to the root span surfaces the body
+  // on the FIRST open. We key on traceId (not rootSpan identity) so:
+  //  - switching to a different request re-auto-selects that request's root, but
+  //  - clicking another span within the SAME trace sticks (we don't re-force it),
+  //    and streamed-in spans re-deriving `rootSpan` don't yank the selection back.
+  const autoSelectedTrace = useRef<string | null>(null);
+  useEffect(() => {
+    if (autoSelectedTrace.current === traceId) return;
+    if (rootSpan) {
+      autoSelectedTrace.current = traceId;
+      setSelectedEvent(rootSpan);
+    }
+  }, [traceId, rootSpan]);
 
   const method = rootSpan ? String(rootSpan.data.attributes['http.method'] ?? '') : '';
   const routePath = rootSpan
