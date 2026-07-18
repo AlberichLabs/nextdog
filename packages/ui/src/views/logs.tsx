@@ -410,7 +410,9 @@ export function Logs({ eventsResult, allEvents, onOpenTrace, onFilter }: LogsPro
     () => [
       { id: 'time', defaultWidth: 90 },
       { id: 'level', defaultWidth: 50 },
-      { id: 'service', defaultWidth: 80 },
+      // Wider so typical service names (e.g. "my-app-web", scoped names) aren't
+      // clipped mid-word — the previous 80px over-truncated (issue #82).
+      { id: 'service', defaultWidth: 120 },
       { id: 'runtime', defaultWidth: 50 },
       { id: 'message', defaultWidth: 0 }, // 0 = flex (1fr)
       ...customColumns.map((col) => ({ id: col.id, defaultWidth: 120 })),

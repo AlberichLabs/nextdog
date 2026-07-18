@@ -6,6 +6,7 @@ import { DetailPane } from './components/detail-pane';
 import { EmptyState } from './components/empty-state';
 import { ErrorBoundary } from './components/error-boundary';
 import { FacetDrawer } from './components/facet-drawer';
+import { KpiStrip } from './components/kpi-strip';
 import { Logo } from './components/logo';
 import { ShortcutHelp } from './components/shortcut-help';
 import { detectSlowRequestToast } from './components/slow-request-toast';
@@ -447,33 +448,43 @@ export function App() {
               />
             )
           ) : (
-            <div className={contentRowStyle}>
-              {!onTraceDetail && (
-                <ErrorBoundary>
-                  <FacetDrawer
-                    events={facetEvents}
-                    query={eventsResult.searchQuery}
-                    onToggleValue={handleFacetToggle}
-                  />
-                </ErrorBoundary>
-              )}
-              <div className={viewColumnStyle}>
-                <ErrorBoundary>
-                  <Router onChange={handleRoute}>
-                    <Spans path="/" eventsResult={eventsResult} onOpenTrace={openTrace} />
-                    <Requests path="/traces" eventsResult={eventsResult} onOpenTrace={openTrace} />
-                    <Logs
-                      path="/logs"
-                      eventsResult={eventsResult}
-                      allEvents={events}
-                      onOpenTrace={openTrace}
-                      onFilter={handleFilter}
+            <>
+              {/* KPI summary strip — dense throughput / p95 / error-rate derived
+                  from the loaded events (issue #82). Hidden on the full-page
+                  trace detail route, which is a single request, not a stream. */}
+              {!onTraceDetail && <KpiStrip events={events} />}
+              <div className={contentRowStyle}>
+                {!onTraceDetail && (
+                  <ErrorBoundary>
+                    <FacetDrawer
+                      events={facetEvents}
+                      query={eventsResult.searchQuery}
+                      onToggleValue={handleFacetToggle}
                     />
-                    <Trace path="/trace/:traceId" events={events} />
-                  </Router>
-                </ErrorBoundary>
+                  </ErrorBoundary>
+                )}
+                <div className={viewColumnStyle}>
+                  <ErrorBoundary>
+                    <Router onChange={handleRoute}>
+                      <Spans path="/" eventsResult={eventsResult} onOpenTrace={openTrace} />
+                      <Requests
+                        path="/traces"
+                        eventsResult={eventsResult}
+                        onOpenTrace={openTrace}
+                      />
+                      <Logs
+                        path="/logs"
+                        eventsResult={eventsResult}
+                        allEvents={events}
+                        onOpenTrace={openTrace}
+                        onFilter={handleFilter}
+                      />
+                      <Trace path="/trace/:traceId" events={events} />
+                    </Router>
+                  </ErrorBoundary>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
 

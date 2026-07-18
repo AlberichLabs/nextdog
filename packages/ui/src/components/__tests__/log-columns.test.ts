@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SSEEvent } from '../../hooks/use-sse';
-import { buildLogRowCells, LOG_BASE_TRACK_IDS } from '../log-columns';
+import { buildLogRowCells, displayRuntimeTag, LOG_BASE_TRACK_IDS } from '../log-columns';
 
 function makeLog(attributes: Record<string, unknown> = {}): SSEEvent {
   return {
@@ -66,5 +66,19 @@ describe('buildLogRowCells', () => {
     const lastCell = cells.at(-1);
     if (!lastCell) throw new Error('expected at least one cell');
     expect(lastCell.value).toBe('us-east-1');
+  });
+});
+
+describe('displayRuntimeTag (issue #82)', () => {
+  it('suppresses the redundant default "server" runtime pill', () => {
+    expect(displayRuntimeTag(makeLog({ runtime: 'server' }))).toBeNull();
+  });
+
+  it('shows the notable "browser" runtime pill', () => {
+    expect(displayRuntimeTag(makeLog({ runtime: 'browser' }))).toBe('browser');
+  });
+
+  it('shows nothing when there is no runtime attribute', () => {
+    expect(displayRuntimeTag(makeLog({}))).toBeNull();
   });
 });

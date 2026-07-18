@@ -113,8 +113,11 @@ const closeButtonStyle = css({
 
 const containerStyle = css({
   position: 'fixed',
-  bottom: '4',
-  right: '4',
+  // A little extra inset from the viewport edges so the card's rounded corner /
+  // left accent bar and slide-in animation clear the corner instead of clipping
+  // against it (issue #82).
+  bottom: '5',
+  right: '5',
   display: 'flex',
   flexDirection: 'column',
   gap: '2',

@@ -1,16 +1,9 @@
 import { css } from 'styled-system/css';
-import { token } from 'styled-system/tokens';
 import type { SSEEvent } from '../hooks/use-sse';
+import { heatBarOpacity, heatColor } from '../styles/latency-heat';
 import { interactiveProps } from '../utils/a11y';
 import { parseNano } from '../utils/format';
-
-const COLORS = [
-  token('colors.accent'),
-  token('colors.blue'),
-  token('colors.green'),
-  token('colors.yellow'),
-  token('colors.red'),
-];
+import { buildHeatScale, heatBucket } from '../utils/latency-scale';
 
 const waterfallStyle = css({
   display: 'flex',
@@ -54,7 +47,6 @@ const waterfallBarStyle = css({
   top: 0,
   height: '100%',
   borderRadius: 'sm',
-  opacity: 0.8,
 });
 
 const waterfallDurationStyle = css({
@@ -81,7 +73,6 @@ interface SpanTiming {
   endNano: bigint;
   durationMs: number;
   depth: number;
-  color: string;
   serviceName: string;
   source: SSEEvent;
 }
@@ -148,7 +139,7 @@ export function buildTimings(spans: SSEEvent[]): {
   let minNano = BigInt('9999999999999999999');
   let maxNano = 0n;
 
-  const timings: SpanTiming[] = ordered.map((s, i) => {
+  const timings: SpanTiming[] = ordered.map((s) => {
     const startNano = parseNano(s.data.startTimeUnixNano);
     const endNano = parseNano(s.data.endTimeUnixNano);
     if (startNano < minNano) minNano = startNano;
@@ -161,7 +152,6 @@ export function buildTimings(spans: SSEEvent[]): {
       endNano,
       durationMs: Number(endNano - startNano) / 1_000_000,
       depth: depths.get(s.data.spanId ?? '') ?? 0,
-      color: COLORS[i % COLORS.length],
       serviceName: s.data.serviceName,
       source: s,
     };
@@ -179,6 +169,9 @@ function formatDuration(ms: number): string {
 export function Waterfall({ spans, onSpanClick }: WaterfallProps) {
   const { timings, minNano, maxNano } = buildTimings(spans);
   const totalNano = maxNano - minNano;
+  // Tint each bar on the shared latency scale (issue #82) so a slow span reads
+  // by color, not just by bar length. Same green→amber→red scale the lists use.
+  const heatScale = buildHeatScale(timings.map((t) => t.durationMs));
 
   if (timings.length === 0)
     return (
@@ -205,6 +198,7 @@ export function Waterfall({ spans, onSpanClick }: WaterfallProps) {
           totalNano > 0n
             ? Math.max(0.5, Number(((t.endNano - t.startNano) * 10000n) / totalNano) / 100)
             : 100;
+        const bucket = heatBucket(t.durationMs, heatScale);
         return (
           <div
             key={i}
@@ -221,7 +215,7 @@ export function Waterfall({ spans, onSpanClick }: WaterfallProps) {
             <div className={waterfallBarContainerStyle}>
               <div
                 className={waterfallBarStyle}
-                style={`left:${leftPct}%;width:${widthPct}%;background:${t.color}`}
+                style={`left:${leftPct}%;width:${widthPct}%;background:${heatColor(bucket)};opacity:${heatBarOpacity(bucket)}`}
               />
             </div>
             <span className={waterfallDurationStyle}>{formatDuration(t.durationMs)}</span>
