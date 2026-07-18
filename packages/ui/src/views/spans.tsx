@@ -30,6 +30,8 @@ import {
 } from '../styles/shared';
 import { interactiveProps } from '../utils/a11y';
 import { formatDurationMs, formatTime, spanDurationMs } from '../utils/format';
+import { buildHeatScale } from '../utils/latency-scale';
+import { HeatDuration } from '../components/heat-duration';
 
 /** Columns collapsed on narrow viewports so Name keeps its width (issue #50). */
 const SPANS_NARROW_COLLAPSE: ReadonlySet<string> = new Set(['kind', 'service']);
@@ -283,6 +285,8 @@ export function Spans({ eventsResult, onOpenTrace }: SpansProps) {
   }, [spanEvents, sortBy, sortDir, customColumns]);
 
   const percentiles = useMemo(() => computePercentiles(rows.map((r) => r.durationMs)), [rows]);
+  // Shared latency heat scale across the visible rows (issue #82).
+  const heatScale = useMemo(() => buildHeatScale(rows.map((r) => r.durationMs)), [rows]);
 
   const { scrollRef, onScroll, rowRef, range, scrollToIndex } = useVirtualList(rows.length);
 
@@ -491,9 +495,13 @@ export function Spans({ eventsResult, onOpenTrace }: SpansProps) {
                   >
                     {row.serviceName}
                   </span>
-                  <span className={getDurationClassName(row.durationMs, percentiles)}>
-                    {row.duration}
-                  </span>
+                  <HeatDuration
+                    durationMs={row.durationMs}
+                    label={row.duration}
+                    scale={heatScale}
+                    className={getDurationClassName(row.durationMs, percentiles)}
+                  />
+
                   {row.httpCode ? (
                     // biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28)
                     <span

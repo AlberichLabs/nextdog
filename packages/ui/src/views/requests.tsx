@@ -31,6 +31,8 @@ import {
 } from '../styles/shared';
 import { interactiveProps } from '../utils/a11y';
 import { extractHttpMeta, formatDurationMs, formatTime, spanDurationMs } from '../utils/format';
+import { buildHeatScale } from '../utils/latency-scale';
+import { HeatDuration } from '../components/heat-duration';
 
 /** Columns collapsed on narrow viewports so Route keeps its width (issue #50). */
 const REQUESTS_NARROW_COLLAPSE: ReadonlySet<string> = new Set(['duration', 'service']);
@@ -342,6 +344,8 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
   }, [displayEvents, sortBy, sortDir, customColumns]);
 
   const percentiles = useMemo(() => computePercentiles(groups.map((g) => g.durationMs)), [groups]);
+  // Shared latency heat scale across the visible rows (issue #82).
+  const heatScale = useMemo(() => buildHeatScale(groups.map((g) => g.durationMs)), [groups]);
 
   // Windowed rendering — only the visible rows (+ overscan) hit the DOM so the
   // list stays smooth as the SSE buffer fills (issue #9).
@@ -576,9 +580,13 @@ export function Requests({ eventsResult, onOpenTrace }: RequestsProps) {
                       {group.status}
                     </span>
                   )}
-                  <span className={getDurationClassName(group.durationMs, percentiles)}>
-                    {group.duration}
-                  </span>
+                  <HeatDuration
+                    durationMs={group.durationMs}
+                    label={group.duration}
+                    scale={heatScale}
+                    className={getDurationClassName(group.durationMs, percentiles)}
+                  />
+
                   {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click-only cell filter; no keyboard equivalent without a context-menu redesign (parked 2026-06-28) */}
                   <span
                     className={serviceStyle}
