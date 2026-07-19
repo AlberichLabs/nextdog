@@ -14,12 +14,46 @@ async function connect(sidecar: SidecarClient) {
 }
 
 describe('MCP server wiring', () => {
-  it('advertises the four read-only tools', async () => {
+  it('advertises the read-only tools plus the v1 debug-loop tools', async () => {
     const client = await connect(new SidecarClient({ fetchImpl: makeFetch().fetchImpl }));
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['get_errors', 'get_trace', 'list_recent_traces', 'search_logs'].sort(),
+      [
+        'aggregate',
+        'assert',
+        'events_since',
+        'get_errors',
+        'get_trace',
+        'list_recent_traces',
+        'replay_request',
+        'search_logs',
+        'wait_for_event',
+      ].sort(),
     );
+  });
+
+  it('aggregate returns grouped counts through the transport', async () => {
+    const client = await connect(new SidecarClient({ fetchImpl: makeFetch().fetchImpl }));
+    const res = await client.callTool({
+      name: 'aggregate',
+      arguments: { groupBy: 'service' },
+    });
+    expect(res.isError).toBeFalsy();
+    const text = (res.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain('web');
+  });
+
+  it('a new tool returns a clean error when the sidecar is down', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValue(new Error('ECONNREFUSED')) as unknown as typeof fetch;
+    const client = await connect(
+      new SidecarClient({ baseUrl: 'http://localhost:6789', fetchImpl }),
+    );
+    const res = await client.callTool({ name: 'events_since', arguments: {} });
+    expect(res.isError).toBe(true);
+    const text = (res.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toMatch(/Could not reach the NextDog sidecar/);
   });
 
   it('search_logs returns matching results through the transport', async () => {

@@ -47,6 +47,42 @@ export interface EventQuery {
   last?: number;
 }
 
+/** Payload for `POST /api/replay` — the sidecar's three replay modes (#86). */
+export interface ReplayPayload {
+  /** Replay a captured request by span id (one-click or, with `prepareOnly`, dry-run). */
+  spanId?: string;
+  /** With `spanId`: reconstruct the request and return it WITHOUT sending. */
+  prepareOnly?: boolean;
+  /** Edited replay: send exactly this request (overrides `spanId`). */
+  request?: {
+    method?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  };
+}
+
+/** Live response of a sent replay (`performReplay`'s shape, `core/src/server.ts:204`). */
+export interface ReplaySendResult {
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: string;
+  duration: number;
+  url: string;
+  method: string;
+}
+
+/** Reconstructed request returned by `prepareOnly` (no send). */
+export interface ReplayPreparedResult {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body?: string;
+}
+
+export type ReplayResult = ReplaySendResult | ReplayPreparedResult;
+
 export interface SidecarClientOptions {
   baseUrl?: string;
   /** Per-request timeout in ms. Defaults to 5000. */
@@ -84,6 +120,47 @@ export class SidecarClient {
     } catch (err) {
       throw new SidecarUnavailableError(this.baseUrl, err);
     }
+  }
+
+  /**
+   * POST a JSON body and parse the JSON response. Mirrors {@link getJson}'s
+   * timeout/error handling: a network failure, timeout, non-2xx status, or
+   * unparseable body all become a {@link SidecarUnavailableError} so the tool
+   * layer turns it into a clean MCP error instead of crashing.
+   */
+  private async postJson<T>(path: string, body: unknown): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    let res: Response;
+    try {
+      res = await this.fetchImpl(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (err) {
+      throw new SidecarUnavailableError(this.baseUrl, err);
+    }
+
+    if (!res.ok) {
+      throw new SidecarUnavailableError(this.baseUrl, new Error(`HTTP ${res.status}`));
+    }
+
+    try {
+      return (await res.json()) as T;
+    } catch (err) {
+      throw new SidecarUnavailableError(this.baseUrl, err);
+    }
+  }
+
+  /**
+   * Replay a captured request via the sidecar's `POST /api/replay` — the same
+   * endpoint the dashboard Replay button uses. The captured credential headers
+   * flow disk→endpoint server-side and never reach us for a sent replay; for a
+   * `prepareOnly` echo the tool layer strips them before egress (#60/#86).
+   */
+  async replay(payload: ReplayPayload): Promise<ReplayResult> {
+    return this.postJson<ReplayResult>('/api/replay', payload);
   }
 
   /** Liveness check. Returns true only if the sidecar answers 2xx on `/health`. */
