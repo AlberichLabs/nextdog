@@ -17,9 +17,9 @@
  * for Replay; they are stripped here by default so tokens never reach the agent.
  * Every tool MUST fetch via `loadEvents`, never `client.events` directly.
  */
-import type { EventQuery, SidecarClient } from './client';
+import type { EventQuery, ReplayPayload, ReplayResult, SidecarClient } from './client';
 import { matchesQuery } from './matcher';
-import { redactEvents } from './redact';
+import { redactEvents, stripSensitiveHeaders } from './redact';
 import { isLog, isSpan, type SidecarEvent, type SpanEvent } from './types';
 
 const DEFAULT_LIMIT = 50;
@@ -347,4 +347,328 @@ export async function getErrors(
       }),
     );
   return { errors };
+}
+
+/** Map a `withinMinutes` window to a `since` epoch-ms cursor (mirror of tools.ts:119). */
+function sinceFromWithinMinutes(withinMinutes?: number): number | undefined {
+  return withinMinutes !== undefined ? Date.now() - withinMinutes * 60_000 : undefined;
+}
+
+// ---------------------------------------------------------------------------
+// v1 debug loop — drive → observe → verify (issues #86, #87, #88)
+// ---------------------------------------------------------------------------
+
+export interface ReplayRequestArgs {
+  /** Replay the request captured on this span. */
+  spanId?: string;
+  /** With `spanId`: reconstruct the request and return it WITHOUT sending it. */
+  prepareOnly?: boolean;
+  /** Edited replay: send exactly this request (takes precedence over `spanId`). */
+  request?: {
+    method?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  };
+}
+
+/**
+ * replay_request — the "drive" verb. Replays a captured request (by `spanId`,
+ * optionally with edits, or a fully custom `request`) through the sidecar's
+ * `POST /api/replay` and returns the live response, or — in `prepareOnly` mode —
+ * the reconstructed request without sending it.
+ *
+ * PRIVACY (#60): for a *sent* replay, credentials re-authenticate server-side and
+ * never reach us. For a `prepareOnly` echo the sidecar hands back the
+ * reconstructed request WITH its captured credential headers, so we strip
+ * `authorization`/`cookie`/`x-api-key`/`set-cookie` (and the rest of
+ * SENSITIVE_HEADERS) before returning it — captured credentials must never egress
+ * to the agent. Response headers of a sent replay are the replayed endpoint's own
+ * and are returned as-is (that is the point of a replay).
+ */
+export async function replayRequest(
+  client: SidecarClient,
+  args: ReplayRequestArgs = {},
+): Promise<ReplayResult> {
+  const payload: ReplayPayload = {
+    spanId: args.spanId,
+    prepareOnly: args.prepareOnly,
+    request: args.request,
+  };
+  const result = await client.replay(payload);
+
+  // A sent replay has a `status`; a prepareOnly echo does not. Only the echo of
+  // the reconstructed request may carry captured credentials, so strip there.
+  const isSentResponse = typeof result === 'object' && result !== null && 'status' in result;
+  if (args.prepareOnly === true && !isSentResponse) {
+    return { ...result, headers: stripSensitiveHeaders(result.headers) };
+  }
+  return result;
+}
+
+export interface EventsSinceArgs {
+  /** Return events strictly newer than this epoch-ms cursor. Omit for all history. */
+  cursor?: number;
+  /** `search_logs` filter grammar. */
+  filter?: string;
+  limit?: number;
+}
+
+export interface EventsSinceResult {
+  events: SidecarEvent[];
+  /** Max event timestamp seen — poll from here next to chain without gaps/dupes. */
+  nextCursor: number;
+}
+
+/**
+ * events_since — the deterministic "observe" primitive. Returns events strictly
+ * newer than `cursor` (via the sidecar's `?since=` param) that match `filter`,
+ * plus a `nextCursor` to poll from.
+ *
+ * `nextCursor` advances to the max timestamp of ALL events the window returned —
+ * not just the matching ones — so a follow-up call skips the non-matching tail
+ * and chaining yields no gap and no duplicate. When the window is truncated by
+ * `limit`, `nextCursor` stops at the last returned event so nothing is skipped.
+ * On an empty window the input `cursor` is returned unchanged. (Cursors are event
+ * timestamps; two events sharing a timestamp at the boundary is the inherent
+ * limit of a timestamp cursor.)
+ */
+export async function eventsSince(
+  client: SidecarClient,
+  args: EventsSinceArgs = {},
+): Promise<EventsSinceResult> {
+  const fetched = await loadEvents(client, { since: args.cursor });
+  const sorted = [...fetched].sort((a, b) => a.timestamp - b.timestamp);
+  const matched = sorted.filter((e) => matchesQuery(e, args.filter ?? ''));
+
+  const limit = args.limit ?? DEFAULT_LIMIT;
+  const truncated = matched.length > limit;
+  const out = truncated ? matched.slice(0, limit) : matched;
+
+  let nextCursor: number;
+  if (truncated) {
+    nextCursor = out[out.length - 1].timestamp;
+  } else if (sorted.length > 0) {
+    nextCursor = sorted[sorted.length - 1].timestamp;
+  } else {
+    nextCursor = args.cursor ?? 0;
+  }
+
+  return { events: out, nextCursor };
+}
+
+export interface WaitForEventArgs {
+  /** `search_logs` filter grammar — the event(s) to wait for. */
+  predicate: string;
+  /** Max time to block, ms. Defaults to 5000, capped at 30000. */
+  timeoutMs?: number;
+  /** Only consider events strictly newer than this epoch-ms cursor. */
+  cursor?: number;
+  /** Poll interval, ms (default 250). Kept off the MCP schema; used by tests. */
+  pollIntervalMs?: number;
+}
+
+export interface WaitForEventResult {
+  matched: boolean;
+  timedOut: boolean;
+  events: SidecarEvent[];
+  nextCursor: number;
+}
+
+/** Default and hard cap for `wait_for_event`'s bounded poll loop. */
+const DEFAULT_WAIT_TIMEOUT_MS = 5_000;
+const MAX_WAIT_TIMEOUT_MS = 30_000;
+const DEFAULT_POLL_INTERVAL_MS = 250;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * wait_for_event — blocks until an event matching `predicate` appears, or times
+ * out. A bounded, cancellable `since`-poll loop in the MCP over `events_since`
+ * (no sidecar change). `timeoutMs` is clamped to [0, 30000] so an absurd value
+ * cannot spin forever; the loop always terminates at the deadline.
+ *
+ * TODO(v2): stream via a resume-cursor on the sidecar's `/sse`
+ * (`core/src/sse-stream.ts`) instead of polling — out of scope for v1 (#87).
+ */
+export async function waitForEvent(
+  client: SidecarClient,
+  args: WaitForEventArgs,
+): Promise<WaitForEventResult> {
+  const timeoutMs = Math.min(
+    Math.max(0, args.timeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS),
+    MAX_WAIT_TIMEOUT_MS,
+  );
+  const pollIntervalMs = Math.max(1, args.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS);
+  const deadline = Date.now() + timeoutMs;
+  let cursor = args.cursor;
+
+  for (;;) {
+    const { events, nextCursor } = await eventsSince(client, {
+      cursor,
+      filter: args.predicate,
+    });
+    if (events.length > 0) {
+      return { matched: true, timedOut: false, events, nextCursor };
+    }
+    cursor = nextCursor;
+    if (Date.now() >= deadline) {
+      return { matched: false, timedOut: true, events: [], nextCursor: cursor ?? 0 };
+    }
+    await sleep(Math.min(pollIntervalMs, Math.max(1, deadline - Date.now())));
+  }
+}
+
+const NONE_BUCKET = '(none)';
+
+/**
+ * Resolve the group/aggregate key for an event field. Reuses the same field
+ * vocabulary as the matcher/facets (route, status, service, level, …); anything
+ * unrecognized falls through to `data.attributes[field]`, and a genuinely absent
+ * value buckets under `(none)` rather than crashing.
+ */
+function fieldValue(event: SidecarEvent, field: string): string {
+  switch (field) {
+    case 'route':
+      return route(event) ?? NONE_BUCKET;
+    case 'status':
+      return event.data.status?.code ?? NONE_BUCKET;
+    case 'statusCode':
+    case 'status_code': {
+      const c = statusCode(event);
+      return c === undefined ? NONE_BUCKET : String(c);
+    }
+    case 'service':
+      return event.data.serviceName || NONE_BUCKET;
+    case 'level':
+      return event.data.level ?? NONE_BUCKET;
+    case 'name':
+      return event.data.name ?? NONE_BUCKET;
+    case 'kind':
+      return event.data.kind ?? NONE_BUCKET;
+    case 'method': {
+      const m =
+        event.data.attributes['http.method'] ?? event.data.attributes['http.request.method'];
+      return m === undefined ? NONE_BUCKET : String(m);
+    }
+    case 'trace':
+    case 'traceId':
+      return event.data.traceId ?? NONE_BUCKET;
+    case 'span':
+    case 'spanId':
+      return event.data.spanId ?? NONE_BUCKET;
+    case 'type':
+      return event.type;
+  }
+  const attr = event.data.attributes[field];
+  return attr === undefined ? NONE_BUCKET : String(attr);
+}
+
+export interface AggregateArgs {
+  /** Event field to group by (route, status, statusCode, service, level, or any attribute). */
+  groupBy: string;
+  /** `search_logs` filter grammar to narrow before grouping. */
+  filter?: string;
+  withinMinutes?: number;
+}
+
+export interface AggregateResult {
+  groupBy: string;
+  groups: Array<{ key: string; count: number }>;
+}
+
+/**
+ * aggregate — counts matching events grouped by a span/log field. Pure reduction
+ * over `loadEvents` (redaction inherited, #60). Groups are returned largest-first.
+ */
+export async function aggregate(
+  client: SidecarClient,
+  args: AggregateArgs,
+): Promise<AggregateResult> {
+  const since = sinceFromWithinMinutes(args.withinMinutes);
+  const events = await loadEvents(client, { since });
+  const matched = events.filter((e) => matchesQuery(e, args.filter ?? ''));
+
+  const counts = new Map<string, number>();
+  for (const e of matched) {
+    const key = fieldValue(e, args.groupBy);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const groups = [...counts.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+
+  return { groupBy: args.groupBy, groups };
+}
+
+/** The comparison an `assert` checks the matched count against. Provide exactly one. */
+export interface AssertExpect {
+  count?: number;
+  min?: number;
+  max?: number;
+  exists?: boolean;
+}
+
+export interface AssertArgs {
+  /** `search_logs` filter grammar — the events to count. */
+  filter: string;
+  expect: AssertExpect;
+  withinMinutes?: number;
+}
+
+export interface AssertResult {
+  pass: boolean;
+  actual: number;
+  /** First matching event (redacted), when there is one. */
+  sample?: SidecarEvent;
+}
+
+function evaluateExpect(actual: number, expect: AssertExpect): boolean {
+  if (expect.exists !== undefined) return expect.exists ? actual > 0 : actual === 0;
+  let pass = true;
+  let checked = false;
+  if (expect.count !== undefined) {
+    pass = pass && actual === expect.count;
+    checked = true;
+  }
+  if (expect.min !== undefined) {
+    pass = pass && actual >= expect.min;
+    checked = true;
+  }
+  if (expect.max !== undefined) {
+    pass = pass && actual <= expect.max;
+    checked = true;
+  }
+  // No expectation supplied → nothing to assert; treat as a failed (unmet) check.
+  return checked ? pass : false;
+}
+
+/**
+ * assert — the "verify" verb. Counts events matching `filter` and evaluates the
+ * count against `expect` ({count}/{min}/{max}/{exists}), returning a boolean the
+ * agent can branch on plus the actual count and a (redacted) sample. Pure
+ * reduction over `loadEvents` (redaction inherited, #60).
+ *
+ * Named `assertTelemetry` to avoid shadowing Node's `assert`; registered as the
+ * `assert` MCP tool.
+ */
+export async function assertTelemetry(
+  client: SidecarClient,
+  args: AssertArgs,
+): Promise<AssertResult> {
+  const since = sinceFromWithinMinutes(args.withinMinutes);
+  const events = await loadEvents(client, { since });
+  const matched = events
+    .filter((e) => matchesQuery(e, args.filter))
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  const actual = matched.length;
+  return {
+    pass: evaluateExpect(actual, args.expect),
+    actual,
+    sample: matched[0],
+  };
 }

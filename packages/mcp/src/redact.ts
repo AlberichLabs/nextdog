@@ -54,6 +54,25 @@ export function redactAttributes(
 }
 
 /**
+ * Return a copy of an HTTP header map with every credential-bearing header
+ * removed (case-insensitive). Used by `replay_request` to scrub the reconstructed
+ * request it echoes back in `prepareOnly` mode: captured `authorization`/`cookie`/
+ * `x-api-key`/`set-cookie` values must never egress to the agent (#60/#86). This
+ * is the header-map analogue of {@link redactAttributes}, which scrubs the same
+ * credentials when they live inside event attributes.
+ */
+export function stripSensitiveHeaders(
+  headers: Record<string, string> = {},
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (SENSITIVE_HEADERS.has(key.toLowerCase())) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+/**
  * Redact credential headers from events before they leave the machine. Returns
  * new objects; the sidecar's stored data is never mutated.
  */
