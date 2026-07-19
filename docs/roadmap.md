@@ -61,7 +61,9 @@ Broader reach — more frameworks, more runtimes, and AI-agent integration.
 - **MCP server + Claude skill** — let an AI coding agent (Claude Code, Cursor,
   Claude Desktop) query live local traces and logs over the sidecar API while you
   debug, instead of copy-pasting
-  ([#23](https://github.com/AlberichLabs/nextdog/issues/23)).
+  ([#23](https://github.com/AlberichLabs/nextdog/issues/23)). Next step: extend it
+  from observe-only into a full agent debug loop (drive → observe → correlate → verify)
+  — see the [MCP debugging PRD](./mcp-debugging-prd.md).
 - **More full-stack adapters** (from the README roadmap):
   - **SvelteKit** (`@nextdog/sveltekit`) — implemented in-repo; remaining work is
     adding it to the publish workflow and shipping to npm.
