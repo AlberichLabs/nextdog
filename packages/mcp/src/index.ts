@@ -11,9 +11,13 @@ export {
   SidecarClient,
   SidecarUnavailableError,
 } from './client';
+export type { DeriveFacetsOptions, Facet, FacetValue } from './facets';
+export { deriveFacets } from './facets';
 export type { FilterToken } from './filter-query';
 export { groupFilterTokens, parseFilterTokens } from './filter-query';
 export { matchesQuery } from './matcher';
+export type { StackFrame } from './stack-frames';
+export { parseStackFrames } from './stack-frames';
 export {
   isSensitiveAttribute,
   redactAttributes,
@@ -28,10 +32,15 @@ export type {
   AssertArgs,
   AssertExpect,
   AssertResult,
+  BeginRunArgs,
+  BeginRunResult,
   CorrelatedLog,
+  DescribeTelemetryResult,
   ErrorSpanSummary,
   EventsSinceArgs,
   EventsSinceResult,
+  GetRunArgs,
+  GetRunResult,
   GetTraceResult,
   ListRecentTracesArgs,
   ReplayRequestArgs,
@@ -44,12 +53,17 @@ export type {
 export {
   aggregate,
   assertTelemetry,
+  beginRun,
   buildSpanTree,
+  describeTelemetry,
   eventsSince,
   getErrors,
+  getRun,
   getTrace,
   listRecentTraces,
   replayRequest,
+  RUN_ATTR,
+  RUN_HEADER,
   searchLogs,
   waitForEvent,
 } from './tools';

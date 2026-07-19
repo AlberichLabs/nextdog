@@ -14,15 +14,18 @@ async function connect(sidecar: SidecarClient) {
 }
 
 describe('MCP server wiring', () => {
-  it('advertises the read-only tools plus the v1 debug-loop tools', async () => {
+  it('advertises the read-only tools plus the v1 debug-loop and v2 depth tools', async () => {
     const client = await connect(new SidecarClient({ fetchImpl: makeFetch().fetchImpl }));
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
         'aggregate',
         'assert',
+        'begin_run',
+        'describe_telemetry',
         'events_since',
         'get_errors',
+        'get_run',
         'get_trace',
         'list_recent_traces',
         'replay_request',
@@ -30,6 +33,15 @@ describe('MCP server wiring', () => {
         'wait_for_event',
       ].sort(),
     );
+  });
+
+  it('describe_telemetry returns services + facets through the transport', async () => {
+    const client = await connect(new SidecarClient({ fetchImpl: makeFetch().fetchImpl }));
+    const res = await client.callTool({ name: 'describe_telemetry', arguments: {} });
+    expect(res.isError).toBeFalsy();
+    const text = (res.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain('facets');
+    expect(text).toContain('web');
   });
 
   it('aggregate returns grouped counts through the transport', async () => {
