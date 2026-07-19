@@ -18,8 +18,10 @@
  * Every tool MUST fetch via `loadEvents`, never `client.events` directly.
  */
 import type { EventQuery, ReplayPayload, ReplayResult, SidecarClient } from './client';
+import { deriveFacets, type Facet } from './facets';
 import { matchesQuery } from './matcher';
 import { redactEvents, stripSensitiveHeaders } from './redact';
+import { parseStackFrames, type StackFrame } from './stack-frames';
 import { isLog, isSpan, type SidecarEvent, type SpanEvent } from './types';
 
 const DEFAULT_LIMIT = 50;
@@ -307,6 +309,17 @@ export interface ErrorSpanSummary {
   message?: string;
   /** Stack trace, if captured on the span (`exception.stacktrace` / `error.stack`). */
   stack?: string;
+  /**
+   * Structured frames parsed from `stack` (#89) — ADDITIVE alongside `stack`,
+   * present only when the stack is parseable. Positions are as-captured (source
+   * maps deferred; see `stack-frames.ts`).
+   */
+  frames?: StackFrame[];
+  /**
+   * The source location that emitted the span, from OTel `code.*` attributes,
+   * when the instrumentation captured it. Additive; omitted when absent.
+   */
+  source?: { file?: string; line?: number; column?: number; function?: string };
   timestamp: number;
 }
 
@@ -314,6 +327,24 @@ function stackTrace(span: SpanEvent): string | undefined {
   const a = span.data.attributes;
   const s = a['exception.stacktrace'] ?? a['exception.stack'] ?? a['error.stack'] ?? a.stack;
   return s === undefined ? undefined : String(s);
+}
+
+/** Emitting source location from OTel `code.*` attributes, or undefined if none present. */
+function codeSource(span: SpanEvent): ErrorSpanSummary['source'] | undefined {
+  const a = span.data.attributes;
+  const file = a['code.filepath'] ?? a['code.file.path'];
+  const line = a['code.lineno'] ?? a['code.line.number'];
+  const column = a['code.column'] ?? a['code.column.number'];
+  const fn = a['code.function'] ?? a['code.function.name'];
+  if (file === undefined && line === undefined && column === undefined && fn === undefined) {
+    return undefined;
+  }
+  const source: ErrorSpanSummary['source'] = {};
+  if (file !== undefined) source.file = String(file);
+  if (line !== undefined && Number.isFinite(Number(line))) source.line = Number(line);
+  if (column !== undefined && Number.isFinite(Number(column))) source.column = Number(column);
+  if (fn !== undefined) source.function = String(fn);
+  return source;
 }
 
 /**
@@ -332,8 +363,11 @@ export async function getErrors(
     .filter(isErrorSpan)
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, args.limit ?? DEFAULT_LIMIT)
-    .map(
-      (s): ErrorSpanSummary => ({
+    .map((s): ErrorSpanSummary => {
+      const stack = stackTrace(s);
+      const frames = parseStackFrames(stack);
+      const source = codeSource(s);
+      return {
         traceId: s.data.traceId,
         spanId: s.data.spanId,
         name: s.data.name,
@@ -342,10 +376,12 @@ export async function getErrors(
         statusCode: statusCode(s),
         status: s.data.status?.code,
         message: s.data.status?.message,
-        stack: stackTrace(s),
+        stack,
+        ...(frames ? { frames } : {}),
+        ...(source ? { source } : {}),
         timestamp: s.timestamp,
-      }),
-    );
+      };
+    });
   return { errors };
 }
 
@@ -671,4 +707,119 @@ export async function assertTelemetry(
     actual,
     sample: matched[0],
   };
+}
+
+// ---------------------------------------------------------------------------
+// v2 depth — describe the query surface, scope parallel-safe repros (#89/#90/#91)
+// ---------------------------------------------------------------------------
+
+export interface DescribeTelemetryResult {
+  /** Distinct service names known to the sidecar (`/api/services`). */
+  services: string[];
+  /** Facets (services, routes, attribute keys) with observed values + counts. */
+  facets: Facet[];
+}
+
+/**
+ * describe_telemetry — introspect the filterable surface so the agent can
+ * discover valid `service:` / `route:` / attribute tokens before querying,
+ * instead of guessing. Facets are derived from the SAME reduction the dashboard
+ * facet drawer uses ({@link deriveFacets}), which carries the sensitive /
+ * high-cardinality DENY-LIST across verbatim — so this introspection tool can't
+ * become a credential-leak side channel. Events are read through `loadEvents`, so
+ * credential headers are already stripped before faceting (#60).
+ */
+export async function describeTelemetry(
+  client: SidecarClient,
+): Promise<DescribeTelemetryResult> {
+  const [events, services] = await Promise.all([loadEvents(client), client.services()]);
+  return { services, facets: deriveFacets(events) };
+}
+
+/**
+ * Run scoping (#91) — STAMPING MECHANISM: Option A (header, zero core change).
+ *
+ * `begin_run` hands back a `x-nextdog-run: <label>` header; the agent drives the
+ * repro with `replay_request({ request: { headers: { 'x-nextdog-run': label } } })`.
+ * The framework adapter already records every request header as a
+ * `http.request.header.<name>` span attribute (`@nextdog/node`
+ * `exporter.ts` → `http.request.header.x-nextdog-run`), so the driven request's
+ * resulting span is stamped WITHOUT any sidecar/core change. `get_run` then filters
+ * events on that attribute. Option B (sidecar echoes a correlation attribute onto
+ * the replay's span) would need a core replay-path change, so Option A wins on
+ * "least/no core change". The label attribute is non-sensitive, so it survives the
+ * #60 egress redactor — exactly what lets `get_run` filter on it.
+ *
+ * No persisted state / no user-data writes: `begin_run` is a pure handle, `get_run`
+ * a pure read+filter. Graceful fallback: an unstamped driven request simply yields
+ * an empty run, never a crash.
+ */
+export const RUN_HEADER = 'x-nextdog-run';
+/** Span attribute the adapter records the run header under. */
+export const RUN_ATTR = `http.request.header.${RUN_HEADER}`;
+
+export interface BeginRunArgs {
+  /** Optional caller-chosen label; a collision-resistant one is generated if omitted. */
+  label?: string;
+}
+
+export interface BeginRunResult {
+  label: string;
+  /** Add this header to the `replay_request` you drive the repro with, to stamp it. */
+  header: Record<string, string>;
+  /** The span attribute `get_run` filters on (for reference). */
+  attribute: string;
+  startedAt: number;
+}
+
+function generateLabel(): string {
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `run-${Date.now().toString(36)}-${rand}`;
+}
+
+/**
+ * begin_run — start a correlation scope for a parallel-safe repro. Returns the
+ * label and the `x-nextdog-run` header to stamp driven `replay_request`s with.
+ * Stateless: the label is the correlation key, so `get_run` works even across
+ * processes and needs no prior `begin_run`.
+ */
+export async function beginRun(args: BeginRunArgs = {}): Promise<BeginRunResult> {
+  const label = args.label && args.label.trim().length > 0 ? args.label : generateLabel();
+  return {
+    label,
+    header: { [RUN_HEADER]: label },
+    attribute: RUN_ATTR,
+    startedAt: Date.now(),
+  };
+}
+
+export interface GetRunArgs {
+  /** The run label to scope to (from `begin_run`). */
+  label: string;
+}
+
+export interface GetRunResult {
+  label: string;
+  events: SidecarEvent[];
+  count: number;
+}
+
+/** True if an event was stamped with exactly this run label. */
+function eventInRun(event: SidecarEvent, label: string): boolean {
+  const a = event.data.attributes;
+  // Exact equality (not the matcher's substring attr semantics) so a prefix run
+  // label — `run-1` vs `run-12` — can never bleed across overlapping runs.
+  return String(a[RUN_ATTR] ?? '') === label || String(a[RUN_HEADER] ?? '') === label;
+}
+
+/**
+ * get_run — return only the events belonging to a labeled run, newest first.
+ * Reads through `loadEvents` (redaction inherited, #60) and filters by the run
+ * attribute; an unknown/never-stamped label yields an empty run rather than an error.
+ */
+export async function getRun(client: SidecarClient, args: GetRunArgs): Promise<GetRunResult> {
+  const events = (await loadEvents(client))
+    .filter((e) => eventInRun(e, args.label))
+    .sort((a, b) => b.timestamp - a.timestamp);
+  return { label: args.label, events, count: events.length };
 }

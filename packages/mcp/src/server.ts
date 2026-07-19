@@ -10,8 +10,11 @@ import { SidecarClient, type SidecarClientOptions, SidecarUnavailableError } fro
 import {
   aggregate,
   assertTelemetry,
+  beginRun,
+  describeTelemetry,
   eventsSince,
   getErrors,
+  getRun,
   getTrace,
   listRecentTraces,
   replayRequest,
@@ -257,6 +260,56 @@ export function createMcpServer(opts: CreateServerOptions = {}): McpServer {
       },
     },
     (args) => run(() => assertTelemetry(client, args)),
+  );
+
+  // --- v2 depth: discover the surface, scope parallel-safe repros (#90, #91) ---
+
+  server.registerTool(
+    'describe_telemetry',
+    {
+      title: 'Describe telemetry surface',
+      description:
+        'Introspect the filterable surface before querying: returns the known services plus ' +
+        'facets (route, status, level, and bounded custom attributes) with observed values and ' +
+        'counts. Use it to discover valid service:/route:/attribute tokens for search_logs, ' +
+        'aggregate, and assert instead of guessing. Sensitive/high-cardinality keys are omitted.',
+      inputSchema: {},
+    },
+    () => run(() => describeTelemetry(client)),
+  );
+
+  server.registerTool(
+    'begin_run',
+    {
+      title: 'Begin a labeled run',
+      description:
+        'Start a correlation scope for a parallel-safe repro. Returns a label and the ' +
+        'x-nextdog-run header to stamp your driven request with: pass it via ' +
+        'replay_request({ request: { headers: { "x-nextdog-run": <label> } } }). Then use ' +
+        'get_run(label) to read back only that run’s events. No persisted state.',
+      inputSchema: {
+        label: z
+          .string()
+          .optional()
+          .describe('Optional run label; a collision-resistant one is generated if omitted'),
+      },
+    },
+    (args) => run(() => beginRun(args)),
+  );
+
+  server.registerTool(
+    'get_run',
+    {
+      title: 'Get a run’s events',
+      description:
+        'Return only the events belonging to a labeled run (from begin_run), newest first — ' +
+        'so overlapping/parallel repros don’t bleed into each other. Matches the run label ' +
+        'exactly; an unknown or never-stamped label returns an empty run (no error).',
+      inputSchema: {
+        label: z.string().describe('The run label to scope to (from begin_run)'),
+      },
+    },
+    (args) => run(() => getRun(client, args)),
   );
 
   return server;
