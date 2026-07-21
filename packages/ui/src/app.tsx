@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import Router from 'preact-router';
+import Router, { route } from 'preact-router';
 import { css } from 'styled-system/css';
 import { ContextMenuContainer } from './components/context-menu';
 import { DetailPane } from './components/detail-pane';
@@ -8,6 +8,7 @@ import { ErrorBoundary } from './components/error-boundary';
 import { FacetDrawer } from './components/facet-drawer';
 import { KpiStrip } from './components/kpi-strip';
 import { Logo } from './components/logo';
+import { FILTER_INPUT_ID } from './components/search-bar';
 import { ShortcutHelp } from './components/shortcut-help';
 import { detectSlowRequestToast } from './components/slow-request-toast';
 import { Sparkline } from './components/sparkline';
@@ -20,7 +21,9 @@ import {
   ImportedBadge,
   OpenTraceButton,
 } from './components/trace-io';
+import { resolveViewPath } from './hooks/global-shortcuts';
 import { useEvents } from './hooks/use-events';
+import { useGlobalShortcuts } from './hooks/use-global-shortcuts';
 import type { SSEEvent } from './hooks/use-sse';
 import { useSSE } from './hooks/use-sse';
 import { useTheme } from './hooks/use-theme';
@@ -313,6 +316,32 @@ export function App() {
     clearEvents();
     lastProcessedIdx.current = 0;
   }, [clearEvents]);
+
+  // App-wide keyboard layer (issue #12): focus filter, step between views,
+  // clear the filter. The per-view useKeyboard hooks keep owning j/k/Enter/Esc
+  // and ShortcutHelp keeps owning `?`; this only handles app-level bindings.
+  const focusFilter = useCallback(() => {
+    const input = document.getElementById(FILTER_INPUT_ID);
+    if (!(input instanceof HTMLInputElement)) return;
+    input.focus();
+    // Select what's there so Cmd/Ctrl+K acts like a search box: refocusing
+    // lets you retype the query immediately instead of appending to it.
+    input.select();
+  }, []);
+
+  const switchView = useCallback(
+    (direction: -1 | 1) => {
+      route(resolveViewPath(currentPath, direction));
+    },
+    [currentPath],
+  );
+
+  useGlobalShortcuts({
+    onFocusFilter: focusFilter,
+    onPrevView: () => switchView(-1),
+    onNextView: () => switchView(1),
+    onClearFilter: () => eventsResult.setSearchQuery(''),
+  });
 
   const isActive = (path: string) => currentPath === path;
 
