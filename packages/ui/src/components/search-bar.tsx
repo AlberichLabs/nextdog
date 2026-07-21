@@ -299,6 +299,12 @@ function collectFacets(events: SSEEvent[]): string[] {
 // Component
 // ---------------------------------------------------------------------------
 
+/**
+ * Id of the filter `<input>`, shared with the global `/` and Cmd/Ctrl+K
+ * shortcuts so the id and the lookup that depends on it stay in one module.
+ */
+export const FILTER_INPUT_ID = 'nextdog-filter-input';
+
 export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps) {
   const [focused, setFocused] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -446,6 +452,11 @@ export function SearchBar({ value, onChange, events, rightSlot }: SearchBarProps
           <input
             ref={inputRef}
             type="text"
+            // Stable focus target for the global filter shortcuts (`/`,
+            // Cmd/Ctrl+K). Only one view — and so one SearchBar — is mounted at
+            // a time, so this id is unambiguous, and using it avoids threading
+            // a ref up through every view into App.
+            id={FILTER_INPUT_ID}
             class={searchInputStyle}
             placeholder={
               tokens.length === 0

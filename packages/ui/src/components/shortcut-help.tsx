@@ -1,12 +1,53 @@
 import { useEffect, useState } from 'preact/hooks';
 import { css } from 'styled-system/css';
 
-const shortcuts = [
-  { key: 'j', desc: 'Next row' },
-  { key: 'k', desc: 'Previous row' },
-  { key: 'Enter', desc: 'Open trace / select' },
-  { key: 'Esc', desc: 'Close / go back' },
-  { key: '?', desc: 'Toggle this help' },
+interface ShortcutGroup {
+  title: string;
+  items: { key: string; desc: string }[];
+}
+
+/**
+ * The full set of keys the dashboard actually implements today (issue #12).
+ * Each entry is backed by a real handler: list nav in `use-keyboard.ts`, the
+ * app-wide layer in `use-global-shortcuts.ts`, and the filter-bar editing keys
+ * in `search-bar.tsx`. Keep this in sync when any of those change — an
+ * inaccurate sheet is worse than a short one.
+ */
+const groups: ShortcutGroup[] = [
+  {
+    title: 'Navigation',
+    items: [
+      { key: 'j', desc: 'Next row' },
+      { key: 'k', desc: 'Previous row' },
+      { key: 'Enter', desc: 'Open trace / select' },
+      { key: 'Esc', desc: 'Close / go back' },
+    ],
+  },
+  {
+    title: 'Views & filter',
+    items: [
+      { key: '[', desc: 'Previous view' },
+      { key: ']', desc: 'Next view' },
+      { key: '/', desc: 'Focus filter' },
+      { key: '⌘/Ctrl K', desc: 'Focus filter (even while typing)' },
+      { key: '⇧ X', desc: 'Clear filter' },
+    ],
+  },
+  {
+    title: 'In the filter bar',
+    items: [
+      { key: '↑ ↓', desc: 'Cycle suggestions' },
+      { key: 'Tab', desc: 'Accept suggestion' },
+      { key: 'Enter', desc: 'Apply as filter token' },
+      { key: 'Backspace', desc: 'Delete last token' },
+      { key: '←', desc: 'Edit last token' },
+      { key: 'Esc', desc: 'Blur filter' },
+    ],
+  },
+  {
+    title: 'Help',
+    items: [{ key: '?', desc: 'Toggle this help' }],
+  },
 ];
 
 const overlayStyle = css({
@@ -27,7 +68,7 @@ const dialogStyle = css({
   py: '5',
   px: '6',
   zIndex: 1001,
-  minWidth: '260px',
+  minWidth: '300px',
   boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
 });
 
@@ -36,6 +77,16 @@ const titleStyle = css({
   fontWeight: '600',
   color: 'fg.bright',
   marginBottom: '3',
+});
+
+const groupTitleStyle = css({
+  fontSize: 'xs',
+  fontWeight: '600',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  color: 'fg.dim',
+  marginTop: '3',
+  marginBottom: '1',
 });
 
 const rowStyle = css({
@@ -95,10 +146,15 @@ export function ShortcutHelp() {
       <div className={overlayStyle} onClick={() => setOpen(false)} />
       <div className={dialogStyle}>
         <div className={titleStyle}>Keyboard Shortcuts</div>
-        {shortcuts.map(({ key, desc }) => (
-          <div key={key} className={rowStyle}>
-            <span className={css({ color: 'fg.dim' })}>{desc}</span>
-            <kbd className={kbdStyle}>{key}</kbd>
+        {groups.map((group) => (
+          <div key={group.title}>
+            <div className={groupTitleStyle}>{group.title}</div>
+            {group.items.map(({ key, desc }) => (
+              <div key={`${group.title}-${key}`} className={rowStyle}>
+                <span className={css({ color: 'fg.dim' })}>{desc}</span>
+                <kbd className={kbdStyle}>{key}</kbd>
+              </div>
+            ))}
           </div>
         ))}
         <div className={footerStyle}>
