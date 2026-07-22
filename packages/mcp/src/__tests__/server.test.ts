@@ -1,9 +1,17 @@
+import { createRequire } from 'node:module';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { describe, expect, it, vi } from 'vitest';
 import { SidecarClient } from '../client';
 import { createMcpServer } from '../server';
 import { makeFetch } from './fixtures';
+
+// The package manifest is the single source of truth for the version; the
+// handshake must report exactly this (issue #97). `../../package.json` from
+// `src/__tests__/` resolves to `packages/mcp/package.json`.
+const { version: PACKAGE_VERSION } = createRequire(import.meta.url)('../../package.json') as {
+  version: string;
+};
 
 async function connect(sidecar: SidecarClient) {
   const server = createMcpServer({ client: sidecar });
@@ -14,6 +22,19 @@ async function connect(sidecar: SidecarClient) {
 }
 
 describe('MCP server wiring', () => {
+  it('reports serverInfo.version equal to the package version in the handshake (issue #97)', async () => {
+    const client = await connect(new SidecarClient({ fetchImpl: makeFetch().fetchImpl }));
+    // getServerVersion() returns the serverInfo advertised during `initialize`.
+    // Asserting equality to the live manifest (rather than any literal) is what
+    // guards against a hardcoded version: the release flow bumps package.json to
+    // the tag before running the test suite, so a stale literal would mismatch
+    // the bumped manifest and fail the release.
+    expect(client.getServerVersion()).toMatchObject({
+      name: '@nextdog/mcp',
+      version: PACKAGE_VERSION,
+    });
+  });
+
   it('advertises the read-only tools plus the v1 debug-loop and v2 depth tools', async () => {
     const client = await connect(new SidecarClient({ fetchImpl: makeFetch().fetchImpl }));
     const { tools } = await client.listTools();

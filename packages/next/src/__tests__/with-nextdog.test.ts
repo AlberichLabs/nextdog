@@ -44,4 +44,16 @@ describe('withNextDog', () => {
     const config = withNextDog({});
     expect(config.experimental?.instrumentationHook).toBeUndefined();
   });
+
+  it('preserves a caller-supplied experimental block on Next.js 16+ (issue #98)', () => {
+    process.env.NODE_ENV = 'development';
+    const config = withNextDog({
+      reactStrictMode: true,
+      experimental: { optimizePackageImports: ['lodash'] },
+    });
+    // On Next 16 we add no experimental key of our own, so the caller's survives.
+    expect(config.experimental).toEqual({ optimizePackageImports: ['lodash'] });
+    expect(config.reactStrictMode).toBe(true);
+    expect(config.env.NEXTDOG_URL).toBe('http://localhost:6789');
+  });
 });

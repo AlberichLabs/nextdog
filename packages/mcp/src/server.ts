@@ -4,8 +4,21 @@
  * envelopes, error formatting) and nothing else — the actual sidecar logic lives
  * in the transport-agnostic handlers so it can be unit-tested without a transport.
  */
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+
+/**
+ * The version reported in the MCP `initialize` handshake (`serverInfo.version`)
+ * is read from this package's own manifest rather than hardcoded, so it can
+ * never drift from the published version. The release flow bumps
+ * `packages/mcp/package.json` to the release tag before build+publish, and both
+ * `src/server.ts` (tests) and `dist/server.js` (published) sit one directory
+ * below the manifest, so `../package.json` resolves in both. See issue #97.
+ */
+const { version: PACKAGE_VERSION } = createRequire(import.meta.url)('../package.json') as {
+  version: string;
+};
 import { SidecarClient, type SidecarClientOptions, SidecarUnavailableError } from './client';
 import {
   aggregate,
@@ -60,7 +73,7 @@ export function createMcpServer(opts: CreateServerOptions = {}): McpServer {
 
   const server = new McpServer({
     name: '@nextdog/mcp',
-    version: '0.1.0',
+    version: PACKAGE_VERSION,
   });
 
   server.registerTool(
