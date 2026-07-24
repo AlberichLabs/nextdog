@@ -6,6 +6,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "turbo build",
     "test": "turbo test && node --test scripts/dev-telemetry.test.mjs",
+    "e2e": "turbo build && pnpm --filter @nextdog/mcp run test:e2e",
     "typecheck": "turbo typecheck",
     "lint": "biome lint .",
     "format": "biome format --write .",

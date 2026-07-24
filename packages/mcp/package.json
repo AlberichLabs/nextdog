@@ -18,6 +18,7 @@
     "build": "tsc && tsc-alias --resolve-full-paths",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "NEXTDOG_E2E=1 vitest run src/__tests__/e2e-debug-loop.test.ts",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit"
   },
