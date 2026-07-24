@@ -8,4 +8,10 @@ const nextConfig = {
   // your existing Next.js config goes here
 };
 
-export default withNextDog(nextConfig, { serviceName: 'example-next' });
+// `url` normally defaults to http://localhost:6789. Honoring NEXTDOG_URL when it
+// is set lets the debug-loop e2e test point this app at an isolated sidecar on a
+// scratch port; unset (the normal case) it stays the default.
+export default withNextDog(nextConfig, {
+  serviceName: 'example-next',
+  url: process.env.NEXTDOG_URL,
+});
